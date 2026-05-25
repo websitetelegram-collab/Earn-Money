@@ -367,26 +367,26 @@
             <p class="ad-processing-sub">Please wait <span id="processing-countdown">3</span> seconds ⏳</p>
         </div>
 
-        <!-- STAGE 4: First Ad Done → Play Video -->
+        <!-- STAGE 4: First Ad Done → Play Video (Monetag Mini App Ad) -->
         <div id="stage-ad1-done" class="text-center hidden" style="position:relative;">
             <div class="ad-check-circle">
                 <i class="fas fa-check text-white text-2xl"></i>
             </div>
-            <p class="ad-first-done-title">First Ad Completed! 🎉</p>
-            <p style="color:rgba(255,255,255,0.5);font-size:14px;margin-bottom:20px;">To unlock the final video,<br>click the button above and watch another ad.</p>
+            <p class="ad-first-done-title">Adsgram Ad Done! 🎉</p>
+            <p style="color:rgba(255,255,255,0.5);font-size:14px;margin-bottom:20px;">Now watch the Mini App Ad<br>to complete this round.</p>
             <button id="play-video-btn" class="ad-play-btn" onclick="window._adFlow.playVideo()">
-                <i class="fas fa-play"></i> Play Video
+                <i class="fas fa-play"></i> Watch Mini App Ad (2/2)
             </button>
             <button onclick="window._adFlow.cancel()" class="ad-cancel-btn">Cancel Process</button>
         </div>
 
-        <!-- STAGE 5: Monetag loading / Final ad -->
+        <!-- STAGE 5: Monetag Mini App Ad loading -->
         <div id="stage-preload2" class="text-center hidden">
             <div class="ad-spinner-wrap">
                 <div class="ad-spinner-arc2"></div>
                 <div class="ad-spinner-arc" style="border-bottom-color:#a855f7;border-left-color:#ec4899;"></div>
             </div>
-            <p class="ad-processing-title">Loading final ad...</p>
+            <p class="ad-processing-title">Loading Mini App Ad...</p>
             <p class="ad-processing-sub">Please watch the full ad</p>
             <div id="ad-error-badge2" class="hidden mt-4 bg-gradient-to-r from-indigo-500 to-pink-500 rounded-xl p-3">
                 <p class="text-white text-sm font-bold">Ad not loaded. Try again.</p>
@@ -950,39 +950,34 @@ async function showAdsgramAd(blockId) {
     });
 }
 
-// ── Monetag show — tries multiple methods ─────────────────────────────
+// ── Monetag Mini App Ad show — NO popunder, Mini App only ─────────────
 async function showMonetagAd(zoneId) {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
         try {
-            // Method 1: show_{zoneId} global function
+            // Method 1: show_{zoneId} global function (Mini App Ad)
             const fnName = `show_${zoneId}`;
             if (zoneId && typeof window[fnName] === 'function') {
                 window[fnName]();
                 setTimeout(resolve, 1000);
                 return;
             }
-            // Method 2: __monetag object
+            // Method 2: __monetag object (Mini App Ad)
             if (window.__monetag && typeof window.__monetag.show === 'function') {
-                window.__monetag.show().then(resolve).catch(()=>resolve());
+                window.__monetag.show().then(resolve).catch(reject);
                 return;
             }
-            // Method 3: popunder/interstitial via link click simulation
-            if (zoneId) {
-                const a = document.createElement('a');
-                a.href = `https://thubanoa.com/1?z=${zoneId}`;
-                a.target = '_blank';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-            }
-        } catch(e) { console.warn("Monetag show error:", e); }
-        setTimeout(resolve, 1500);
+            // No valid Mini App Ad method found — fail
+            reject(new Error("Monetag Mini App Ad not available"));
+        } catch(e) {
+            reject(e);
+        }
     });
 }
 
 window._adFlow = {
 
-    // Entry: preload countdown → WATCH AD button
+    // ── Entry: start round-based flow ──────────────────────────────────
+    // 1 round = Adsgram (সফল) → Monetag Mini App Ad (সফল) = 1 count
     start(fileId, req) {
         _adFileId   = fileId;
         _adRequired = req;
@@ -995,9 +990,8 @@ window._adFlow = {
         const reqEl = document.getElementById('ad1-req-label');
         if (reqEl) reqEl.textContent = req;
         const remEl = document.getElementById('ad1-remaining-label');
-        if (remEl) remEl.textContent = `${req-count} more ad(s) needed`;
+        if (remEl) remEl.textContent = `${req - count} more round(s) needed`;
 
-        // Show cancel based on settings
         document.querySelectorAll('.ad-cancel-btn').forEach(b => {
             b.style.display = adSettings.showCancel ? '' : 'none';
         });
@@ -1007,31 +1001,32 @@ window._adFlow = {
         });
     },
 
-    // WATCH AD 1 — Adsgram
+    // ── STEP 1: Adsgram Ad ────────────────────────────────────────────
     async watchAd1() {
         const btn = document.getElementById('watch-ad1-btn');
         if (btn) btn.disabled = true;
 
         showStage('stage-loading-ad');
-        document.getElementById('loading-ad-title').textContent = 'Loading Ad...';
+        document.getElementById('loading-ad-title').textContent = 'Loading Ad... (1/2)';
         document.getElementById('ad-error-badge').classList.add('hidden');
 
         const blockId = adSettings.adsgramBlockId || '20214';
-        console.log("📺 Showing Adsgram Ad1, blockId:", blockId);
+        console.log("📺 Showing Adsgram Ad, blockId:", blockId);
 
         try {
             await showAdsgramAd(blockId);
-            console.log("✅ Ad1 (Adsgram) completed");
-            // Inter-ad processing countdown
+            console.log("✅ Adsgram Ad completed");
+            // Inter-ad processing pause → then show Monetag button
             showStage('stage-processing');
             startCountdown('processing-countdown', adSettings.interPause, ()=>{
                 showStage('stage-ad1-done');
                 spawnConfetti();
             });
         } catch(e) {
-            console.error("❌ Ad1 (Adsgram) error:", e);
+            console.error("❌ Adsgram Ad failed:", e);
+            // Adsgram fail → Monetag শো হবে না, count হবে না
             document.getElementById('ad-error-badge').classList.remove('hidden');
-            document.getElementById('loading-ad-title').textContent = 'Ad failed. Retrying...';
+            document.getElementById('loading-ad-title').textContent = 'Ad failed. Try again.';
             if (btn) btn.disabled = false;
             setTimeout(()=>{
                 showStage('stage-ad1-btn');
@@ -1040,7 +1035,7 @@ window._adFlow = {
         }
     },
 
-    // PLAY VIDEO — triggers Monetag (Ad2)
+    // ── STEP 2: Monetag Mini App Ad (only after Adsgram success) ──────
     async playVideo() {
         const btn = document.getElementById('play-video-btn');
         if (btn) { btn.disabled = true; btn.innerHTML = `<div style="width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin-smooth 0.8s linear infinite;margin-right:8px;display:inline-block;vertical-align:middle;"></div> Loading...`; }
@@ -1049,109 +1044,69 @@ window._adFlow = {
         document.getElementById('ad-error-badge2').classList.add('hidden');
 
         const zoneId = adSettings.monetagZoneId || '';
-        console.log("🎬 Showing Monetag Ad (Play Video), zoneId:", zoneId || "(custom script)");
+        console.log("🎬 Showing Monetag Mini App Ad, zoneId:", zoneId || "(custom script)");
 
         try {
             await showMonetagAd(zoneId);
-            console.log("✅ Ad2 (Monetag) shown");
+            console.log("✅ Monetag Mini App Ad completed");
+            // দুটো সফল → final processing
+            setTimeout(()=>{ window._adFlow.finalProcess(); }, 500);
         } catch(e) {
-            console.warn("⚠️ Monetag show error (continuing):", e);
+            console.warn("❌ Monetag Mini App Ad failed:", e);
+            // Monetag fail → count হবে না, error দেখাও
             document.getElementById('ad-error-badge2').classList.remove('hidden');
+            const errEl = document.getElementById('ad-error-badge2').querySelector('p');
+            if (errEl) errEl.textContent = 'Ad not loaded. Try again.';
+            // Play button আবার enable করো
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fas fa-play"></i> Play Video`;
+            }
+            // stage-ad1-done এ ফিরে যাও যাতে retry হয়
+            setTimeout(()=>{
+                showStage('stage-ad1-done');
+            }, 2000);
         }
-
-        // Always proceed to final unlock after Monetag (whether user closed or not)
-        setTimeout(()=>{ window._adFlow.finalProcess(); }, 1500);
     },
 
-    // Final processing → unlock
+    // ── STEP 3: Both ads done → count +1, check if more rounds needed ──
     finalProcess() {
         showStage('stage-final');
         startCountdown('final-countdown', adSettings.finalDuration || 5, async ()=>{
-            // Adsgram + Monetag মিলে ১ কাউন্ট
+            // Adsgram + Monetag দুটোই সফল → 1 count
             let count = parseInt(localStorage.getItem(`adCount_${_adFileId}`))||0;
             count += 1;
             localStorage.setItem(`adCount_${_adFileId}`, count);
 
-            closeOverlay();
+            console.log(`✅ Round complete. Count: ${count} / ${_adRequired}`);
 
-            const file = allFiles.find(f=>f.id===_adFileId);
-            if (file) {
-                saveToHistory(_adFileId);
-                try { await updateDoc(doc(db,"files",_adFileId),{downloads:increment(1)}); } catch(e){}
-                file.downloads++;
-                updateDetailButtonState(file);
-                document.getElementById('detail-downloads').textContent = formatNumber(file.downloads);
-                renderFiles(); renderHistory();
+            if (count >= _adRequired) {
+                // সব রাউন্ড শেষ → Unlock!
+                closeOverlay();
+                const file = allFiles.find(f=>f.id===_adFileId);
+                if (file) {
+                    saveToHistory(_adFileId);
+                    try { await updateDoc(doc(db,"files",_adFileId),{downloads:increment(1)}); } catch(e){}
+                    file.downloads++;
+                    updateDetailButtonState(file);
+                    document.getElementById('detail-downloads').textContent = formatNumber(file.downloads);
+                    renderFiles(); renderHistory();
+                }
+                showToast("✅ Unlocked Successfully!");
+            } else {
+                // আরও রাউন্ড বাকি → progress দেখাও, তারপর পরের রাউন্ড
+                closeOverlay();
+                window._adFlow._showRoundProgress(count, _adRequired, _adFileId);
             }
-            showToast("✅ Unlocked Successfully!");
         });
     },
 
-    // For remaining=1 (final single ad via Adsgram)
-    async watchSingleAd2(fileId, req) {
-        _adFileId   = fileId;
-        _adRequired = req;
-        openOverlay();
-        showStage('stage-loading-ad');
-        document.getElementById('loading-ad-title').textContent = 'Loading final ad...';
-        document.getElementById('ad-error-badge').classList.add('hidden');
-
-        const blockId = adSettings.adsgramBlockId || '20214';
-        try {
-            await showAdsgramAd(blockId);
-            window._adFlow.finalProcessSingle();
-        } catch(e) {
-            document.getElementById('ad-error-badge').classList.remove('hidden');
-            document.getElementById('loading-ad-title').textContent = 'Ad failed. Retrying...';
-            setTimeout(()=>closeOverlay(), 2500);
-        }
-    },
-
-    finalProcessSingle() {
-        showStage('stage-final');
-        startCountdown('final-countdown', adSettings.finalDuration, async ()=>{
-            let count = parseInt(localStorage.getItem(`adCount_${_adFileId}`))||0;
-            count++;
-            localStorage.setItem(`adCount_${_adFileId}`, count);
-            closeOverlay();
-            const file = allFiles.find(f=>f.id===_adFileId);
-            if (file) {
-                saveToHistory(_adFileId);
-                try { await updateDoc(doc(db,"files",_adFileId),{downloads:increment(1)}); } catch(e){}
-                file.downloads++;
-                updateDetailButtonState(file);
-                document.getElementById('detail-downloads').textContent = formatNumber(file.downloads);
-                renderFiles(); renderHistory();
-            }
-            showToast("✅ Unlocked Successfully!");
-        });
-    },
-
-    // Multi-ad progress (>2 required)
-    async showProgress(fileId, req) {
-        _adFileId   = fileId;
-        _adRequired = req;
-        let count = parseInt(localStorage.getItem(`adCount_${fileId}`))||0;
-        count++;
-        localStorage.setItem(`adCount_${fileId}`, count);
-
-        if (count >= req) {
-            const file = allFiles.find(f=>f.id===fileId);
-            if (file) {
-                saveToHistory(fileId);
-                try { await updateDoc(doc(db,"files",fileId),{downloads:increment(1)}); } catch(e){}
-                file.downloads++;
-                updateDetailButtonState(file);
-                renderFiles(); renderHistory();
-            }
-            showToast("✅ Unlocked Successfully!");
-            return;
-        }
-
+    // ── Inter-round progress screen ────────────────────────────────────
+    _showRoundProgress(doneCount, req, fileId) {
         openOverlay();
         showStage('stage-progress');
-        document.getElementById('progress-stage-title').textContent = 'Ad Completed!';
-        document.getElementById('progress-stage-msg').textContent   = `Progress: ${count} of ${req} ads watched.`;
+        document.getElementById('progress-stage-title').textContent = `Round ${doneCount} Complete! 🎉`;
+        document.getElementById('progress-stage-msg').textContent   = `Progress: ${doneCount} of ${req} rounds done.`;
 
         const timerDiv = document.getElementById('progress-stage-timer');
         const timerBar = document.getElementById('progress-timer-bar');
@@ -1160,19 +1115,22 @@ window._adFlow = {
         timerDiv.classList.remove('hidden'); closeBtn.classList.add('hidden');
 
         let cd = timerDuration;
-        timerTxt.textContent = `Next button in ${cd}s...`;
+        timerTxt.textContent = `Next round in ${cd}s...`;
         timerBar.style.transition = 'none'; timerBar.style.width = '100%';
         setTimeout(()=>{ timerBar.style.transition = `width ${timerDuration}s linear`; timerBar.style.width = '0%'; }, 50);
 
         const iv = setInterval(()=>{
             cd--;
-            timerTxt.textContent = cd>0 ? `Next button in ${cd}s...` : 'Ready!';
-            if (cd<=0) {
+            timerTxt.textContent = cd > 0 ? `Next round in ${cd}s...` : 'Ready!';
+            if (cd <= 0) {
                 clearInterval(iv);
                 closeBtn.classList.remove('hidden');
                 timerDiv.classList.add('hidden');
-                const file = allFiles.find(f=>f.id===fileId);
-                if (file) updateDetailButtonState(file);
+                // progress-close-btn click করলে পরের রাউন্ড শুরু
+                closeBtn.onclick = () => {
+                    closeOverlay();
+                    window._adFlow.start(fileId, req);
+                };
             }
         }, 1000);
     },
@@ -1189,12 +1147,9 @@ window.unlockFile = async (id, req) => {
     const count     = parseInt(localStorage.getItem(`adCount_${id}`))||0;
     const remaining = req - count;
 
-    if (remaining >= 2) {
-        // Standard 2-ad flow: Adsgram → Monetag
+    if (remaining > 0) {
+        // সব রাউন্ড একই flow দিয়ে: Adsgram → Monetag Mini App Ad
         window._adFlow.start(id, req);
-    } else if (remaining === 1) {
-        // Single final ad via Adsgram
-        window._adFlow.watchSingleAd2(id, req);
     } else {
         // Already unlocked
         if (btn) { btn.disabled = false; updateDetailButtonState(allFiles.find(f=>f.id===id)); }
