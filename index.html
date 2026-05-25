@@ -899,9 +899,12 @@ window.shareFile = (fileId) => {
 
 // ═══════════════════════════════════════════════════════════
 //  AD FLOW ENGINE — Fixed Adsgram (Ad1) + Monetag (Ad2)
+//  Security: দুটো Ad সফলভাবে না দেখলে count হবে না
 // ═══════════════════════════════════════════════════════════
-let _adFileId   = null;
-let _adRequired = 0;
+let _adFileId      = null;
+let _adRequired    = 0;
+let _ad1Completed  = false;  // Adsgram সফল হলে true
+let _ad2Completed  = false;  // Monetag সফল হলে true
 
 function showStage(id) {
     ['stage-preload','stage-loading-ad','stage-ad1-btn','stage-processing',
@@ -977,10 +980,13 @@ async function showMonetagAd(zoneId) {
 window._adFlow = {
 
     // ── Entry: start round-based flow ──────────────────────────────────
-    // 1 round = Adsgram (সফল) → Monetag Mini App Ad (সফল) = 1 count
+    // 1 round = Adsgram (সফল) + Monetag Mini App Ad (সফল) = 1 count
+    // দুটো Ad-ই সফল না হলে count হবে না — bypass সম্ভব না
     start(fileId, req) {
-        _adFileId   = fileId;
-        _adRequired = req;
+        _adFileId     = fileId;
+        _adRequired   = req;
+        _ad1Completed = false;  // প্রতিটি রাউন্ডে reset
+        _ad2Completed = false;
         openOverlay();
         showStage('stage-preload');
 
@@ -1016,6 +1022,7 @@ window._adFlow = {
         try {
             await showAdsgramAd(blockId);
             console.log("✅ Adsgram Ad completed");
+            _ad1Completed = true;  // ✅ সত্যিকারের Ad দেখা হয়েছে
             // Inter-ad processing pause → then show Monetag button
             showStage('stage-processing');
             startCountdown('processing-countdown', adSettings.interPause, ()=>{
@@ -1024,6 +1031,7 @@ window._adFlow = {
             });
         } catch(e) {
             console.error("❌ Adsgram Ad failed:", e);
+            _ad1Completed = false;  // ❌ fail হলে flag reset
             // Adsgram fail → Monetag শো হবে না, count হবে না
             document.getElementById('ad-error-badge').classList.remove('hidden');
             document.getElementById('loading-ad-title').textContent = 'Ad failed. Try again.';
@@ -1037,6 +1045,13 @@ window._adFlow = {
 
     // ── STEP 2: Monetag Mini App Ad (only after Adsgram success) ──────
     async playVideo() {
+        // 🔒 Security: Ad 1 সফল না হলে Ad 2 চলবে না
+        if (!_ad1Completed) {
+            showToast("⚠️ Please watch Ad 1 first!");
+            showStage('stage-ad1-btn');
+            return;
+        }
+
         const btn = document.getElementById('play-video-btn');
         if (btn) { btn.disabled = true; btn.innerHTML = `<div style="width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin-smooth 0.8s linear infinite;margin-right:8px;display:inline-block;vertical-align:middle;"></div> Loading...`; }
 
@@ -1049,10 +1064,12 @@ window._adFlow = {
         try {
             await showMonetagAd(zoneId);
             console.log("✅ Monetag Mini App Ad completed");
-            // দুটো সফল → final processing
+            _ad2Completed = true;  // ✅ দ্বিতীয় Ad সফল
+            // দুটোই সফল → final processing
             setTimeout(()=>{ window._adFlow.finalProcess(); }, 500);
         } catch(e) {
             console.warn("❌ Monetag Mini App Ad failed:", e);
+            _ad2Completed = false;  // ❌ fail হলে flag reset
             // Monetag fail → count হবে না, error দেখাও
             document.getElementById('ad-error-badge2').classList.remove('hidden');
             const errEl = document.getElementById('ad-error-badge2').querySelector('p');
@@ -1071,32 +1088,66 @@ window._adFlow = {
 
     // ── STEP 3: Both ads done → count +1, check if more rounds needed ──
     finalProcess() {
+        // 🔒 Security: দুটো Ad-ই সত্যিকারভাবে সফল হয়েছে কিনা যাচাই
+        if (!_ad1Completed || !_ad2Completed) {
+            console.warn("🚫 Bypass attempt blocked! Ad1:", _ad1Completed, "Ad2:", _ad2Completed);
+            showToast("⚠️ Please watch both ads completely!");
+            // রাউন্ড শুরু থেকে করো
+            _ad1Completed = false;
+            _ad2Completed = false;
+            showStage('stage-ad1-btn');
+            return;
+        }
+
         showStage('stage-final');
         startCountdown('final-countdown', adSettings.finalDuration || 5, async ()=>{
-            // Adsgram + Monetag দুটোই সফল → 1 count
-            let count = parseInt(localStorage.getItem(`adCount_${_adFileId}`))||0;
-            count += 1;
-            localStorage.setItem(`adCount_${_adFileId}`, count);
-
-            console.log(`✅ Round complete. Count: ${count} / ${_adRequired}`);
-
-            if (count >= _adRequired) {
-                // সব রাউন্ড শেষ → Unlock!
-                closeOverlay();
-                const file = allFiles.find(f=>f.id===_adFileId);
-                if (file) {
-                    saveToHistory(_adFileId);
-                    try { await updateDoc(doc(db,"files",_adFileId),{downloads:increment(1)}); } catch(e){}
-                    file.downloads++;
-                    updateDetailButtonState(file);
-                    document.getElementById('detail-downloads').textContent = formatNumber(file.downloads);
-                    renderFiles(); renderHistory();
+            // 🔒 উভয় Ad সফল confirmed → count +1
+            // Firebase থেকে current count যাচাই করে তারপর increment
+            try {
+                const fileDoc = await getDoc(doc(db,"files",_adFileId));
+                if (!fileDoc.exists()) {
+                    showToast("❌ File not found!"); return;
                 }
-                showToast("✅ Unlocked Successfully!");
-            } else {
-                // আরও রাউন্ড বাকি → progress দেখাও, তারপর পরের রাউন্ড
+                // Firebase-এ adUnlockCount field ব্যবহার করে track করো
+                const firebaseCount = fileDoc.data().adUnlockCount?.[tgUser.id] || 0;
+                const newCount = firebaseCount + 1;
+
+                // Firebase-এ user-specific count save করো (localStorage নয়)
+                await updateDoc(doc(db,"files",_adFileId), {
+                    [`adUnlockCount.${tgUser.id}`]: newCount
+                });
+
+                // localStorage-ও sync রাখো (UI এর জন্য)
+                localStorage.setItem(`adCount_${_adFileId}`, newCount);
+
+                // Flags reset করো পরের রাউন্ডের জন্য
+                _ad1Completed = false;
+                _ad2Completed = false;
+
+                console.log(`✅ Round complete. Count: ${newCount} / ${_adRequired}`);
+
+                if (newCount >= _adRequired) {
+                    // সব রাউন্ড শেষ → Unlock!
+                    closeOverlay();
+                    const file = allFiles.find(f=>f.id===_adFileId);
+                    if (file) {
+                        saveToHistory(_adFileId);
+                        try { await updateDoc(doc(db,"files",_adFileId),{downloads:increment(1)}); } catch(e){}
+                        file.downloads++;
+                        updateDetailButtonState(file);
+                        document.getElementById('detail-downloads').textContent = formatNumber(file.downloads);
+                        renderFiles(); renderHistory();
+                    }
+                    showToast("✅ Unlocked Successfully!");
+                } else {
+                    // আরও রাউন্ড বাকি → progress দেখাও, তারপর পরের রাউন্ড
+                    closeOverlay();
+                    window._adFlow._showRoundProgress(newCount, _adRequired, _adFileId);
+                }
+            } catch(e) {
+                console.error("❌ Count update failed:", e);
+                showToast("❌ Error! Please try again.");
                 closeOverlay();
-                window._adFlow._showRoundProgress(count, _adRequired, _adFileId);
             }
         });
     },
@@ -1144,15 +1195,34 @@ window.unlockFile = async (id, req) => {
     const btn = document.getElementById('unlock-action-btn');
     if (btn) { btn.disabled = true; btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> <span>Loading...</span>`; }
 
-    const count     = parseInt(localStorage.getItem(`adCount_${id}`))||0;
-    const remaining = req - count;
+    try {
+        // 🔒 Firebase থেকে real count যাচাই করো — localStorage bypass ঠেকানো
+        const fileDoc = await getDoc(doc(db,"files",id));
+        const firebaseCount = fileDoc.exists()
+            ? (fileDoc.data().adUnlockCount?.[tgUser.id] || 0)
+            : 0;
 
-    if (remaining > 0) {
-        // সব রাউন্ড একই flow দিয়ে: Adsgram → Monetag Mini App Ad
-        window._adFlow.start(id, req);
-    } else {
-        // Already unlocked
-        if (btn) { btn.disabled = false; updateDetailButtonState(allFiles.find(f=>f.id===id)); }
+        // localStorage Firebase-এর সাথে sync করো
+        localStorage.setItem(`adCount_${id}`, firebaseCount);
+
+        const remaining = req - firebaseCount;
+
+        if (remaining > 0) {
+            // Ad flow শুরু করো
+            window._adFlow.start(id, req);
+        } else {
+            // Already unlocked (Firebase-এ verified)
+            if (btn) { btn.disabled = false; updateDetailButtonState(allFiles.find(f=>f.id===id)); }
+        }
+    } catch(e) {
+        console.error("Unlock check failed:", e);
+        // Firebase error হলে localStorage fallback (offline mode)
+        const localCount = parseInt(localStorage.getItem(`adCount_${id}`))||0;
+        if (localCount < req) {
+            window._adFlow.start(id, req);
+        } else {
+            if (btn) { btn.disabled = false; updateDetailButtonState(allFiles.find(f=>f.id===id)); }
+        }
     }
 };
 
@@ -1167,7 +1237,9 @@ function renderHistory() {
     const ids   = JSON.parse(localStorage.getItem('downloadHistory')||'[]')
         .filter(id => {
             const f = allFiles.find(x=>x.id===id);
-            return f && (parseInt(localStorage.getItem(`adCount_${id}`))||0) >= (parseInt(f.requiredAds)||2);
+            // Firebase count localStorage-এ sync হয়েছে, সেটাই ব্যবহার করো
+            const count = parseInt(localStorage.getItem(`adCount_${id}`))||0;
+            return f && count >= (parseInt(f.requiredAds)||2);
         });
     list.innerHTML = '';
     if (!ids.length) { empty.classList.remove('hidden'); return; }
