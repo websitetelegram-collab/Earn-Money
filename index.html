@@ -367,17 +367,33 @@
             <p class="ad-processing-sub">Please wait <span id="processing-countdown">3</span> seconds ⏳</p>
         </div>
 
-        <!-- STAGE 4: First Ad Done → Play Video (Monetag Mini App Ad) -->
+        <!-- STAGE 4: Adsgram Done → Play Video popup (Monetag) -->
         <div id="stage-ad1-done" class="text-center hidden" style="position:relative;">
             <div class="ad-check-circle">
                 <i class="fas fa-check text-white text-2xl"></i>
             </div>
-            <p class="ad-first-done-title">Adsgram Ad Done! 🎉</p>
-            <p style="color:rgba(255,255,255,0.5);font-size:14px;margin-bottom:20px;">Now watch the Mini App Ad<br>to complete this round.</p>
+            <p class="ad-first-done-title">Ad 1 Complete! ✅</p>
+            <p style="color:rgba(255,255,255,0.55);font-size:13px;font-weight:500;margin-bottom:4px;">Step 2 of 2</p>
+            <p style="color:rgba(255,255,255,0.35);font-size:12px;margin-bottom:18px;">Tap <b style="color:#a855f7;">Play Video</b> — or wait, it starts automatically</p>
+
+            <!-- Auto countdown ring -->
+            <div style="position:relative;width:72px;height:72px;margin:0 auto 10px;">
+                <svg width="72" height="72" style="position:absolute;top:0;left:0;transform:rotate(-90deg);">
+                    <circle cx="36" cy="36" r="30" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="5"/>
+                    <circle id="auto-ring" cx="36" cy="36" r="30" fill="none" stroke="#a855f7" stroke-width="5"
+                        stroke-dasharray="188.5" stroke-dashoffset="0"
+                        style="transition:stroke-dashoffset 1s linear;"/>
+                </svg>
+                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
+                    <span id="auto-countdown-txt" style="color:white;font-size:20px;font-weight:800;line-height:1;">5</span>
+                </div>
+            </div>
+            <p style="color:rgba(255,255,255,0.25);font-size:11px;margin-bottom:18px;">Auto-starts in <span id="auto-countdown-sub">5</span>s</p>
+
             <button id="play-video-btn" class="ad-play-btn" onclick="window._adFlow.playVideo()">
-                <i class="fas fa-play"></i> Watch Mini App Ad (2/2)
+                <i class="fas fa-play"></i> Play Video
             </button>
-            <button onclick="window._adFlow.cancel()" class="ad-cancel-btn">Cancel Process</button>
+            <button onclick="window._adFlow.cancel()" class="ad-cancel-btn">Cancel</button>
         </div>
 
         <!-- STAGE 5: Monetag Mini App Ad loading -->
@@ -461,6 +477,7 @@ let adSettings    = {
     preloadDuration: 3,
     interPause:      3,
     finalDuration:   5,
+    autoPlayDelay:   5,   // Stage 4 popup এ auto-start delay (seconds)
     showCancel:      true,
     confetti:        true
 };
@@ -610,6 +627,7 @@ async function loadData() {
                 adSettings.preloadDuration = d.timing.preloadDuration || 3;
                 adSettings.interPause      = d.timing.interPause      || 3;
                 adSettings.finalDuration   = d.timing.finalDuration   || 2;
+                adSettings.autoPlayDelay   = d.timing.autoPlayDelay   || 5;
                 timerDuration              = d.timing.cooldown         || timerDuration;
             }
             if (d.ui) {
@@ -905,6 +923,7 @@ let _adFileId      = null;
 let _adRequired    = 0;
 let _ad1Completed  = false;  // Adsgram সফল হলে true
 let _ad2Completed  = false;  // Monetag সফল হলে true
+let _autoPlayTimer = null;   // Stage 4 auto-start timer
 
 function showStage(id) {
     ['stage-preload','stage-loading-ad','stage-ad1-btn','stage-processing',
@@ -926,6 +945,48 @@ function startCountdown(spanId, seconds, onDone) {
         if (cd<=0) { clearInterval(iv); if(onDone) onDone(); }
     }, 1000);
     return iv;
+}
+
+// ── Auto-play countdown ring for Stage 4 (Monetag auto-start) ───────────
+function startAutoPlayCountdown() {
+    if (_autoPlayTimer) { clearInterval(_autoPlayTimer); _autoPlayTimer = null; }
+    const delay = adSettings.autoPlayDelay || 5;
+    const ring  = document.getElementById('auto-ring');
+    const txtBig = document.getElementById('auto-countdown-txt');
+    const txtSub = document.getElementById('auto-countdown-sub');
+    const circumference = 188.5; // 2 * π * r(30)
+    let cd = delay;
+
+    // Reset ring and text
+    if (ring)   { ring.style.transition = 'none'; ring.style.strokeDashoffset = '0'; }
+    if (txtBig) txtBig.textContent = cd;
+    if (txtSub) txtSub.textContent = cd;
+
+    // Start ring drain after a tick so CSS picks it up
+    setTimeout(() => {
+        if (ring) {
+            ring.style.transition = `stroke-dashoffset ${delay}s linear`;
+            ring.style.strokeDashoffset = String(circumference);
+        }
+    }, 50);
+
+    _autoPlayTimer = setInterval(() => {
+        cd--;
+        if (txtBig) txtBig.textContent = Math.max(0, cd);
+        if (txtSub) txtSub.textContent = Math.max(0, cd);
+        if (cd <= 0) {
+            clearInterval(_autoPlayTimer); _autoPlayTimer = null;
+            // Auto-trigger: Stage 4 এখনও visible থাকলে Monetag শুরু করো
+            const stage = document.getElementById('stage-ad1-done');
+            if (stage && !stage.classList.contains('hidden')) {
+                window._adFlow.playVideo();
+            }
+        }
+    }, 1000);
+}
+
+function clearAutoPlayTimer() {
+    if (_autoPlayTimer) { clearInterval(_autoPlayTimer); _autoPlayTimer = null; }
 }
 
 function spawnConfetti() {
@@ -1027,6 +1088,7 @@ window._adFlow = {
             showStage('stage-processing');
             startCountdown('processing-countdown', adSettings.interPause, ()=>{
                 showStage('stage-ad1-done');
+                startAutoPlayCountdown();   // ⏱ Auto-countdown শুরু
                 spawnConfetti();
             });
         } catch(e) {
@@ -1045,6 +1107,7 @@ window._adFlow = {
 
     // ── STEP 2: Monetag Mini App Ad (only after Adsgram success) ──────
     async playVideo() {
+        clearAutoPlayTimer();  // ✅ user click বা auto-trigger — timer বন্ধ করো
         // 🔒 Security: Ad 1 সফল না হলে Ad 2 চলবে না
         if (!_ad1Completed) {
             showToast("⚠️ Please watch Ad 1 first!");
@@ -1079,9 +1142,10 @@ window._adFlow = {
                 btn.disabled = false;
                 btn.innerHTML = `<i class="fas fa-play"></i> Play Video`;
             }
-            // stage-ad1-done এ ফিরে যাও যাতে retry হয়
+            // stage-ad1-done এ ফিরে যাও — countdown restart করো
             setTimeout(()=>{
                 showStage('stage-ad1-done');
+                startAutoPlayCountdown();  // ⏱ retry তেও auto-countdown চলবে
             }, 2000);
         }
     },
@@ -1186,8 +1250,8 @@ window._adFlow = {
         }, 1000);
     },
 
-    cancel() { closeOverlay(); },
-    close()  { closeOverlay(); }
+    cancel() { clearAutoPlayTimer(); closeOverlay(); },
+    close()  { clearAutoPlayTimer(); closeOverlay(); }
 };
 
 // ── Main unlock entry ────────────────────────────────────────────────────
