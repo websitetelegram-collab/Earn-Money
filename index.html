@@ -8,8 +8,6 @@
     <script>tailwind.config = { darkMode: 'class', theme: { extend: {} } }</script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- Monetag script -->
-    <script src="https://cdn.monetag.com/js/pop.min.js" data-zone="YOUR_ZONE_ID" async></script>
 
     <style>
         .hide-scrollbar::-webkit-scrollbar { display: none; }
@@ -354,8 +352,8 @@
             </div>
             <p class="ad-processing-title" id="loading-ad-title">Loading Ad...</p>
             <p class="ad-processing-sub">Please watch the full ad</p>
-            <div id="ad-error-badge" class="hidden mt-4 bg-gradient-to-r from-indigo-600 to-pink-500 rounded-xl p-3">
-                <p class="text-white text-sm font-bold">Ad not loaded. Retrying...</p>
+            <div id="ad-error-badge" class="hidden mt-4 bg-gradient-to-r from-indigo-500 to-pink-500 rounded-xl p-3">
+                <p class="text-white text-sm font-bold">Ad not loaded. Try again.</p>
             </div>
         </div>
 
@@ -374,8 +372,8 @@
             <div class="ad-check-circle">
                 <i class="fas fa-check text-white text-2xl"></i>
             </div>
-            <p class="ad-first-done-title">Step 1 Complete! 🎉</p>
-            <p style="color:rgba(255,255,255,0.5);font-size:14px;margin-bottom:20px;">Click Play to unlock the video download.</p>
+            <p class="ad-first-done-title">First Ad Completed! 🎉</p>
+            <p style="color:rgba(255,255,255,0.5);font-size:14px;margin-bottom:20px;">To unlock the final video,<br>click the button above and watch another ad.</p>
             <button id="play-video-btn" class="ad-play-btn" onclick="window._adFlow.playVideo()">
                 <i class="fas fa-play"></i> Play Video
             </button>
@@ -389,9 +387,9 @@
                 <div class="ad-spinner-arc" style="border-bottom-color:#a855f7;border-left-color:#ec4899;"></div>
             </div>
             <p class="ad-processing-title">Loading final ad...</p>
-            <p class="ad-processing-sub">Connecting to ad network...</p>
-            <div id="ad-error-badge2" class="hidden mt-4 bg-gradient-to-r from-purple-600 to-pink-500 rounded-xl p-3">
-                <p class="text-white text-sm font-bold">Retrying...</p>
+            <p class="ad-processing-sub">Please watch the full ad</p>
+            <div id="ad-error-badge2" class="hidden mt-4 bg-gradient-to-r from-indigo-500 to-pink-500 rounded-xl p-3">
+                <p class="text-white text-sm font-bold">Ad not loaded. Try again.</p>
             </div>
         </div>
 
@@ -401,8 +399,9 @@
                 <div class="ad-spinner-arc2"></div>
                 <div class="ad-spinner-arc" style="border-bottom-color:#ec4899;border-left-color:#a855f7;"></div>
             </div>
-            <p class="ad-processing-title" id="final-title">Unlocking...</p>
-            <p class="ad-processing-sub" id="final-sub">Please wait <span id="final-countdown">2</span> seconds ⏳</p>
+            <p class="ad-processing-title">Final Processing...</p>
+            <p class="ad-processing-sub">Please wait <span id="final-countdown">5</span> seconds ⏳</p>
+            <p style="color:rgba(255,255,255,0.2);font-size:12px;margin-top:6px;">Unlocking your video...</p>
         </div>
 
         <!-- STAGE 7: Multi-ad progress (>2 ads) -->
@@ -461,7 +460,7 @@ let adSettings    = {
     monetagCustomScript: '',
     preloadDuration: 3,
     interPause:      3,
-    finalDuration:   2,
+    finalDuration:   5,
     showCancel:      true,
     confetti:        true
 };
@@ -1047,6 +1046,7 @@ window._adFlow = {
         if (btn) { btn.disabled = true; btn.innerHTML = `<div style="width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin-smooth 0.8s linear infinite;margin-right:8px;display:inline-block;vertical-align:middle;"></div> Loading...`; }
 
         showStage('stage-preload2');
+        document.getElementById('ad-error-badge2').classList.add('hidden');
 
         const zoneId = adSettings.monetagZoneId || '';
         console.log("🎬 Showing Monetag Ad (Play Video), zoneId:", zoneId || "(custom script)");
@@ -1056,19 +1056,20 @@ window._adFlow = {
             console.log("✅ Ad2 (Monetag) shown");
         } catch(e) {
             console.warn("⚠️ Monetag show error (continuing):", e);
+            document.getElementById('ad-error-badge2').classList.remove('hidden');
         }
 
         // Always proceed to final unlock after Monetag (whether user closed or not)
-        setTimeout(()=>{ window._adFlow.finalProcess(); }, 3000);
+        setTimeout(()=>{ window._adFlow.finalProcess(); }, 1500);
     },
 
     // Final processing → unlock
     finalProcess() {
         showStage('stage-final');
-        startCountdown('final-countdown', adSettings.finalDuration, async ()=>{
-            // Increment ad count by 2
+        startCountdown('final-countdown', adSettings.finalDuration || 5, async ()=>{
+            // Adsgram + Monetag মিলে ১ কাউন্ট
             let count = parseInt(localStorage.getItem(`adCount_${_adFileId}`))||0;
-            count += 2;
+            count += 1;
             localStorage.setItem(`adCount_${_adFileId}`, count);
 
             closeOverlay();
