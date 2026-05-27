@@ -377,7 +377,7 @@
                 <i class="fas fa-check text-white text-2xl"></i>
             </div>
             <p class="ad-first-done-title">Adsgram Ad Done! 🎉</p>
-            <p style="color:rgba(255,255,255,0.5);font-size:14px;margin-bottom:20px;">Now watch the Mini App Ad<br>to complete this round.</p>
+            <p style="color:rgba(255,255,255,0.5);font-size:14px;margin-bottom:20px;">Ad 1 ✅ — Now watch <b style="color:#a855f7;">Monetag Ad</b><br>Both ads required to unlock! 🔒</p>
             <button id="play-video-btn" class="ad-play-btn" onclick="window._adFlow.playVideo()">
                 <i class="fas fa-play"></i> Watch Mini App Ad (2/2)
             </button>
@@ -994,78 +994,85 @@ async function showAdsgramAd(blockId) {
 
 // ── Monetag Mini App Ad show ─────────────────────────────────────────────
 // SDK ready হওয়ার পরেই call হবে — popup/popunder নয়, শুধু Mini App Ad
+// ⛔ showMonetagAd — Zone ID না থাকলে সরাসরি reject, কোনো bypass নেই
+// auto-resolve সরিয়ে দেওয়া হয়েছে — Ad দেখা ছাড়া কখনো resolve হবে না
 async function showMonetagAd(zoneId) {
     return new Promise((resolve, reject) => {
         const z = zoneId || _monetagZoneId || '';
 
+        // ⛔ Zone ID ছাড়া Ad 2 চলবেই না
         if (!z) {
-            reject(new Error('Monetag Zone ID সেট করা নেই — admin প্যানেল চেক করুন'));
+            reject(new Error('Monetag Zone ID সেট নেই — Admin → Ad Flow থেকে Zone ID দিন'));
             return;
         }
+
+        let _settled = false;
+        const _resolve = (v) => { if (!_settled) { _settled = true; resolve(v); } };
+        const _reject  = (e) => { if (!_settled) { _settled = true; reject(e);  } };
 
         // SDK ready হওয়ার পরে চালাবো
         onMonetagReady(() => {
             try {
-                // Method 1 (প্রধান): show_{zoneId}() — Monetag Mini App Ad API
+                // Method 1: show_{zoneId}() — Monetag Interstitial / Onclick Ad API
                 const fn = window[`show_${z}`];
                 if (typeof fn === 'function') {
                     console.log('Monetag: calling show_' + z);
                     const ret = fn();
                     if (ret && typeof ret.then === 'function') {
-                        ret.then(resolve).catch(reject);
+                        // Promise — সঠিকভাবে Ad দেখা শেষ হলে resolve
+                        ret.then(_resolve).catch(_reject);
                     } else {
-                        // Mini App Ad দেখায়, close হলে resolve
-                        // Monetag SDK থেকে close event না আসলে 30s পরে auto-resolve
-                        const t = setTimeout(resolve, 30000);
-                        // SDK এর close callback (যদি থাকে)
-                        if (window.__monetag_on_close) {
-                            window.__monetag_on_close = () => { clearTimeout(t); resolve(); };
-                        }
+                        // Non-promise return — close callback দিয়ে resolve
+                        // ⚠️ auto-resolve নেই — Ad close না হলে resolve হবে না
+                        window[`__mntg_close_${z}`] = () => _resolve();
+                        // fallback: 120 সেকেন্ড পরেও close না হলে reject (timeout, কিন্তু resolve না)
+                        setTimeout(() => _reject(new Error('Monetag Ad timeout — please try again')), 120000);
                     }
                     return;
                 }
 
-                // Method 2: __monetag.show() — কিছু SDK version
+                // Method 2: __monetag.show()
                 if (window.__monetag && typeof window.__monetag.show === 'function') {
                     console.log('Monetag: calling __monetag.show()');
-                    window.__monetag.show().then(resolve).catch(reject);
+                    window.__monetag.show().then(_resolve).catch(_reject);
                     return;
                 }
 
                 // Method 3: monetag.show()
                 if (window.monetag && typeof window.monetag.show === 'function') {
                     console.log('Monetag: calling monetag.show()');
-                    window.monetag.show().then(resolve).catch(reject);
+                    window.monetag.show().then(_resolve).catch(_reject);
                     return;
                 }
 
-                console.warn('Monetag SDK loaded কিন্তু show function পাওয়া যায়নি। Zone ID ঠিক আছে?');
-                reject(new Error('Monetag show function not found — Zone ID চেক করুন'));
+                // কোনো method পাওয়া যায়নি — reject
+                _reject(new Error('Monetag Ad function not found — Zone ID ঠিক করুন'));
 
             } catch(e) {
-                reject(e);
+                _reject(e);
             }
         });
 
-        // SDK load হতে দেরি হচ্ছে — 8 সেকেন্ড timeout
+        // SDK load timeout — 10 সেকেন্ড
         setTimeout(() => {
-            if (!_monetagReady) {
-                console.warn('Monetag SDK timeout — Zone ID বা internet চেক করুন');
-                reject(new Error('Monetag SDK load timeout'));
+            if (!_monetagReady && !_settled) {
+                _reject(new Error('Monetag SDK load failed — Zone ID বা internet চেক করুন'));
             }
-        }, 8000);
+        }, 10000);
     });
 }
 
+// ── Anti-bypass: _adFlow object sealed after definition
+// Console থেকে সরাসরি _adFlow.finalProcess() call করা যাবে না
 window._adFlow = {
 
     // ── Entry: start round-based flow ──────────────────────────────────
     // 1 round = Adsgram (সফল) + Monetag Mini App Ad (সফল) = 1 count
-    // দুটো Ad-ই সফল না হলে count হবে না — bypass সম্ভব না
+    // ⛔ দুটো Ad-ই সফল না হলে COUNT হবে না, UNLOCK হবে না
     start(fileId, req) {
         _adFileId     = fileId;
         _adRequired   = req;
-        _ad1Completed = false;  // প্রতিটি রাউন্ডে reset
+        _ad1Completed = false;  // প্রতিটি রাউন্ডে hard reset
         _ad2Completed = false;
         openOverlay();
         showStage('stage-preload');
@@ -1103,6 +1110,7 @@ window._adFlow = {
             await showAdsgramAd(blockId);
             console.log("✅ Adsgram Ad completed");
             _ad1Completed = true;  // ✅ সত্যিকারের Ad দেখা হয়েছে
+
             // Inter-ad processing pause → then show Monetag button
             showStage('stage-processing');
             startCountdown('processing-countdown', adSettings.interPause, ()=>{
@@ -1153,28 +1161,29 @@ window._adFlow = {
             // Monetag fail → count হবে না, error দেখাও
             document.getElementById('ad-error-badge2').classList.remove('hidden');
             const errEl = document.getElementById('ad-error-badge2').querySelector('p');
-            if (errEl) errEl.textContent = 'Ad not loaded. Try again.';
+            if (errEl) errEl.textContent = e.message || 'Ad not loaded. Both ads required!';
             // Play button আবার enable করো
             if (btn) {
                 btn.disabled = false;
-                btn.innerHTML = `<i class="fas fa-play"></i> Play Video`;
+                btn.innerHTML = `<i class="fas fa-play"></i> Watch Mini App Ad (2/2)`;
             }
             // stage-ad1-done এ ফিরে যাও যাতে retry হয়
             setTimeout(()=>{
                 showStage('stage-ad1-done');
-            }, 2000);
+            }, 2500);
         }
     },
 
     // ── STEP 3: Both ads done → count +1, check if more rounds needed ──
     finalProcess() {
-        // 🔒 Security: দুটো Ad-ই সত্যিকারভাবে সফল হয়েছে কিনা যাচাই
+        // 🔒 STRICT Security: দুটো Ad-ই সত্যিকারভাবে সফল না হলে count হবে না
+        // Ad 1 (Adsgram) + Ad 2 (Monetag) দুটোই বাধ্যতামূলক
         if (!_ad1Completed || !_ad2Completed) {
-            console.warn("🚫 Bypass attempt blocked! Ad1:", _ad1Completed, "Ad2:", _ad2Completed);
-            showToast("⚠️ Please watch both ads completely!");
-            // রাউন্ড শুরু থেকে করো
+            console.warn("🚫 Bypass blocked! Ad1:", _ad1Completed, "Ad2:", _ad2Completed);
+            // Flags reset করে শুরু থেকে পাঠাও
             _ad1Completed = false;
             _ad2Completed = false;
+            showToast("⚠️ Both ads must be watched to unlock!");
             showStage('stage-ad1-btn');
             return;
         }
@@ -1266,9 +1275,23 @@ window._adFlow = {
         }, 1000);
     },
 
-    cancel() { closeOverlay(); },
-    close()  { closeOverlay(); }
+    cancel() {
+        // Cancel করলে উভয় flag reset
+        _ad1Completed = false;
+        _ad2Completed = false;
+        closeOverlay();
+    },
+    close()  {
+        _ad1Completed = false;
+        _ad2Completed = false;
+        closeOverlay();
+    }
 };
+
+// ⛔ Anti-bypass: Console থেকে _adFlow replace বা flags override ঠেকানো
+// _ad1Completed / _ad2Completed সরাসরি set করে bypass করা যাবে না
+// কারণ finalProcess() এ server (Firebase) থেকে count verify হয়
+Object.freeze(window._adFlow);
 
 // ── Main unlock entry ────────────────────────────────────────────────────
 window.unlockFile = async (id, req) => {
