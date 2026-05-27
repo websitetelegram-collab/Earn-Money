@@ -9,6 +9,10 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
+    <!-- Monetag Mini App SDK — head এ থাকা আবশ্যক -->
+    <!-- Zone ID admin থেকে load হওয়ার পরে src set হবে -->
+    <script id="monetag-sdk-script" data-cfasync="false"></script>
+
     <style>
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -547,60 +551,72 @@ function loadAdsgramScript(url) {
 }
 
 // ── Load Monetag script dynamically ─────────────────────────────────────
+let _monetagReady    = false;
+let _monetagZoneId   = '';
+let _monetagReadyCbs = [];  // ready হলে যেসব callback চালাতে হবে
+
+function onMonetagReady(cb) {
+    if (_monetagReady) { cb(); return; }
+    _monetagReadyCbs.push(cb);
+}
+
+function _monetagOnLoad() {
+    _monetagReady = true;
+    console.log('✅ Monetag Mini App SDK ready, zoneId:', _monetagZoneId);
+    _monetagReadyCbs.forEach(cb => { try { cb(); } catch(e){} });
+    _monetagReadyCbs = [];
+}
+
 function loadMonetagScript(zoneId, customScript) {
+    _monetagZoneId = zoneId || '';
+
     if (customScript && customScript.trim()) {
-        // Custom script tag — inject it
+        // Custom script — parse করে head এ inject করো
         const div = document.createElement('div');
         div.innerHTML = customScript;
-        div.querySelectorAll('script').forEach(s => {
+        let loaded = 0;
+        const scripts = div.querySelectorAll('script');
+        scripts.forEach(s => {
             const ns = document.createElement('script');
-            if (s.src) ns.src = s.src; else ns.textContent = s.textContent;
-            ns.async = true;
+            ns.setAttribute('data-cfasync', 'false');
+            if (s.src) {
+                ns.src = s.src;
+                ns.onload = () => { loaded++; if (loaded === scripts.length) _monetagOnLoad(); };
+            } else {
+                ns.textContent = s.textContent;
+            }
             document.head.appendChild(ns);
         });
+        if (!div.querySelector('script[src]')) setTimeout(_monetagOnLoad, 2000);
         return;
     }
+
     if (!zoneId) return;
-    // Standard Monetag tag format
-    const s = document.createElement('script');
-    s.src = `https://thubanoa.com/1?z=${zoneId}`;
-    s.setAttribute('data-cfasync', 'false');
-    s.async = true;
-    document.head.appendChild(s);
+
+    // HEAD এ আগে থেকে রাখা placeholder script tag এ src বসাই
+    // এটাই Monetag এর recommended approach — head এ থাকা দরকার
+    let sdkEl = document.getElementById('monetag-sdk-script');
+    if (!sdkEl) {
+        sdkEl = document.createElement('script');
+        sdkEl.id = 'monetag-sdk-script';
+        sdkEl.setAttribute('data-cfasync', 'false');
+        document.head.appendChild(sdkEl);
+    }
+    sdkEl.onload = _monetagOnLoad;
+    sdkEl.onerror = () => console.warn('❌ Monetag SDK failed to load');
+    sdkEl.src = `https://thubanoa.com/1?z=${zoneId}`;
+    console.log('🔄 Monetag SDK loading:', sdkEl.src);
 }
 
 // ── Load All Data ───────────────────────────────────────────────────────
 async function loadData() {
     showSkeletonLoader();
 
-    // ── Cache থেকে files আগে দেখাও (instant UI) ────────────────────────
-    const CACHE_KEY   = 'app_files_cache';
-    const CACHE_TIME  = 'app_files_cache_ts';
-    const CACHE_TTL   = 3 * 60 * 1000; // 3 মিনিট cache valid
-
-    const cached = localStorage.getItem(CACHE_KEY);
-    const cachedTs = parseInt(localStorage.getItem(CACHE_TIME) || '0');
-    const cacheAge = Date.now() - cachedTs;
-
-    if (cached && cacheAge < CACHE_TTL) {
-        try {
-            allFiles = JSON.parse(cached);
-            renderFiles(); renderHistory();
-            console.log('⚡ Files loaded from cache instantly');
-        } catch(e) { /* cache corrupt, ignore */ }
-    }
-
-    // ── সব settings একসাথে parallel fetch ──────────────────────────────
-    const [generalSnap, adflowSnap, adsSnap] = await Promise.allSettled([
-        getDoc(doc(db,'settings','general')),
-        getDoc(doc(db,'settings','adflow')),
-        getDoc(doc(db,'settings','ads')),
-    ]);
-
     // 1. General settings
-    if (generalSnap.status === 'fulfilled' && generalSnap.value.exists()) {
-        try {
-            const d = generalSnap.value.data();
+    try {
+        const snap = await getDoc(doc(db,"settings","general"));
+        if (snap.exists()) {
+            const d = snap.data();
             timerDuration = d.timerDuration || 10;
             window._appSettings = d;
             if (d.appTitle) {
@@ -609,15 +625,16 @@ async function loadData() {
             }
             if (d.themeColorFrom && d.themeColorTo) {
                 const h = document.getElementById('main-header');
-                if (h) h.style.background = `linear-gradient(135deg, ${d.themeColorFrom}, ${d.themeColorTo})`;
+                if (h) { h.style.background = `linear-gradient(135deg, ${d.themeColorFrom}, ${d.themeColorTo})`; }
             }
-        } catch(e) { console.error('General settings error:', e); }
-    }
+        }
+    } catch(e) { console.error("General settings error:", e); }
 
-    // 2. Ad Flow settings
-    if (adflowSnap.status === 'fulfilled' && adflowSnap.value.exists()) {
-        try {
-            const d = adflowSnap.value.data();
+    // 2. Ad Flow settings — CRITICAL FIX
+    try {
+        const snap = await getDoc(doc(db,"settings","adflow"));
+        if (snap.exists()) {
+            const d = snap.data();
             if (d.adsgram) {
                 adSettings.adsgramEnabled   = d.adsgram.enabled !== false;
                 adSettings.adsgramBlockId   = d.adsgram.blockId   || '20214';
@@ -638,89 +655,81 @@ async function loadData() {
                 adSettings.showCancel = d.ui.showCancel !== false;
                 adSettings.confetti   = d.ui.confetti   !== false;
             }
-        } catch(e) { console.error('AdFlow settings error:', e); }
-    }
+        }
+    } catch(e) { console.error("AdFlow settings error:", e); }
 
-    // 3. Banner ads
-    if (adsSnap.status === 'fulfilled' && adsSnap.value.exists()) {
-        try {
-            const d = adsSnap.value.data();
-            if (d.adSlot1) document.getElementById('ad-container-1').innerHTML = d.adSlot1;
-            if (d.adSlot2) document.getElementById('ad-container-2').innerHTML = d.adSlot2;
-        } catch(e) { console.error('Banner ads error:', e); }
-    }
-
-    // Ad scripts background এ লোড করো (UI block করবে না)
+    // Load Adsgram script with correct URL from admin settings
     if (adSettings.adsgramEnabled) {
-        loadAdsgramScript(adSettings.adsgramScriptUrl)
-            .then(() => console.log('✅ Adsgram loaded'))
-            .catch(e => console.warn('⚠️ Adsgram failed:', e));
+        try {
+            await loadAdsgramScript(adSettings.adsgramScriptUrl);
+            console.log("✅ Adsgram script loaded:", adSettings.adsgramScriptUrl);
+        } catch(e) {
+            console.warn("⚠️ Adsgram script load failed:", e);
+        }
     }
+
+    // Load Monetag script if configured
     if (adSettings.monetagEnabled && (adSettings.monetagZoneId || adSettings.monetagCustomScript)) {
         loadMonetagScript(adSettings.monetagZoneId, adSettings.monetagCustomScript);
     }
 
-    // ── Sliders + Files একসাথে parallel ────────────────────────────────
-    const sliderQ = query(collection(db,'sliders'), orderBy('createdAt','desc'));
-    const [sliderSnap, filesSnap] = await Promise.allSettled([
-        getDocs(sliderQ),
-        getDocs(collection(db,'files')),
-    ]);
+    // 3. Banner ads
+    try {
+        const ads = await getDoc(doc(db,"settings","ads"));
+        if (ads.exists()) {
+            const d = ads.data();
+            if (d.adSlot1) document.getElementById('ad-container-1').innerHTML = d.adSlot1;
+            if (d.adSlot2) document.getElementById('ad-container-2').innerHTML = d.adSlot2;
+        }
+    } catch(e) { console.error("Banner ads error:", e); }
 
     // 4. Sliders
-    if (sliderSnap.status === 'fulfilled') {
-        try {
-            const sw     = document.getElementById('slider-wrapper');
-            const sTrack = document.getElementById('slider-track');
-            const sDots  = document.getElementById('slider-dots');
-            let slides   = [];
-            sliderSnap.value.forEach(d => slides.push(d.data()));
-            if (slides.length > 0) {
-                sw.classList.remove('hidden');
-                sTrack.innerHTML = ''; sDots.innerHTML = '';
-                slides.forEach((s, idx) => {
-                    const div = document.createElement('div');
-                    div.className = `w-full h-full flex-shrink-0 ${s.linkUrl ? 'cursor-pointer' : ''}`;
-                    if (s.linkUrl) div.onclick = () => window.open(s.linkUrl,'_blank');
-                    div.innerHTML = `<img src="${s.imageUrl}" class="w-full h-full object-cover" loading="lazy">`;
-                    sTrack.appendChild(div);
-                    if (slides.length > 1) {
-                        const dot = document.createElement('div');
-                        dot.className = `w-2 h-2 rounded-full ${idx===0?'bg-white':'bg-white/50'} transition-colors`;
-                        dot.id = `dot-${idx}`;
-                        sDots.appendChild(dot);
-                    }
-                });
+    try {
+        const sw     = document.getElementById('slider-wrapper');
+        const sTrack = document.getElementById('slider-track');
+        const sDots  = document.getElementById('slider-dots');
+        const q      = query(collection(db,"sliders"), orderBy("createdAt","desc"));
+        const ss     = await getDocs(q);
+        let slides   = [];
+        ss.forEach(d => slides.push(d.data()));
+        if (slides.length > 0) {
+            sw.classList.remove('hidden');
+            sTrack.innerHTML = ''; sDots.innerHTML = '';
+            slides.forEach((s, idx) => {
+                const div = document.createElement('div');
+                div.className = `w-full h-full flex-shrink-0 ${s.linkUrl ? 'cursor-pointer' : ''}`;
+                if (s.linkUrl) div.onclick = () => window.open(s.linkUrl,'_blank');
+                div.innerHTML = `<img src="${s.imageUrl}" class="w-full h-full object-cover">`;
+                sTrack.appendChild(div);
                 if (slides.length > 1) {
-                    let cur = 0;
-                    if (slideInterval) clearInterval(slideInterval);
-                    slideInterval = setInterval(() => {
-                        cur = (cur+1) % slides.length;
-                        sTrack.style.transform = `translateX(-${cur*100}%)`;
-                        slides.forEach((_,i) => {
-                            const d = document.getElementById(`dot-${i}`);
-                            if (d) d.className = `w-2 h-2 rounded-full ${i===cur?'bg-white':'bg-white/50'} transition-colors`;
-                        });
-                    }, 3500);
+                    const dot = document.createElement('div');
+                    dot.className = `w-2 h-2 rounded-full ${idx===0?'bg-white':'bg-white/50'} transition-colors`;
+                    dot.id = `dot-${idx}`;
+                    sDots.appendChild(dot);
                 }
+            });
+            if (slides.length > 1) {
+                let cur = 0;
+                if (slideInterval) clearInterval(slideInterval);
+                slideInterval = setInterval(() => {
+                    cur = (cur+1) % slides.length;
+                    sTrack.style.transform = `translateX(-${cur*100}%)`;
+                    slides.forEach((_,i) => {
+                        const d = document.getElementById(`dot-${i}`);
+                        if (d) d.className = `w-2 h-2 rounded-full ${i===cur?'bg-white':'bg-white/50'} transition-colors`;
+                    });
+                }, 3500);
             }
-        } catch(e) { console.error('Slider error:', e); }
-    }
+        }
+    } catch(e) { console.error("Slider error:", e); }
 
-    // 5. Files — Firebase থেকে fresh data
-    if (filesSnap.status === 'fulfilled') {
-        try {
-            allFiles = [];
-            filesSnap.value.forEach(d => { allFiles.push({ id: d.id, downloads: 0, reviews: [], ...d.data() }); });
-
-            // Cache এ save করো (পরের visit এ instant দেখাবে)
-            localStorage.setItem(CACHE_KEY, JSON.stringify(allFiles));
-            localStorage.setItem(CACHE_TIME, String(Date.now()));
-
-            renderFiles(); renderHistory();
-            console.log('✅ Files loaded from Firebase:', allFiles.length);
-        } catch(e) { console.error('Files error:', e); }
-    }
+    // 5. Files
+    try {
+        const snaps = await getDocs(collection(db,"files"));
+        allFiles = [];
+        snaps.forEach(d => { allFiles.push({ id: d.id, downloads: 0, reviews: [], ...d.data() }); });
+        renderFiles(); renderHistory();
+    } catch(e) { console.error("Files error:", e); }
 }
 
 // ── Render Grid ─────────────────────────────────────────────────────────
@@ -741,7 +750,7 @@ function renderFiles() {
         card.className = 'bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col hover:shadow-lg transition-all duration-300 group';
         card.innerHTML = `
             <div class="relative w-full bg-gray-100 dark:bg-gray-700 cursor-pointer overflow-hidden" style="aspect-ratio:16/9;" onclick="window.openDetails('${file.id}')">
-                <img src="${file.thumbnailUrl}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="Thumbnail" loading="lazy" decoding="async">
+                <img src="${file.thumbnailUrl}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="Thumbnail">
                 <div class="play-overlay">
                     <div class="play-icon-circle">
                         <i class="fas fa-play text-indigo-600 text-base ml-1"></i>
@@ -983,27 +992,68 @@ async function showAdsgramAd(blockId) {
     });
 }
 
-// ── Monetag Mini App Ad show — NO popunder, Mini App only ─────────────
+// ── Monetag Mini App Ad show ─────────────────────────────────────────────
+// SDK ready হওয়ার পরেই call হবে — popup/popunder নয়, শুধু Mini App Ad
 async function showMonetagAd(zoneId) {
     return new Promise((resolve, reject) => {
-        try {
-            // Method 1: show_{zoneId} global function (Mini App Ad)
-            const fnName = `show_${zoneId}`;
-            if (zoneId && typeof window[fnName] === 'function') {
-                window[fnName]();
-                setTimeout(resolve, 1000);
-                return;
-            }
-            // Method 2: __monetag object (Mini App Ad)
-            if (window.__monetag && typeof window.__monetag.show === 'function') {
-                window.__monetag.show().then(resolve).catch(reject);
-                return;
-            }
-            // No valid Mini App Ad method found — fail
-            reject(new Error("Monetag Mini App Ad not available"));
-        } catch(e) {
-            reject(e);
+        const z = zoneId || _monetagZoneId || '';
+
+        if (!z) {
+            reject(new Error('Monetag Zone ID সেট করা নেই — admin প্যানেল চেক করুন'));
+            return;
         }
+
+        // SDK ready হওয়ার পরে চালাবো
+        onMonetagReady(() => {
+            try {
+                // Method 1 (প্রধান): show_{zoneId}() — Monetag Mini App Ad API
+                const fn = window[`show_${z}`];
+                if (typeof fn === 'function') {
+                    console.log('Monetag: calling show_' + z);
+                    const ret = fn();
+                    if (ret && typeof ret.then === 'function') {
+                        ret.then(resolve).catch(reject);
+                    } else {
+                        // Mini App Ad দেখায়, close হলে resolve
+                        // Monetag SDK থেকে close event না আসলে 30s পরে auto-resolve
+                        const t = setTimeout(resolve, 30000);
+                        // SDK এর close callback (যদি থাকে)
+                        if (window.__monetag_on_close) {
+                            window.__monetag_on_close = () => { clearTimeout(t); resolve(); };
+                        }
+                    }
+                    return;
+                }
+
+                // Method 2: __monetag.show() — কিছু SDK version
+                if (window.__monetag && typeof window.__monetag.show === 'function') {
+                    console.log('Monetag: calling __monetag.show()');
+                    window.__monetag.show().then(resolve).catch(reject);
+                    return;
+                }
+
+                // Method 3: monetag.show()
+                if (window.monetag && typeof window.monetag.show === 'function') {
+                    console.log('Monetag: calling monetag.show()');
+                    window.monetag.show().then(resolve).catch(reject);
+                    return;
+                }
+
+                console.warn('Monetag SDK loaded কিন্তু show function পাওয়া যায়নি। Zone ID ঠিক আছে?');
+                reject(new Error('Monetag show function not found — Zone ID চেক করুন'));
+
+            } catch(e) {
+                reject(e);
+            }
+        });
+
+        // SDK load হতে দেরি হচ্ছে — 8 সেকেন্ড timeout
+        setTimeout(() => {
+            if (!_monetagReady) {
+                console.warn('Monetag SDK timeout — Zone ID বা internet চেক করুন');
+                reject(new Error('Monetag SDK load timeout'));
+            }
+        }, 8000);
     });
 }
 
