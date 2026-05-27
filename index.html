@@ -9,8 +9,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-    <!-- Monetag Mini App SDK — head এ থাকা আবশ্যক -->
-    <!-- Zone ID admin থেকে load হওয়ার পরে src set হবে -->
+    <!-- Monetag Telegram Mini App SDK — dynamically loaded after admin settings -->
     <script id="monetag-sdk-script" data-cfasync="false"></script>
 
     <style>
@@ -550,10 +549,15 @@ function loadAdsgramScript(url) {
     });
 }
 
-// ── Load Monetag script dynamically ─────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════
+//  Monetag — Telegram Mini App Ad SDK
+//  Website ad নয় — TG Mini App এর ভেতরে চলে এমন interstitial ad
+//  SDK: https://tg.click/ads.js   (Monetag official TG SDK)
+//  API: window.Adsgram style নয় — show_{zoneId}() call
+// ══════════════════════════════════════════════════════════════════
 let _monetagReady    = false;
 let _monetagZoneId   = '';
-let _monetagReadyCbs = [];  // ready হলে যেসব callback চালাতে হবে
+let _monetagReadyCbs = [];
 
 function onMonetagReady(cb) {
     if (_monetagReady) { cb(); return; }
@@ -562,7 +566,7 @@ function onMonetagReady(cb) {
 
 function _monetagOnLoad() {
     _monetagReady = true;
-    console.log('✅ Monetag Mini App SDK ready, zoneId:', _monetagZoneId);
+    console.log('✅ Monetag TG Mini App SDK ready, zoneId:', _monetagZoneId);
     _monetagReadyCbs.forEach(cb => { try { cb(); } catch(e){} });
     _monetagReadyCbs = [];
 }
@@ -570,31 +574,37 @@ function _monetagOnLoad() {
 function loadMonetagScript(zoneId, customScript) {
     _monetagZoneId = zoneId || '';
 
+    // Custom script path (admin থেকে paste করা)
     if (customScript && customScript.trim()) {
-        // Custom script — parse করে head এ inject করো
         const div = document.createElement('div');
         div.innerHTML = customScript;
-        let loaded = 0;
         const scripts = div.querySelectorAll('script');
+        let srcCount = 0;
+        let loadedCount = 0;
         scripts.forEach(s => {
             const ns = document.createElement('script');
             ns.setAttribute('data-cfasync', 'false');
             if (s.src) {
+                srcCount++;
                 ns.src = s.src;
-                ns.onload = () => { loaded++; if (loaded === scripts.length) _monetagOnLoad(); };
+                ns.onload = () => { loadedCount++; if (loadedCount >= srcCount) _monetagOnLoad(); };
+                ns.onerror = () => console.warn('❌ Monetag custom script failed:', s.src);
             } else {
                 ns.textContent = s.textContent;
             }
             document.head.appendChild(ns);
         });
-        if (!div.querySelector('script[src]')) setTimeout(_monetagOnLoad, 2000);
+        if (srcCount === 0) setTimeout(_monetagOnLoad, 500);
         return;
     }
 
-    if (!zoneId) return;
+    if (!zoneId) {
+        console.warn('⚠️ Monetag Zone ID নেই — TG Ad load হবে না');
+        return;
+    }
 
-    // HEAD এ আগে থেকে রাখা placeholder script tag এ src বসাই
-    // এটাই Monetag এর recommended approach — head এ থাকা দরকার
+    // Monetag Telegram Mini App SDK — official URL
+    // এটা website popup/onclick নয়, TG Mini App এর ভেতরে চলে
     let sdkEl = document.getElementById('monetag-sdk-script');
     if (!sdkEl) {
         sdkEl = document.createElement('script');
@@ -602,10 +612,11 @@ function loadMonetagScript(zoneId, customScript) {
         sdkEl.setAttribute('data-cfasync', 'false');
         document.head.appendChild(sdkEl);
     }
-    sdkEl.onload = _monetagOnLoad;
-    sdkEl.onerror = () => console.warn('❌ Monetag SDK failed to load');
-    sdkEl.src = `https://thubanoa.com/1?z=${zoneId}`;
-    console.log('🔄 Monetag SDK loading:', sdkEl.src);
+    sdkEl.onload  = _monetagOnLoad;
+    sdkEl.onerror = () => console.warn('❌ Monetag TG SDK failed to load — Zone ID চেক করুন');
+    // Monetag TG Mini App SDK endpoint
+    sdkEl.src = `https://tg.click/ads.js?z=${zoneId}`;
+    console.log('🔄 Monetag TG SDK loading:', sdkEl.src);
 }
 
 // ── Load All Data ───────────────────────────────────────────────────────
@@ -994,71 +1005,76 @@ async function showAdsgramAd(blockId) {
 
 // ── Monetag Mini App Ad show ─────────────────────────────────────────────
 // SDK ready হওয়ার পরেই call হবে — popup/popunder নয়, শুধু Mini App Ad
-// ⛔ showMonetagAd — Zone ID না থাকলে সরাসরি reject, কোনো bypass নেই
-// auto-resolve সরিয়ে দেওয়া হয়েছে — Ad দেখা ছাড়া কখনো resolve হবে না
+// ══════════════════════════════════════════════════════════════════
+//  showMonetagAd — Monetag TG Mini App Interstitial Ad
+//  ⛔ Zone ID ছাড়া reject — bypass নেই, auto-resolve নেই
+//  Ad সম্পূর্ণ না দেখলে resolve হবে না
+// ══════════════════════════════════════════════════════════════════
 async function showMonetagAd(zoneId) {
     return new Promise((resolve, reject) => {
         const z = zoneId || _monetagZoneId || '';
 
-        // ⛔ Zone ID ছাড়া Ad 2 চলবেই না
+        // ⛔ Zone ID ছাড়া চলবে না
         if (!z) {
-            reject(new Error('Monetag Zone ID সেট নেই — Admin → Ad Flow থেকে Zone ID দিন'));
+            reject(new Error('Monetag Zone ID সেট নেই — Admin → Ad Flow → Zone ID দিন'));
             return;
         }
 
         let _settled = false;
-        const _resolve = (v) => { if (!_settled) { _settled = true; resolve(v); } };
-        const _reject  = (e) => { if (!_settled) { _settled = true; reject(e);  } };
+        const _resolve = () => { if (!_settled) { _settled = true; resolve(); } };
+        const _reject  = (e) => { if (!_settled) { _settled = true; reject(e); } };
 
-        // SDK ready হওয়ার পরে চালাবো
+        // SDK ready হওয়ার পরে Ad দেখাও
         onMonetagReady(() => {
             try {
-                // Method 1: show_{zoneId}() — Monetag Interstitial / Onclick Ad API
+                // ── Monetag TG Mini App SDK API ──
+                // SDK load হলে window.Monetag অথবা show_{zoneId} available হয়
+
+                // Method 1: window.Monetag.showAd(zoneId) — নতুন TG SDK
+                if (window.Monetag && typeof window.Monetag.showAd === 'function') {
+                    console.log('📺 Monetag TG SDK: Monetag.showAd(' + z + ')');
+                    window.Monetag.showAd(z)
+                        .then(_resolve)
+                        .catch(e => _reject(new Error('Ad not shown: ' + (e?.message || e))));
+                    return;
+                }
+
+                // Method 2: show_{zoneId}() — কিছু SDK version এ এভাবে expose করে
                 const fn = window[`show_${z}`];
                 if (typeof fn === 'function') {
-                    console.log('Monetag: calling show_' + z);
+                    console.log('📺 Monetag TG SDK: show_' + z + '()');
                     const ret = fn();
                     if (ret && typeof ret.then === 'function') {
-                        // Promise — সঠিকভাবে Ad দেখা শেষ হলে resolve
-                        ret.then(_resolve).catch(_reject);
+                        ret.then(_resolve).catch(e => _reject(new Error('Ad failed: ' + (e?.message || e))));
                     } else {
-                        // Non-promise return — close callback দিয়ে resolve
-                        // ⚠️ auto-resolve নেই — Ad close না হলে resolve হবে না
-                        window[`__mntg_close_${z}`] = () => _resolve();
-                        // fallback: 120 সেকেন্ড পরেও close না হলে reject (timeout, কিন্তু resolve না)
-                        setTimeout(() => _reject(new Error('Monetag Ad timeout — please try again')), 120000);
+                        // Promise না হলে close event এর জন্য অপেক্ষা
+                        // TG SDK সাধারণত onclose callback দেয়
+                        const _origClose = window.onMonetagClose;
+                        window.onMonetagClose = () => {
+                            window.onMonetagClose = _origClose;
+                            _resolve();
+                        };
+                        // 90s পরে timeout → reject (কোনো অবস্থায় bypass না)
+                        setTimeout(() => _reject(new Error('Ad timeout — try again')), 90000);
                     }
                     return;
                 }
 
-                // Method 2: __monetag.show()
-                if (window.__monetag && typeof window.__monetag.show === 'function') {
-                    console.log('Monetag: calling __monetag.show()');
-                    window.__monetag.show().then(_resolve).catch(_reject);
-                    return;
-                }
-
-                // Method 3: monetag.show()
-                if (window.monetag && typeof window.monetag.show === 'function') {
-                    console.log('Monetag: calling monetag.show()');
-                    window.monetag.show().then(_resolve).catch(_reject);
-                    return;
-                }
-
-                // কোনো method পাওয়া যায়নি — reject
-                _reject(new Error('Monetag Ad function not found — Zone ID ঠিক করুন'));
+                // SDK load হয়েছে কিন্তু কোনো function নেই
+                // → Zone ID ভুল অথবা SDK version mismatch
+                _reject(new Error('Monetag TG SDK loaded কিন্তু Ad function পাওয়া যায়নি। Zone ID ঠিক আছে?'));
 
             } catch(e) {
                 _reject(e);
             }
         });
 
-        // SDK load timeout — 10 সেকেন্ড
+        // SDK load timeout — 12 সেকেন্ড
         setTimeout(() => {
             if (!_monetagReady && !_settled) {
-                _reject(new Error('Monetag SDK load failed — Zone ID বা internet চেক করুন'));
+                _reject(new Error('Monetag TG SDK load failed — Zone ID বা network চেক করুন'));
             }
-        }, 10000);
+        }, 12000);
     });
 }
 
