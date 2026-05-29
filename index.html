@@ -9,8 +9,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-    <!-- Ad SDK placeholder — src set হবে admin Zone ID দিয়ে -->
-    <script id="monetag-sdk-script" data-cfasync="false"></script>
+    <!-- Ad SDK — static head load required for Telegram Mini App -->
+    <script data-cfasync="false" src='//libtl.com/sdk.js' data-zone='11069454' data-sdk='show_11069454'></script>
 
     <style>
         .hide-scrollbar::-webkit-scrollbar { display: none; }
@@ -549,9 +549,11 @@ function loadAdsgramScript(url) {
     });
 }
 
-// ── Ad SDK (Monetag libtl.com) loader ───────────────────────────────────
+// ── Ad SDK (libtl.com) — loaded statically in <head> ─────────────────────
+// Zone ID is hardcoded in head script tag.
+// This just waits for show_{zoneId} to become available.
 let _monetagReady    = false;
-let _monetagZoneId   = '';
+let _monetagZoneId   = '11069454'; // hardcoded — matches head script
 let _monetagReadyCbs = [];
 let _monetagLoading  = false;
 
@@ -561,7 +563,6 @@ function onMonetagReady(cb) {
 }
 
 function _monetagOnLoad() {
-    // Give SDK a short moment to register show_{zoneId}
     setTimeout(() => {
         _monetagReady = true;
         _monetagLoading = false;
@@ -571,58 +572,29 @@ function _monetagOnLoad() {
 }
 
 function loadMonetagScript(zoneId, customScript) {
-    _monetagZoneId = zoneId || '';
+    // Zone ID from admin — update the hardcoded value at runtime
+    if (zoneId) _monetagZoneId = zoneId;
 
-    if (customScript && customScript.trim()) {
-        if (_monetagLoading || _monetagReady) return;
-        _monetagLoading = true;
-        const div = document.createElement('div');
-        div.innerHTML = customScript;
-        let totalSrc = 0, loadedSrc = 0;
-        const scripts = div.querySelectorAll('script');
-        scripts.forEach(s => { if (s.src) totalSrc++; });
-        scripts.forEach(s => {
-            const ns = document.createElement('script');
-            ns.setAttribute('data-cfasync', 'false');
-            if (s.src) {
-                ns.src = s.src;
-                ns.onload = () => { loadedSrc++; if (loadedSrc === totalSrc) _monetagOnLoad(); };
-                ns.onerror = () => { loadedSrc++; if (loadedSrc === totalSrc) _monetagOnLoad(); };
-            } else {
-                ns.textContent = s.textContent;
-            }
-            document.head.appendChild(ns);
-        });
-        if (!totalSrc) setTimeout(_monetagOnLoad, 1000);
-        return;
-    }
-
-    if (!zoneId) return;
-    if (_monetagLoading) return; // already loading
-    if (_monetagReady && typeof window[`show_${zoneId}`] === 'function') return; // already loaded
-
+    // SDK is already in <head> — just check if show_ function is ready
+    // Poll every 300ms up to 15s for the function to appear
+    if (_monetagLoading || _monetagReady) return;
     _monetagLoading = true;
 
-    // Remove old placeholder (it has no src so safe to replace)
-    const old = document.getElementById('monetag-sdk-script');
-    if (old && !old.src) {
-        old.parentNode.removeChild(old);
-    } else if (old && old.src) {
-        // Script tag already has src set from previous attempt
-        // Just wait for function to appear
-        _monetagOnLoad();
-        return;
+    let checks = 0;
+    function checkReady() {
+        const fn = window[`show_${_monetagZoneId}`];
+        if (typeof fn === 'function') {
+            _monetagOnLoad();
+            return;
+        }
+        checks++;
+        if (checks < 50) { // 50 × 300ms = 15s
+            setTimeout(checkReady, 300);
+        } else {
+            _monetagLoading = false;
+        }
     }
-
-    const sdkEl = document.createElement('script');
-    sdkEl.id = 'monetag-sdk-script';
-    sdkEl.setAttribute('data-cfasync', 'false');
-    sdkEl.setAttribute('data-zone', zoneId);
-    sdkEl.setAttribute('data-sdk', `show_${zoneId}`);
-    sdkEl.onload  = _monetagOnLoad;
-    sdkEl.onerror = () => { _monetagLoading = false; };
-    sdkEl.src = `//libtl.com/sdk.js`;
-    document.head.appendChild(sdkEl);
+    checkReady();
 }
 
 // ── Load All Data ───────────────────────────────────────────────────────
@@ -1009,15 +981,11 @@ async function showAdsgramAd(blockId) {
     });
 }
 
-// ── Final Ad (Monetag Mini App) show ────────────────────────────────────
+// ── Final Ad show ─────────────────────────────────────────────────────────
 async function showMonetagAd(zoneId) {
     return new Promise((resolve, reject) => {
-        const z = zoneId || _monetagZoneId || '';
-
-        if (!z) {
-            reject(new Error('Zone ID not configured'));
-            return;
-        }
+        // Use admin-set zone or fallback to hardcoded
+        const z = zoneId || _monetagZoneId || '11069454';
 
         let settled = false;
         function done(ok, err) {
@@ -1026,25 +994,21 @@ async function showMonetagAd(zoneId) {
             if (ok) resolve(); else reject(err || new Error('Ad failed'));
         }
 
-        // Poll until show_{z} is available (max 12s)
+        // Poll until show_{z} is available (max 15s)
         let attempts = 0;
         function tryCall() {
             attempts++;
-
             const fn = window[`show_${z}`];
 
             if (typeof fn === 'function') {
                 try {
                     const ret = fn();
                     if (ret && typeof ret.then === 'function') {
-                        // SDK returns Promise → wait for it
                         ret.then(() => done(true))
                            .catch(e => done(false, e));
                     } else {
-                        // Synchronous call — ad popup opened
-                        // Resolve after user has time to see/close ad (max 60s)
+                        // Sync call — ad window opened, wait for close (max 60s)
                         const t = setTimeout(() => done(true), 60000);
-                        // If SDK provides close callback
                         const origClose = window.__monetag_on_close;
                         window.__monetag_on_close = () => {
                             clearTimeout(t);
@@ -1052,14 +1016,13 @@ async function showMonetagAd(zoneId) {
                             done(true);
                         };
                     }
-                    return; // fn found and called
+                    return;
                 } catch(e) {
                     done(false, e);
                     return;
                 }
             }
 
-            // Fallbacks
             if (window.__monetag && typeof window.__monetag.show === 'function') {
                 window.__monetag.show().then(() => done(true)).catch(e => done(false, e));
                 return;
@@ -1069,11 +1032,11 @@ async function showMonetagAd(zoneId) {
                 return;
             }
 
-            // Not found yet — keep polling up to 12 seconds
-            if (attempts < 48) {
+            // Keep polling — SDK in head but may take a moment
+            if (attempts < 60) { // 60 × 250ms = 15s
                 setTimeout(tryCall, 250);
             } else {
-                done(false, new Error('Ad SDK not ready. Check Zone ID.'));
+                done(false, new Error('Ad not available. Please try again.'));
             }
         }
 
@@ -1388,6 +1351,10 @@ window.switchTab = (tab) => {
 
 // ── Search ────────────────────────────────────────────────────────────────
 document.getElementById('searchInput').addEventListener('input', renderFiles);
+
+// ── Start SDK polling immediately — SDK already in <head> ─────────────────
+// Don't wait for Firebase — start detecting show_11069454 right away
+loadMonetagScript('11069454', '');
 
 // ── Init ──────────────────────────────────────────────────────────────────
 (async () => {
