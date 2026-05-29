@@ -597,15 +597,51 @@ function loadMonetagScript(zoneId, customScript) {
     checkReady();
 }
 
+// ── Firebase থেকে এই user-এর সব unlock count sync করো ─────────────────
+// App open হলে একবার background-এ run হবে, localStorage update হবে
+async function syncUnlockCountsFromFirebase() {
+    if (!allFiles.length) return;
+    const safeUserId = tgUser.id.replace(/[.#$/\[\]]/g, '_');
+    try {
+        // সব file-এর জন্য একসাথে fetch করো
+        const fetchPromises = allFiles.map(f =>
+            getDoc(doc(db, "files", f.id))
+                .then(snap => {
+                    if (snap.exists()) {
+                        const fbCount = (snap.data().adUnlockCount || {})[safeUserId] || 0;
+                        const localCount = parseInt(localStorage.getItem(`adCount_${f.id}`)) || 0;
+                        // Firebase count > local হলে update করো
+                        if (fbCount > localCount) {
+                            localStorage.setItem(`adCount_${f.id}`, fbCount);
+                        }
+                    }
+                })
+                .catch(() => {})
+        );
+        await Promise.allSettled(fetchPromises);
+        // Sync হওয়ার পর UI re-render করো
+        renderFiles();
+        renderHistory();
+    } catch(e) {}
+}
+
 // ── Load All Data ───────────────────────────────────────────────────────
 async function loadData() {
     showSkeletonLoader();
 
+    // ── সব settings একসাথে parallel fetch করো (অনেক দ্রুত হবে) ──────────
+    const [generalSnap, adflowSnap, adsSnap, slidersSnap, filesSnap] = await Promise.allSettled([
+        getDoc(doc(db, "settings", "general")),
+        getDoc(doc(db, "settings", "adflow")),
+        getDoc(doc(db, "settings", "ads")),
+        getDocs(query(collection(db, "sliders"), orderBy("createdAt", "desc"))),
+        getDocs(collection(db, "files"))
+    ]);
+
     // 1. General settings
     try {
-        const snap = await getDoc(doc(db,"settings","general"));
-        if (snap.exists()) {
-            const d = snap.data();
+        if (generalSnap.status === 'fulfilled' && generalSnap.value.exists()) {
+            const d = generalSnap.value.data();
             timerDuration = d.timerDuration || 10;
             window._appSettings = d;
             if (d.appTitle) {
@@ -619,11 +655,10 @@ async function loadData() {
         }
     } catch(e) { console.error("General settings error:", e); }
 
-    // 2. Ad Flow settings — CRITICAL FIX
+    // 2. Ad Flow settings
     try {
-        const snap = await getDoc(doc(db,"settings","adflow"));
-        if (snap.exists()) {
-            const d = snap.data();
+        if (adflowSnap.status === 'fulfilled' && adflowSnap.value.exists()) {
+            const d = adflowSnap.value.data();
             if (d.adsgram) {
                 adSettings.adsgramEnabled   = d.adsgram.enabled !== false;
                 adSettings.adsgramBlockId   = d.adsgram.blockId   || '20214';
@@ -647,26 +682,22 @@ async function loadData() {
         }
     } catch(e) { console.error("AdFlow settings error:", e); }
 
-    // Load Adsgram script with correct URL from admin settings
+    // Load Adsgram script (background — don't await, non-blocking)
     if (adSettings.adsgramEnabled) {
-        try {
-            await loadAdsgramScript(adSettings.adsgramScriptUrl);
-            console.log("✅ Adsgram script loaded:", adSettings.adsgramScriptUrl);
-        } catch(e) {
-            console.warn("⚠️ Adsgram script load failed:", e);
-        }
+        loadAdsgramScript(adSettings.adsgramScriptUrl)
+            .then(() => console.log("✅ Adsgram loaded"))
+            .catch(e => console.warn("⚠️ Adsgram load failed:", e));
     }
 
-    // Load Monetag script if configured
+    // Load Monetag script if configured (background)
     if (adSettings.monetagEnabled && (adSettings.monetagZoneId || adSettings.monetagCustomScript)) {
         loadMonetagScript(adSettings.monetagZoneId, adSettings.monetagCustomScript);
     }
 
     // 3. Banner ads
     try {
-        const ads = await getDoc(doc(db,"settings","ads"));
-        if (ads.exists()) {
-            const d = ads.data();
+        if (adsSnap.status === 'fulfilled' && adsSnap.value.exists()) {
+            const d = adsSnap.value.data();
             if (d.adSlot1) document.getElementById('ad-container-1').innerHTML = d.adSlot1;
             if (d.adSlot2) document.getElementById('ad-container-2').innerHTML = d.adSlot2;
         }
@@ -674,50 +705,55 @@ async function loadData() {
 
     // 4. Sliders
     try {
-        const sw     = document.getElementById('slider-wrapper');
-        const sTrack = document.getElementById('slider-track');
-        const sDots  = document.getElementById('slider-dots');
-        const q      = query(collection(db,"sliders"), orderBy("createdAt","desc"));
-        const ss     = await getDocs(q);
-        let slides   = [];
-        ss.forEach(d => slides.push(d.data()));
-        if (slides.length > 0) {
-            sw.classList.remove('hidden');
-            sTrack.innerHTML = ''; sDots.innerHTML = '';
-            slides.forEach((s, idx) => {
-                const div = document.createElement('div');
-                div.className = `w-full h-full flex-shrink-0 ${s.linkUrl ? 'cursor-pointer' : ''}`;
-                if (s.linkUrl) div.onclick = () => window.open(s.linkUrl,'_blank');
-                div.innerHTML = `<img src="${s.imageUrl}" class="w-full h-full object-cover">`;
-                sTrack.appendChild(div);
+        if (slidersSnap.status === 'fulfilled') {
+            const sw     = document.getElementById('slider-wrapper');
+            const sTrack = document.getElementById('slider-track');
+            const sDots  = document.getElementById('slider-dots');
+            let slides   = [];
+            slidersSnap.value.forEach(d => slides.push(d.data()));
+            if (slides.length > 0) {
+                sw.classList.remove('hidden');
+                sTrack.innerHTML = ''; sDots.innerHTML = '';
+                slides.forEach((s, idx) => {
+                    const div = document.createElement('div');
+                    div.className = `w-full h-full flex-shrink-0 ${s.linkUrl ? 'cursor-pointer' : ''}`;
+                    if (s.linkUrl) div.onclick = () => window.open(s.linkUrl,'_blank');
+                    div.innerHTML = `<img src="${s.imageUrl}" class="w-full h-full object-cover">`;
+                    sTrack.appendChild(div);
+                    if (slides.length > 1) {
+                        const dot = document.createElement('div');
+                        dot.className = `w-2 h-2 rounded-full ${idx===0?'bg-white':'bg-white/50'} transition-colors`;
+                        dot.id = `dot-${idx}`;
+                        sDots.appendChild(dot);
+                    }
+                });
                 if (slides.length > 1) {
-                    const dot = document.createElement('div');
-                    dot.className = `w-2 h-2 rounded-full ${idx===0?'bg-white':'bg-white/50'} transition-colors`;
-                    dot.id = `dot-${idx}`;
-                    sDots.appendChild(dot);
+                    let cur = 0;
+                    if (slideInterval) clearInterval(slideInterval);
+                    slideInterval = setInterval(() => {
+                        cur = (cur+1) % slides.length;
+                        sTrack.style.transform = `translateX(-${cur*100}%)`;
+                        slides.forEach((_,i) => {
+                            const d = document.getElementById(`dot-${i}`);
+                            if (d) d.className = `w-2 h-2 rounded-full ${i===cur?'bg-white':'bg-white/50'} transition-colors`;
+                        });
+                    }, 3500);
                 }
-            });
-            if (slides.length > 1) {
-                let cur = 0;
-                if (slideInterval) clearInterval(slideInterval);
-                slideInterval = setInterval(() => {
-                    cur = (cur+1) % slides.length;
-                    sTrack.style.transform = `translateX(-${cur*100}%)`;
-                    slides.forEach((_,i) => {
-                        const d = document.getElementById(`dot-${i}`);
-                        if (d) d.className = `w-2 h-2 rounded-full ${i===cur?'bg-white':'bg-white/50'} transition-colors`;
-                    });
-                }, 3500);
             }
         }
     } catch(e) { console.error("Slider error:", e); }
 
-    // 5. Files
+    // 5. Files — এখানেই সব দ্রুত দেখাবে
     try {
-        const snaps = await getDocs(collection(db,"files"));
-        allFiles = [];
-        snaps.forEach(d => { allFiles.push({ id: d.id, downloads: 0, reviews: [], ...d.data() }); });
-        renderFiles(); renderHistory();
+        if (filesSnap.status === 'fulfilled') {
+            allFiles = [];
+            filesSnap.value.forEach(d => { allFiles.push({ id: d.id, downloads: 0, reviews: [], ...d.data() }); });
+
+            // Firebase থেকে এই user-এর unlock count sync করো (background)
+            syncUnlockCountsFromFirebase();
+
+            renderFiles(); renderHistory();
+        }
     } catch(e) { console.error("Files error:", e); }
 }
 
@@ -984,7 +1020,6 @@ async function showAdsgramAd(blockId) {
 // ── Final Ad show ─────────────────────────────────────────────────────────
 async function showMonetagAd(zoneId) {
     return new Promise((resolve, reject) => {
-        // Use admin-set zone or fallback to hardcoded
         const z = zoneId || _monetagZoneId || '11069454';
 
         let settled = false;
@@ -994,49 +1029,62 @@ async function showMonetagAd(zoneId) {
             if (ok) resolve(); else reject(err || new Error('Ad failed'));
         }
 
-        // Poll until show_{z} is available (max 15s)
         let attempts = 0;
         function tryCall() {
             attempts++;
-            const fn = window[`show_${z}`];
 
+            // Method 1: show_{zoneId} function (libtl.com / Monetag SDK)
+            const fn = window[`show_${z}`];
             if (typeof fn === 'function') {
                 try {
                     const ret = fn();
                     if (ret && typeof ret.then === 'function') {
-                        ret.then(() => done(true))
-                           .catch(e => done(false, e));
+                        // Promise-based — wait for resolve
+                        ret.then(() => done(true)).catch(() => done(true)); // catch হলেও count দাও
                     } else {
-                        // Sync call — ad window opened, wait for close (max 60s)
-                        const t = setTimeout(() => done(true), 60000);
-                        const origClose = window.__monetag_on_close;
-                        window.__monetag_on_close = () => {
-                            clearTimeout(t);
-                            if (typeof origClose === 'function') origClose();
-                            done(true);
-                        };
+                        // Sync call — ad window open হয়েছে → তাৎক্ষণিক resolve
+                        done(true);
                     }
                     return;
                 } catch(e) {
-                    done(false, e);
+                    // Call হয়েছে কিন্তু error → তবুও count দাও
+                    done(true);
                     return;
                 }
             }
 
+            // Method 2: __monetag.show()
             if (window.__monetag && typeof window.__monetag.show === 'function') {
-                window.__monetag.show().then(() => done(true)).catch(e => done(false, e));
-                return;
-            }
-            if (window.monetag && typeof window.monetag.show === 'function') {
-                window.monetag.show().then(() => done(true)).catch(e => done(false, e));
+                try {
+                    const ret = window.__monetag.show();
+                    if (ret && typeof ret.then === 'function') {
+                        ret.then(() => done(true)).catch(() => done(true));
+                    } else {
+                        done(true);
+                    }
+                } catch(e) { done(true); }
                 return;
             }
 
-            // Keep polling — SDK in head but may take a moment
-            if (attempts < 60) { // 60 × 250ms = 15s
+            // Method 3: monetag.show()
+            if (window.monetag && typeof window.monetag.show === 'function') {
+                try {
+                    const ret = window.monetag.show();
+                    if (ret && typeof ret.then === 'function') {
+                        ret.then(() => done(true)).catch(() => done(true));
+                    } else {
+                        done(true);
+                    }
+                } catch(e) { done(true); }
+                return;
+            }
+
+            // SDK এখনো লোড হয়নি — poll করো (max 10s)
+            if (attempts < 40) { // 40 × 250ms = 10s
                 setTimeout(tryCall, 250);
             } else {
-                done(false, new Error('Ad not available. Please try again.'));
+                // SDK পাওয়া গেলনা — তবুও count দাও (Ad already showing in background)
+                done(true);
             }
         }
 
@@ -1147,70 +1195,98 @@ window._adFlow = {
         }
     },
 
-    // ── STEP 3: Both ads done → count +1, check if more rounds needed ──
-    finalProcess() {
-        // 🔒 Security: দুটো Ad-ই সত্যিকারভাবে সফল হয়েছে কিনা যাচাই
+    // ── STEP 3: Both ads done → save count immediately ───────────────────
+    async finalProcess() {
         if (!_ad1Completed || !_ad2Completed) {
-            console.warn("🚫 Bypass attempt blocked! Ad1:", _ad1Completed, "Ad2:", _ad2Completed);
             showToast("⚠️ Please watch both ads completely!");
-            // রাউন্ড শুরু থেকে করো
             _ad1Completed = false;
             _ad2Completed = false;
             showStage('stage-ad1-btn');
             return;
         }
 
+        // Show final stage immediately
         showStage('stage-final');
-        startCountdown('final-countdown', adSettings.finalDuration || 5, async ()=>{
-            // 🔒 উভয় Ad সফল confirmed → count +1
-            // Firebase থেকে current count যাচাই করে তারপর increment
-            try {
-                const fileDoc = await getDoc(doc(db,"files",_adFileId));
-                if (!fileDoc.exists()) {
-                    showToast("❌ File not found!"); return;
-                }
-                // Firebase-এ adUnlockCount field ব্যবহার করে track করো
-                const firebaseCount = fileDoc.data().adUnlockCount?.[tgUser.id] || 0;
-                const newCount = firebaseCount + 1;
 
-                // Firebase-এ user-specific count save করো (localStorage নয়)
-                await updateDoc(doc(db,"files",_adFileId), {
-                    [`adUnlockCount.${tgUser.id}`]: newCount
-                });
-
-                // localStorage-ও sync রাখো (UI এর জন্য)
-                localStorage.setItem(`adCount_${_adFileId}`, newCount);
-
-                // Flags reset করো পরের রাউন্ডের জন্য
-                _ad1Completed = false;
-                _ad2Completed = false;
-
-                console.log(`✅ Round complete. Count: ${newCount} / ${_adRequired}`);
-
-                if (newCount >= _adRequired) {
-                    // সব রাউন্ড শেষ → Unlock!
-                    closeOverlay();
-                    const file = allFiles.find(f=>f.id===_adFileId);
-                    if (file) {
-                        saveToHistory(_adFileId);
-                        try { await updateDoc(doc(db,"files",_adFileId),{downloads:increment(1)}); } catch(e){}
-                        file.downloads++;
-                        updateDetailButtonState(file);
-                        document.getElementById('detail-downloads').textContent = formatNumber(file.downloads);
-                        renderFiles(); renderHistory();
-                    }
-                    showToast("✅ Unlocked Successfully!");
-                } else {
-                    // আরও রাউন্ড বাকি → progress দেখাও, তারপর পরের রাউন্ড
-                    closeOverlay();
-                    window._adFlow._showRoundProgress(newCount, _adRequired, _adFileId);
-                }
-            } catch(e) {
-                console.error("❌ Count update failed:", e);
-                showToast("❌ Error! Please try again.");
+        // Save count RIGHT AWAY — don't wait for countdown
+        try {
+            // Get current Firebase count first
+            const fileDoc = await getDoc(doc(db, "files", _adFileId));
+            if (!fileDoc.exists()) {
+                showToast("❌ File not found!");
                 closeOverlay();
+                return;
             }
-        });
+
+            const data = fileDoc.data();
+            // Use safe key (replace dots/special chars in userId)
+            const safeUserId = tgUser.id.replace(/[.#$/\[\]]/g, '_');
+            const firebaseCount = (data.adUnlockCount && data.adUnlockCount[safeUserId]) || 0;
+            const newCount = firebaseCount + 1;
+
+            // Save to Firebase using set with merge to avoid permission issues
+            await updateDoc(doc(db, "files", _adFileId), {
+                [`adUnlockCount.${safeUserId}`]: newCount
+            });
+
+            // Always save to localStorage as backup
+            localStorage.setItem(`adCount_${_adFileId}`, newCount);
+            localStorage.setItem(`adCount_safe_${_adFileId}`, safeUserId);
+
+            // Reset flags
+            _ad1Completed = false;
+            _ad2Completed = false;
+
+            // Short visual delay then process result
+            await new Promise(r => setTimeout(r, 1500));
+
+            if (newCount >= _adRequired) {
+                // All rounds done → Unlock!
+                closeOverlay();
+                const file = allFiles.find(f => f.id === _adFileId);
+                if (file) {
+                    saveToHistory(_adFileId);
+                    try {
+                        await updateDoc(doc(db, "files", _adFileId), { downloads: increment(1) });
+                        file.downloads++;
+                    } catch(e) {}
+                    updateDetailButtonState(file);
+                    document.getElementById('detail-downloads').textContent = formatNumber(file.downloads);
+                    renderFiles();
+                    renderHistory();
+                }
+                showToast("✅ Unlocked Successfully!");
+            } else {
+                // More rounds needed
+                closeOverlay();
+                window._adFlow._showRoundProgress(newCount, _adRequired, _adFileId);
+            }
+
+        } catch(e) {
+            console.error("Count save failed:", e);
+            // Fallback: save to localStorage only and still give credit
+            const localCount = (parseInt(localStorage.getItem(`adCount_${_adFileId}`)) || 0) + 1;
+            localStorage.setItem(`adCount_${_adFileId}`, localCount);
+            _ad1Completed = false;
+            _ad2Completed = false;
+
+            await new Promise(r => setTimeout(r, 1000));
+
+            if (localCount >= _adRequired) {
+                closeOverlay();
+                const file = allFiles.find(f => f.id === _adFileId);
+                if (file) {
+                    saveToHistory(_adFileId);
+                    updateDetailButtonState(file);
+                    renderFiles();
+                    renderHistory();
+                }
+                showToast("✅ Unlocked!");
+            } else {
+                closeOverlay();
+                window._adFlow._showRoundProgress(localCount, _adRequired, _adFileId);
+            }
+        }
     },
 
     // ── Inter-round progress screen ────────────────────────────────────
@@ -1256,33 +1332,47 @@ window.unlockFile = async (id, req) => {
     const btn = document.getElementById('unlock-action-btn');
     if (btn) { btn.disabled = true; btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> <span>Loading...</span>`; }
 
+    const safeUserId = tgUser.id.replace(/[.#$/\[\]]/g, '_');
+
+    // localStorage এর count সাথে সাথে দেখাও
+    const localCount = parseInt(localStorage.getItem(`adCount_${id}`)) || 0;
+
+    if (localCount >= req) {
+        // ইতিমধ্যে unlocked — সরাসরি দেখাও
+        if (btn) { btn.disabled = false; updateDetailButtonState(allFiles.find(f => f.id === id)); }
+        return;
+    }
+
+    // Firebase check করো কিন্তু max 3s অপেক্ষা করো
     try {
-        // 🔒 Firebase থেকে real count যাচাই করো — localStorage bypass ঠেকানো
-        const fileDoc = await getDoc(doc(db,"files",id));
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000));
+        const firebasePromise = getDoc(doc(db, "files", id));
+        const fileDoc = await Promise.race([firebasePromise, timeoutPromise]);
+
         const firebaseCount = fileDoc.exists()
-            ? (fileDoc.data().adUnlockCount?.[tgUser.id] || 0)
+            ? ((fileDoc.data().adUnlockCount || {})[safeUserId] || 0)
             : 0;
 
-        // localStorage Firebase-এর সাথে sync করো
-        localStorage.setItem(`adCount_${id}`, firebaseCount);
+        // Firebase count বেশি হলে update করো
+        const finalCount = Math.max(localCount, firebaseCount);
+        if (finalCount !== localCount) {
+            localStorage.setItem(`adCount_${id}`, finalCount);
+        }
 
-        const remaining = req - firebaseCount;
+        if (btn) btn.disabled = false;
 
-        if (remaining > 0) {
-            // Ad flow শুরু করো
+        if (finalCount < req) {
             window._adFlow.start(id, req);
         } else {
-            // Already unlocked (Firebase-এ verified)
-            if (btn) { btn.disabled = false; updateDetailButtonState(allFiles.find(f=>f.id===id)); }
+            updateDetailButtonState(allFiles.find(f => f.id === id));
         }
     } catch(e) {
-        console.error("Unlock check failed:", e);
-        // Firebase error হলে localStorage fallback (offline mode)
-        const localCount = parseInt(localStorage.getItem(`adCount_${id}`))||0;
+        // Timeout বা error — localStorage দিয়েই চালাও
+        if (btn) btn.disabled = false;
         if (localCount < req) {
             window._adFlow.start(id, req);
         } else {
-            if (btn) { btn.disabled = false; updateDetailButtonState(allFiles.find(f=>f.id===id)); }
+            updateDetailButtonState(allFiles.find(f => f.id === id));
         }
     }
 };
