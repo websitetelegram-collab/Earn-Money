@@ -3,48 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Hub</title>
+    <title>File Downloader</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>tailwind.config = { darkMode: 'class', theme: { extend: {} } }</script>
+    <script>
+        tailwind.config = { darkMode: 'class', theme: { extend: {} } }
+    </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-    <!-- Monetag Telegram Mini App SDK — dynamically loaded after admin settings -->
-    <script id="monetag-sdk-script" data-cfasync="false"></script>
+    <!-- Telegram Web App Script -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Adsgram script -->
+    <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
 
     <style>
+        /* ========== SCROLLBAR ========== */
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* ========== STAR RATING ========== */
         .star-btn { transition: transform 0.1s, color 0.2s; }
         .star-btn:active { transform: scale(0.8); }
+
+        /* ========== SLIDER ========== */
         .slider-track { transition: transform 0.5s ease-in-out; }
 
+        /* ========== SKELETON SHIMMER ========== */
         @keyframes shimmer {
             0% { transform: translateX(-100%); }
             100% { transform: translateX(100%); }
         }
         .skeleton-box {
-            position: relative; overflow: hidden; background-color: #e5e7eb;
+            position: relative; overflow: hidden;
+            background-color: #e5e7eb;
         }
         .dark .skeleton-box { background-color: #374151; }
         .skeleton-box::after {
-            content: ''; position: absolute; inset: 0;
+            content: ''; position: absolute;
+            top: 0; right: 0; bottom: 0; left: 0;
             background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
             transform: translateX(-100%);
             animation: shimmer 1.5s infinite;
         }
-        @keyframes fadeInScale {
+        .dark .skeleton-box::after {
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+        }
+
+        /* ========== AD FLOW OVERLAY ========== */
+        @keyframes fadeIn {
             from { opacity: 0; transform: scale(0.95); }
             to   { opacity: 1; transform: scale(1); }
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pulse-ring {
+            0%   { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(99,102,241,0.6); }
+            70%  { transform: scale(1);    box-shadow: 0 0 0 16px rgba(99,102,241,0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(99,102,241,0); }
         }
         @keyframes spin-smooth {
             from { transform: rotate(0deg); }
             to   { transform: rotate(360deg); }
         }
-        @keyframes pulse-ring {
-            0%   { box-shadow: 0 0 0 0 rgba(99,102,241,0.6); }
-            70%  { box-shadow: 0 0 0 14px rgba(99,102,241,0); }
-            100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); }
+        @keyframes statusCycle {
+            0%,100% { opacity: 1; }
+            45%      { opacity: 1; }
+            50%      { opacity: 0; }
+            95%      { opacity: 0; }
+        }
+        @keyframes progressBar {
+            from { width: 0%; }
+            to   { width: 100%; }
         }
         @keyframes checkPop {
             0%   { transform: scale(0) rotate(-45deg); opacity: 0; }
@@ -53,108 +83,79 @@
         }
         @keyframes confettiDrop {
             0%   { transform: translateY(-10px) rotate(0deg); opacity: 1; }
-            100% { transform: translateY(70px)  rotate(720deg); opacity: 0; }
-        }
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to   { opacity: 1; transform: translateY(0); }
+            100% { transform: translateY(60px)  rotate(720deg); opacity: 0; }
         }
 
-        /* ── AD OVERLAY ── */
         .ad-overlay {
             position: fixed; inset: 0;
-            background: rgba(0,0,0,0.92);
-            backdrop-filter: blur(12px);
-            z-index: 300;
-            display: flex; align-items: center; justify-content: center; padding: 20px;
+            background: rgba(0,0,0,0.82);
+            backdrop-filter: blur(8px);
+            z-index: 200;
+            display: flex; align-items: flex-end; justify-content: center;
         }
         .ad-sheet {
-            background: #0d0d1c;
-            border-radius: 24px;
-            width: 100%; max-width: 400px;
-            padding: 32px 24px 28px;
-            animation: fadeInScale 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
-            border: 1px solid rgba(255,255,255,0.07);
-            box-shadow: 0 30px 80px rgba(0,0,0,0.8);
+            background: white;
+            border-radius: 24px 24px 0 0;
+            width: 100%; max-width: 480px;
+            padding: 28px 24px 40px;
+            animation: slideUp 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
+            position: relative;
         }
-        .ad-spinner-wrap { position: relative; width: 68px; height: 68px; margin: 0 auto 18px; }
-        .ad-spinner-arc {
-            width: 68px; height: 68px; border-radius: 50%;
-            border: 3px solid transparent;
-            border-bottom-color: #6366f1; border-left-color: #ec4899;
+        .dark .ad-sheet {
+            background: #1f2937;
+        }
+        .spinner-ring {
+            display: inline-block;
+            width: 52px; height: 52px;
+            border: 4px solid rgba(99,102,241,0.2);
+            border-top-color: #6366f1;
+            border-radius: 50%;
             animation: spin-smooth 0.9s linear infinite;
-            position: absolute; top:0; left:0;
         }
-        .ad-spinner-arc2 {
-            width: 68px; height: 68px; border-radius: 50%;
-            border: 3px solid rgba(255,255,255,0.07);
-            position: absolute; top:0; left:0;
+        .pulse-btn {
+            animation: pulse-ring 1.8s ease-in-out infinite;
         }
-        .ad-check-circle {
-            width: 64px; height: 64px; border-radius: 50%;
-            background: #22c55e;
-            display: flex; align-items: center; justify-content: center;
-            margin: 0 auto 16px;
+        .progress-fill {
+            animation: progressBar 3s ease forwards;
+        }
+        .check-anim {
             animation: checkPop 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
         }
-        .ad-watch-btn {
-            width: 100%; padding: 15px;
-            background: linear-gradient(135deg, #6366f1, #a855f7);
-            color: white; font-weight: 800; font-size: 16px;
-            border-radius: 16px; border: none; cursor: pointer;
-            display: flex; align-items: center; justify-content: center; gap: 10px;
-            animation: pulse-ring 2s ease-in-out infinite;
-        }
-        .ad-watch-btn:disabled { opacity: 0.6; animation: none; cursor: not-allowed; }
-        .ad-play-btn {
-            width: 100%; padding: 15px;
-            background: linear-gradient(135deg, #6366f1, #ec4899);
-            color: white; font-weight: 800; font-size: 16px;
-            border-radius: 16px; border: none; cursor: pointer;
-            display: flex; align-items: center; justify-content: center; gap: 10px;
-            animation: pulse-ring 2s ease-in-out infinite;
-        }
-        .ad-play-btn:disabled { opacity: 0.6; animation: none; cursor: not-allowed; }
-        .ad-cancel-btn {
-            width: 100%; padding: 12px;
-            background: rgba(255,255,255,0.05);
-            color: rgba(255,255,255,0.4); font-weight: 600; font-size: 13px;
-            border-radius: 12px; border: 1px solid rgba(255,255,255,0.07);
-            cursor: pointer; margin-top: 10px; transition: background 0.2s;
-        }
-        .ad-cancel-btn:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.65); }
-        .ad-title-white { color: white; font-size: 20px; font-weight: 800; margin-bottom: 6px; line-height: 1.3; }
-        .ad-sub-gray { color: rgba(255,255,255,0.4); font-size: 13px; margin-bottom: 20px; }
-        .ad-processing-title { color: white; font-size: 17px; font-weight: 700; margin-bottom: 4px; }
-        .ad-processing-sub { color: rgba(255,255,255,0.4); font-size: 13px; }
-        .ad-first-done-title { color: #4ade80; font-size: 20px; font-weight: 800; margin-bottom: 8px; }
         .confetti-dot {
-            position: absolute; width: 8px; height: 8px; border-radius: 50%;
+            position: absolute;
+            width: 8px; height: 8px;
+            border-radius: 50%;
             animation: confettiDrop 1s ease forwards;
         }
 
-        /* Video card play overlay */
-        .play-overlay {
-            position: absolute; inset: 0;
-            background: rgba(0,0,0,0.35);
-            display: flex; align-items: center; justify-content: center;
-            opacity: 0; transition: opacity 0.2s;
+        /* Status text dot blink */
+        .blink-dot::after {
+            content: '';
+            display: inline-block;
+            width: 6px; height: 6px;
+            background: #6366f1;
+            border-radius: 50%;
+            margin-left: 6px;
+            animation: statusCycle 1.2s infinite;
+            vertical-align: middle;
         }
-        .group:hover .play-overlay { opacity: 1; }
-        .play-icon-circle {
-            width: 48px; height: 48px; border-radius: 50%;
-            background: rgba(255,255,255,0.9);
-            display: flex; align-items: center; justify-content: center;
+
+        /* Step bar */
+        .step-bar-fill {
+            height: 4px;
+            background: linear-gradient(90deg, #6366f1, #a855f7);
+            border-radius: 4px;
+            transition: width 0.6s ease;
         }
     </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 font-sans text-gray-800 dark:text-gray-200 pb-20 transition-colors duration-300">
 
-<!-- ═══════════════ HOME VIEW ═══════════════ -->
+<!-- ================= HOME VIEW ================= -->
 <div id="home-view" class="container mx-auto p-4 max-w-7xl">
-    <header id="main-header" class="bg-gradient-to-br from-indigo-600 to-purple-700 text-white p-6 rounded-2xl shadow-xl mb-6 relative overflow-hidden">
-        <div class="absolute top-0 right-0 opacity-10 transform translate-x-8 -translate-y-8">
-            <i class="fas fa-play-circle text-9xl"></i>
+    <header class="bg-gradient-to-br from-indigo-600 to-purple-700 text-white p-6 rounded-2xl shadow-xl mb-6 relative overflow-hidden transition-all duration-300">
+        <div class="absolute top-0 right-0 opacity-10 transform translate-x-10 -translate-y-10">
+            <i class="fas fa-cloud-download-alt text-9xl"></i>
         </div>
         <div class="relative z-10 flex justify-between items-center mb-4">
             <div class="flex items-center gap-2 bg-black/20 px-3 py-1.5 rounded-full text-sm backdrop-blur-sm border border-white/10">
@@ -165,120 +166,112 @@
                 <i id="theme-icon" class="fas fa-moon"></i>
             </button>
         </div>
-        <h1 class="text-3xl md:text-5xl font-extrabold text-center mb-2 relative z-10 app-dynamic-title">Video Hub</h1>
-        <p class="text-center text-indigo-100 mb-6 relative z-10 app-dynamic-sub">Watch Ads, Unlock & Download!</p>
+        <h1 data-key="main_title" class="text-3xl md:text-5xl font-extrabold text-center mb-2 relative z-10 app-dynamic-title">File Hub</h1>
+        <p data-key="main_subtitle" class="text-center text-indigo-100 mb-6 relative z-10">Watch Ads, Unlock & Download!</p>
         <div class="relative w-full max-w-md mx-auto z-10">
-            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
-            <input type="text" id="searchInput" placeholder="Search videos..."
-                class="w-full pl-12 pr-4 py-3 rounded-full text-gray-800 dark:text-white bg-white dark:bg-gray-800 shadow-lg outline-none focus:ring-2 focus:ring-indigo-300 border border-transparent dark:border-gray-700">
+            <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+            <input type="text" id="searchInput" data-key-placeholder="search_placeholder" placeholder="Search files..."
+                class="w-full pl-12 pr-4 py-3 rounded-full text-gray-800 dark:text-white bg-white dark:bg-gray-800 shadow-lg outline-none focus:ring-2 focus:ring-indigo-300 transition-all border border-transparent dark:border-gray-700">
         </div>
     </header>
 
     <div id="ad-container-1" class="my-4 flex justify-center min-h-[50px]"></div>
 
-    <div id="slider-wrapper" class="w-full h-40 md:h-72 bg-gray-200 dark:bg-gray-800 rounded-2xl mb-6 overflow-hidden relative shadow-md hidden border border-transparent dark:border-gray-700">
+    <div id="slider-wrapper" class="w-full h-40 md:h-80 bg-gray-200 dark:bg-gray-800 rounded-xl mb-6 overflow-hidden relative shadow-md hidden border border-transparent dark:border-gray-700">
         <div id="slider-track" class="flex slider-track h-full w-full"></div>
-        <div id="slider-dots" class="absolute bottom-3 w-full flex justify-center gap-2 z-10"></div>
+        <div id="slider-dots" class="absolute bottom-2 w-full flex justify-center gap-2 z-10"></div>
     </div>
 
     <div id="ad-container-2" class="my-4 flex justify-center min-h-[50px]"></div>
 
-    <h2 class="text-xl font-bold mb-4 px-1 text-gray-800 dark:text-gray-100 flex items-center gap-2">
-        <i class="fas fa-fire text-orange-500 text-base"></i> Available Videos
-    </h2>
-    <div id="files-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-5"></div>
+    <h2 data-key="available_files" class="text-xl font-bold mb-4 px-1 text-gray-800 dark:text-gray-100">Available Files</h2>
+    <div id="files-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-6"></div>
 </div>
 
-<!-- ═══════════════ HISTORY VIEW ═══════════════ -->
+<!-- ================= HISTORY VIEW ================= -->
 <div id="history-view" class="container mx-auto p-4 max-w-7xl hidden">
-    <header class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-transparent dark:border-gray-700 mb-6 text-center">
-        <h1 class="text-2xl font-bold text-gray-800 dark:text-white">
-            <i class="fas fa-history text-indigo-500 mr-2"></i> Download History
+    <header class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-transparent dark:border-gray-700 mb-6 text-center transition-colors duration-300">
+        <h1 data-key="history_title" class="text-2xl md:text-4xl font-bold text-gray-800 dark:text-white">
+            <i class="fas fa-history text-indigo-500 mr-2"></i> Downloads History
         </h1>
-        <p class="text-gray-500 dark:text-gray-400 mt-1 text-sm">Videos you have unlocked</p>
+        <p data-key="history_subtitle" class="text-gray-500 dark:text-gray-400 mt-2">Files you have unlocked</p>
     </header>
     <div id="history-list" class="flex flex-col gap-4"></div>
     <div id="empty-history" class="hidden text-center py-10">
-        <i class="fas fa-video-slash text-6xl text-gray-300 dark:text-gray-600 mb-4"></i>
-        <p class="text-gray-500 dark:text-gray-400 text-lg">No downloads yet.</p>
+        <i class="fas fa-box-open text-6xl text-gray-300 dark:text-gray-600 mb-4"></i>
+        <p data-key="empty_history" class="text-gray-500 dark:text-gray-400 text-lg">No downloads yet.</p>
     </div>
 </div>
 
-<!-- ═══════════════ DETAILS VIEW ═══════════════ -->
-<div id="details-view" class="fixed inset-0 bg-white dark:bg-gray-900 z-50 hidden flex-col overflow-hidden">
+<!-- ================= DETAILS PAGE ================= -->
+<div id="details-view" class="fixed inset-0 bg-white dark:bg-gray-900 z-50 hidden flex-col overflow-hidden transition-colors duration-300">
     <div class="flex items-center p-4 shadow-sm border-b dark:border-gray-800 bg-white dark:bg-gray-900 relative z-10">
         <button onclick="window.closeDetails()" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors">
             <i class="fas fa-arrow-left text-xl"></i>
         </button>
         <div class="ml-4 flex items-center gap-3">
             <img id="detail-small-icon" src="" class="w-8 h-8 rounded-md object-cover hidden shadow-sm">
-            <h2 id="detail-header-title" class="text-lg font-bold text-gray-800 dark:text-white line-clamp-1">Video Details</h2>
+            <h2 id="detail-header-title" class="text-lg font-bold text-gray-800 dark:text-white line-clamp-1">App Details</h2>
         </div>
     </div>
+
     <div class="flex-1 overflow-y-auto pb-32 bg-white dark:bg-gray-900">
-
-        <!-- Thumbnail / Video preview -->
-        <div class="relative w-full bg-black overflow-hidden" style="aspect-ratio:16/9;max-height:280px;">
-            <img id="detail-icon" src="" class="w-full h-full object-cover opacity-90">
-            <div class="absolute inset-0 flex items-center justify-center">
-                <div class="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center">
-                    <i class="fas fa-play text-white text-2xl ml-1"></i>
+        <div class="p-4 md:p-6 flex gap-4 items-start">
+            <img id="detail-icon" src="" class="w-20 h-20 md:w-32 md:h-32 rounded-2xl object-cover shadow-sm border border-gray-100 dark:border-gray-700 flex-shrink-0 bg-gray-100 dark:bg-gray-800">
+            <div class="flex-1 min-w-0 w-full overflow-hidden">
+                <h1 id="detail-title" class="text-xl md:text-3xl font-bold text-gray-900 dark:text-white mb-1 leading-tight truncate"></h1>
+                <p class="text-xs md:text-sm text-indigo-600 dark:text-indigo-400 font-bold mb-3 app-dynamic-title truncate">File Hub</p>
+                <div class="flex justify-between items-center bg-gray-50 dark:bg-gray-800 rounded-xl p-2 md:p-3 border border-gray-100 dark:border-gray-700 mt-2 w-full">
+                    <div class="flex flex-col items-center justify-center flex-1">
+                        <span class="font-bold text-gray-900 dark:text-white flex items-center gap-1 text-sm md:text-base">
+                            <span id="detail-rating-avg">0.0</span>
+                            <i class="fas fa-star text-[10px] md:text-xs text-yellow-400"></i>
+                        </span>
+                        <span class="text-[9px] md:text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">Reviews</span>
+                    </div>
+                    <div class="w-px h-8 bg-gray-200 dark:bg-gray-700"></div>
+                    <div class="flex flex-col items-center justify-center flex-1">
+                        <span id="detail-downloads" class="font-bold text-gray-900 dark:text-white text-sm md:text-base">0</span>
+                        <span class="text-[9px] md:text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">Downloads</span>
+                    </div>
+                    <div class="w-px h-8 bg-gray-200 dark:bg-gray-700"></div>
+                    <div class="flex flex-col items-center justify-center flex-1">
+                        <i class="fas fa-shield-alt text-green-500 mb-0.5 text-sm md:text-base"></i>
+                        <span class="text-[9px] md:text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">Safe</span>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="p-4 md:p-6">
-            <h1 id="detail-title" class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-1 leading-tight"></h1>
-            <p class="text-xs text-indigo-600 dark:text-indigo-400 font-bold mb-3 app-dynamic-title">Video Hub</p>
-            <div class="flex justify-between items-center bg-gray-50 dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700">
-                <div class="flex flex-col items-center flex-1">
-                    <span class="font-bold text-gray-900 dark:text-white flex items-center gap-1 text-sm">
-                        <span id="detail-rating-avg">0.0</span>
-                        <i class="fas fa-star text-[10px] text-yellow-400"></i>
-                    </span>
-                    <span class="text-[9px] text-gray-500 uppercase tracking-wide">Reviews</span>
-                </div>
-                <div class="w-px h-8 bg-gray-200 dark:bg-gray-700"></div>
-                <div class="flex flex-col items-center flex-1">
-                    <span id="detail-downloads" class="font-bold text-gray-900 dark:text-white text-sm">0</span>
-                    <span class="text-[9px] text-gray-500 uppercase tracking-wide">Downloads</span>
-                </div>
-                <div class="w-px h-8 bg-gray-200 dark:bg-gray-700"></div>
-                <div class="flex flex-col items-center flex-1">
-                    <i class="fas fa-shield-alt text-green-500 text-sm mb-0.5"></i>
-                    <span class="text-[9px] text-gray-500 uppercase tracking-wide">Safe</span>
-                </div>
+        <div class="mt-2">
+            <div class="px-4 md:px-6 flex justify-between items-end mb-3">
+                <h3 data-key="screenshots" class="text-lg font-bold text-gray-800 dark:text-white">Screenshots</h3>
             </div>
-        </div>
-
-        <!-- Screenshots / Preview frames -->
-        <div class="mb-2">
-            <h3 class="text-base font-bold text-gray-800 dark:text-white px-4 md:px-6 mb-3">Preview</h3>
             <div id="detail-screenshots" class="flex overflow-x-auto hide-scrollbar gap-3 px-4 md:px-6 snap-x pb-4"></div>
         </div>
 
-        <!-- Description -->
-        <div class="p-4 md:p-6 border-t border-gray-100 dark:border-gray-800">
-            <h3 class="text-base font-bold text-gray-800 dark:text-white mb-2">About this video</h3>
-            <p id="detail-desc" class="text-gray-600 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-line"></p>
+        <div class="p-4 md:p-6 border-t border-gray-100 dark:border-gray-800 mt-2">
+            <h3 data-key="about_app" class="text-lg font-bold text-gray-800 dark:text-white mb-3">About this file</h3>
+            <p id="detail-desc" class="text-gray-600 dark:text-gray-300 text-sm md:text-base leading-relaxed whitespace-pre-line"></p>
         </div>
 
-        <!-- Reviews -->
         <div class="p-4 md:p-6 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900">
-            <h3 class="text-base font-bold text-gray-800 dark:text-white mb-4">Ratings & Reviews</h3>
-            <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 mb-5">
-                <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Rate this video</h4>
+            <div class="flex justify-between items-center mb-4">
+                <h3 data-key="reviews" class="text-lg font-bold text-gray-800 dark:text-white">Ratings & Reviews</h3>
+            </div>
+            <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6 relative">
+                <h4 data-key="rate_this" class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Rate this file</h4>
                 <div class="flex text-2xl text-gray-300 dark:text-gray-600 mb-3 gap-1" id="star-rating-container">
-                    <button class="star-btn hover:text-yellow-400" data-val="1"><i class="fas fa-star"></i></button>
-                    <button class="star-btn hover:text-yellow-400" data-val="2"><i class="fas fa-star"></i></button>
-                    <button class="star-btn hover:text-yellow-400" data-val="3"><i class="fas fa-star"></i></button>
-                    <button class="star-btn hover:text-yellow-400" data-val="4"><i class="fas fa-star"></i></button>
-                    <button class="star-btn hover:text-yellow-400" data-val="5"><i class="fas fa-star"></i></button>
+                    <button class="star-btn hover:text-yellow-400 focus:outline-none" data-val="1"><i class="fas fa-star"></i></button>
+                    <button class="star-btn hover:text-yellow-400 focus:outline-none" data-val="2"><i class="fas fa-star"></i></button>
+                    <button class="star-btn hover:text-yellow-400 focus:outline-none" data-val="3"><i class="fas fa-star"></i></button>
+                    <button class="star-btn hover:text-yellow-400 focus:outline-none" data-val="4"><i class="fas fa-star"></i></button>
+                    <button class="star-btn hover:text-yellow-400 focus:outline-none" data-val="5"><i class="fas fa-star"></i></button>
                 </div>
-                <textarea id="review-text" rows="2" class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm text-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-300 resize-none" placeholder="Share your experience..."></textarea>
+                <textarea id="review-text" rows="2" class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm text-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-500 resize-none transition-all" placeholder="Describe your experience (optional)..."></textarea>
                 <div class="flex gap-2 mt-3">
                     <button id="cancel-edit-btn" onclick="window.cancelEditReview()" class="hidden flex-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-bold py-2 rounded-xl text-sm hover:bg-gray-200 transition-colors">Cancel</button>
-                    <button id="submit-review-btn" class="flex-[2] bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 font-bold py-2 rounded-xl text-sm hover:bg-indigo-200 transition-colors">Submit Review</button>
+                    <button id="submit-review-btn" class="flex-[2] bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 font-bold py-2 rounded-xl text-sm hover:bg-indigo-200 dark:hover:bg-indigo-800 transition-colors">Submit Review</button>
                 </div>
             </div>
             <div id="reviews-list" class="flex flex-col gap-4"></div>
@@ -286,12 +279,12 @@
     </div>
 
     <!-- Bottom Action Bar -->
-    <div class="fixed bottom-0 w-full bg-white dark:bg-gray-900 border-t dark:border-gray-800 p-4 shadow-[0_-8px_15px_-3px_rgba(0,0,0,0.08)] z-20">
+    <div class="fixed bottom-0 w-full bg-white dark:bg-gray-900 border-t dark:border-gray-800 p-4 shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1)] z-20">
         <div id="detail-actions" class="max-w-4xl mx-auto flex gap-3"></div>
     </div>
 </div>
 
-<!-- ═══════════════ IMAGE VIEWER ═══════════════ -->
+<!-- ================= FULLSCREEN IMAGE VIEWER ================= -->
 <div id="image-viewer" class="fixed inset-0 bg-black/95 z-[100] hidden flex-col items-center justify-center opacity-0 transition-opacity duration-300 backdrop-blur-md">
     <button onclick="window.closeImageViewer()" class="absolute top-6 right-6 text-white bg-white/20 hover:bg-white/40 rounded-full w-10 h-10 flex items-center justify-center transition-colors">
         <i class="fas fa-times text-xl"></i>
@@ -299,126 +292,170 @@
     <img id="image-viewer-img" src="" class="max-w-[95%] max-h-[85vh] object-contain rounded-lg shadow-2xl transform scale-95 transition-transform duration-300">
 </div>
 
-<!-- ═══════════════ BOTTOM NAV ═══════════════ -->
-<nav class="fixed bottom-0 w-full bg-white dark:bg-gray-900 border-t dark:border-gray-800 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-40">
+<!-- ================= BOTTOM NAV ================= -->
+<nav class="fixed bottom-0 w-full bg-white dark:bg-gray-900 border-t dark:border-gray-800 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-40 transition-colors duration-300">
     <div class="flex justify-around items-center h-16 max-w-md mx-auto">
         <button onclick="window.switchTab('home')" id="nav-home" class="nav-btn flex flex-col items-center justify-center w-full h-full text-indigo-600 dark:text-indigo-400">
             <i class="fas fa-home text-xl mb-1"></i>
-            <span class="text-[10px] font-semibold">Home</span>
+            <span data-key="nav_home" class="text-[10px] font-semibold">Home</span>
         </button>
         <button onclick="window.switchTab('history')" id="nav-history" class="nav-btn flex flex-col items-center justify-center w-full h-full text-gray-400 dark:text-gray-500 hover:text-indigo-500 transition-colors">
             <i class="fas fa-download text-xl mb-1"></i>
-            <span class="text-[10px] font-semibold">History</span>
+            <span data-key="nav_history" class="text-[10px] font-semibold">History</span>
         </button>
     </div>
 </nav>
 
+<!-- Language Modal -->
+<div id="language-modal" class="hidden fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-[60] transition-opacity">
+    <div class="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-2xl text-center max-w-sm w-full mx-4">
+        <div class="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fas fa-language text-3xl text-indigo-600 dark:text-indigo-400"></i>
+        </div>
+        <h2 class="text-2xl font-bold mb-6 text-gray-800 dark:text-white">Select Language</h2>
+        <div class="grid gap-3">
+            <button class="lang-btn w-full py-3 bg-white dark:bg-gray-700 border-2 border-gray-100 dark:border-gray-600 hover:border-indigo-500 text-gray-700 dark:text-white font-semibold rounded-xl transition-all" data-lang="en">English</button>
+            <button class="lang-btn w-full py-3 bg-white dark:bg-gray-700 border-2 border-gray-100 dark:border-gray-600 hover:border-indigo-500 text-gray-700 dark:text-white font-semibold rounded-xl transition-all" data-lang="hi">हिन्दी</button>
+            <button class="lang-btn w-full py-3 bg-white dark:bg-gray-700 border-2 border-gray-100 dark:border-gray-600 hover:border-indigo-500 text-gray-700 dark:text-white font-semibold rounded-xl transition-all" data-lang="bn">বাংলা</button>
+        </div>
+    </div>
+</div>
+
 <!-- Toast -->
-<div id="toast" class="fixed top-6 left-1/2 -translate-x-1/2 -translate-y-24 opacity-0 z-[70] transition-all duration-300">
+<div id="toast" class="fixed top-6 left-1/2 transform -translate-x-1/2 -translate-y-24 opacity-0 z-[70] transition-all duration-300">
     <div class="bg-gray-800 dark:bg-gray-100 text-white dark:text-gray-900 py-3 px-6 rounded-full shadow-2xl flex items-center gap-3">
         <i class="fas fa-info-circle text-indigo-400 dark:text-indigo-600"></i>
         <span id="toast-message" class="text-sm font-medium"></span>
     </div>
 </div>
 
-<!-- ═══════════════ AD FLOW OVERLAY ═══════════════ -->
-<div id="ad-overlay" class="ad-overlay hidden">
-    <div class="ad-sheet" id="ad-sheet">
+<!-- =====================================================
+     AD FLOW OVERLAY  (completely new staged system)
+     ===================================================== -->
+<div id="ad-overlay" class="ad-overlay hidden" style="z-index:300;">
+    <div class="ad-sheet dark:bg-gray-900" id="ad-sheet">
 
-        <!-- STAGE 0: Pre-load / initial loading -->
-        <div id="stage-preload" class="text-center">
-            <div class="ad-spinner-wrap">
-                <div class="ad-spinner-arc2"></div>
-                <div class="ad-spinner-arc"></div>
+        <!-- Step progress bar -->
+        <div class="mb-6">
+            <div class="flex justify-between items-center mb-2">
+                <span id="ad-step-label" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">Step 1 of 2</span>
+                <span id="ad-step-pct" class="text-xs text-gray-400">0%</span>
             </div>
-            <p class="ad-processing-title">Please wait...</p>
-            <p class="ad-processing-sub">Loading <span id="preload-countdown">3</span>s</p>
-        </div>
-
-        <!-- STAGE 1: Watch Ad button -->
-        <div id="stage-ad1-btn" class="text-center hidden">
-            <div style="font-size:48px;margin-bottom:16px;">🔒</div>
-            <p class="ad-title-white">Unlock this video</p>
-            <p class="ad-sub-gray">Watch a short ad to continue</p>
-            <button id="watch-ad1-btn" class="ad-watch-btn" onclick="window._adFlow.watchAd1()">
-                <i class="fas fa-play"></i> Watch Ad
-            </button>
-            <button onclick="window._adFlow.cancel()" class="ad-cancel-btn">Cancel</button>
-        </div>
-
-        <!-- STAGE 1b: Play button for second ad (shown only if needed) -->
-        <div id="stage-play-btn" class="text-center hidden">
-            <div style="font-size:48px;margin-bottom:16px;">▶️</div>
-            <p class="ad-title-white">Almost there!</p>
-            <p class="ad-sub-gray">Watch one more short ad</p>
-            <button id="play-ad2-btn" class="ad-play-btn" onclick="window._adFlow._triggerAd2()">
-                <i class="fas fa-play"></i> Continue
-            </button>
-            <button onclick="window._adFlow.cancel()" class="ad-cancel-btn">Cancel</button>
-        </div>
-
-        <!-- STAGE 2: Loading Ad spinner -->
-        <div id="stage-loading-ad" class="text-center hidden">
-            <div class="ad-spinner-wrap">
-                <div class="ad-spinner-arc2"></div>
-                <div class="ad-spinner-arc"></div>
-            </div>
-            <p class="ad-processing-title">Loading...</p>
-            <p class="ad-processing-sub">Please wait</p>
-            <div id="ad-error-badge" class="hidden mt-4 bg-red-500/20 border border-red-500/30 rounded-xl p-3">
-                <p class="text-white text-sm font-bold">⚠️ Failed to load. Try again.</p>
+            <div class="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-1.5 overflow-hidden">
+                <div id="ad-step-bar" class="step-bar-fill" style="width:0%"></div>
             </div>
         </div>
 
-        <!-- STAGE 3: Between ads loading -->
-        <div id="stage-processing" class="text-center hidden">
-            <div class="ad-spinner-wrap">
-                <div class="ad-spinner-arc2"></div>
-                <div class="ad-spinner-arc" style="border-bottom-color:#22c55e;border-left-color:#6366f1;"></div>
+        <!-- ── STAGE 0: Pre-processing (before 1st ad) ── -->
+        <div id="stage-preload" class="text-center py-2">
+            <div class="flex justify-center mb-4">
+                <div class="spinner-ring"></div>
             </div>
-            <p class="ad-processing-title">Please wait...</p>
-            <p class="ad-processing-sub"><span id="processing-countdown">3</span>s</p>
-        </div>
-
-        <!-- STAGE 4: Auto-loading second ad (no button, no network name) -->
-        <div id="stage-ad1-done" class="text-center hidden" style="position:relative;">
-            <div class="ad-spinner-wrap">
-                <div class="ad-spinner-arc2"></div>
-                <div class="ad-spinner-arc" style="border-bottom-color:#a855f7;border-left-color:#ec4899;"></div>
-            </div>
-            <p class="ad-processing-title">Loading next ad...</p>
-            <p class="ad-processing-sub">Please wait</p>
-            <div id="ad-error-badge2" class="hidden mt-4 bg-red-500/20 border border-red-500/30 rounded-xl p-3">
-                <p class="text-white text-sm font-bold">⚠️ Failed. <button onclick="window._adFlow.retryAd2()" style="text-decoration:underline;background:none;border:none;color:white;cursor:pointer;font-weight:bold;">Retry</button></p>
-            </div>
-            <button onclick="window._adFlow.cancel()" class="ad-cancel-btn" style="margin-top:16px;">Cancel</button>
-        </div>
-
-        <!-- STAGE 5: Final unlock processing -->
-        <div id="stage-final" class="text-center hidden">
-            <div class="ad-spinner-wrap">
-                <div class="ad-spinner-arc2"></div>
-                <div class="ad-spinner-arc" style="border-bottom-color:#22c55e;border-left-color:#6366f1;"></div>
-            </div>
-            <p class="ad-processing-title">Unlocking...</p>
-            <p class="ad-processing-sub"><span id="final-countdown">3</span>s</p>
-        </div>
-
-        <!-- STAGE 6: Multi-round cooldown -->
-        <div id="stage-progress" class="text-center hidden">
-            <div class="ad-spinner-wrap">
-                <div class="ad-spinner-arc2"></div>
-                <div class="ad-spinner-arc" style="border-bottom-color:#6366f1;border-left-color:#a855f7;"></div>
-            </div>
-            <p class="ad-processing-title" id="progress-stage-title">Please wait...</p>
-            <div id="progress-stage-timer" class="hidden mt-3">
-                <div style="height:3px;background:rgba(255,255,255,0.1);border-radius:4px;overflow:hidden;">
-                    <div id="progress-timer-bar" style="height:100%;background:linear-gradient(90deg,#6366f1,#a855f7);width:100%;border-radius:4px;"></div>
+            <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-1" id="preload-title">Processing...</h3>
+            <p id="preload-sub" class="text-sm text-gray-500 dark:text-gray-400 blink-dot">Preparing your content</p>
+            <div class="mt-4 bg-gray-50 dark:bg-gray-800 rounded-xl p-3 overflow-hidden">
+                <div class="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div id="preload-bar" class="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full" style="width:0%;transition:width 0.3s ease;"></div>
                 </div>
-                <p id="progress-timer-text" style="color:rgba(255,255,255,0.3);font-size:12px;margin-top:6px;"></p>
+                <p id="preload-pct-text" class="text-xs text-gray-400 mt-1.5 text-right">0%</p>
             </div>
-            <button id="progress-close-btn" onclick="window._adFlow.close()" class="hidden ad-watch-btn mt-4">
-                Continue
+        </div>
+
+        <!-- ── STAGE 1: First ad button ── -->
+        <div id="stage-ad1-btn" class="text-center py-2 hidden">
+            <div class="w-14 h-14 bg-indigo-100 dark:bg-indigo-900/40 rounded-full flex items-center justify-center mx-auto mb-3">
+                <i class="fas fa-play-circle text-3xl text-indigo-600 dark:text-indigo-400"></i>
+            </div>
+            <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-1">Step 1: Watch First Ad</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-5">Watch a short ad to continue the unlock process.</p>
+            <button id="watch-ad1-btn" onclick="window._adFlow.watchAd1()"
+                class="pulse-btn w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-3.5 rounded-2xl shadow-lg flex items-center justify-center gap-2 text-base transition-all active:scale-95">
+                <i class="fas fa-ad"></i> Watch Ad — Step 1
+            </button>
+            <button onclick="window._adFlow.cancel()" class="mt-3 w-full text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 py-2">
+                Cancel Process
+            </button>
+        </div>
+
+        <!-- ── STAGE 2: First ad completed screen ── -->
+        <div id="stage-ad1-done" class="text-center py-2 hidden">
+            <div class="relative w-16 h-16 mx-auto mb-4">
+                <!-- Confetti dots injected here dynamically -->
+                <div class="check-anim w-16 h-16 bg-green-100 dark:bg-green-900/40 rounded-full flex items-center justify-center">
+                    <i class="fas fa-check text-2xl text-green-600 dark:text-green-400"></i>
+                </div>
+            </div>
+            <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-1">First Ad Completed!</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-5">Great job! Click the button below to watch one more ad and unlock your file.</p>
+            <button id="continue-ad2-btn" onclick="window._adFlow.prepareAd2()"
+                class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-3.5 rounded-2xl shadow-lg flex items-center justify-center gap-2 text-base transition-all active:scale-95 hover:opacity-90">
+                <i class="fas fa-forward"></i> Continue to Final Ad
+            </button>
+            <button onclick="window._adFlow.cancel()" class="mt-3 w-full text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 py-2">
+                Cancel Process
+            </button>
+        </div>
+
+        <!-- ── STAGE 3: Pre-loading second ad ── -->
+        <div id="stage-preload2" class="text-center py-2 hidden">
+            <div class="flex justify-center mb-4">
+                <div class="spinner-ring"></div>
+            </div>
+            <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-1">Loading Final Ad...</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 blink-dot mb-4">Please wait while we prepare it</p>
+            <div class="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-3 border border-indigo-100 dark:border-indigo-800">
+                <p class="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+                    <i class="fas fa-shield-alt mr-1"></i> Please watch the full ad to unlock
+                </p>
+            </div>
+        </div>
+
+        <!-- ── STAGE 4: Second ad button ── -->
+        <div id="stage-ad2-btn" class="text-center py-2 hidden">
+            <div class="w-14 h-14 bg-purple-100 dark:bg-purple-900/40 rounded-full flex items-center justify-center mx-auto mb-3">
+                <i class="fas fa-unlock-alt text-3xl text-purple-600 dark:text-purple-400"></i>
+            </div>
+            <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-1">Step 2: Final Ad</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-5">This is the last step! Watch completely to unlock your download.</p>
+            <button id="watch-ad2-btn" onclick="window._adFlow.watchAd2()"
+                class="pulse-btn w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold py-3.5 rounded-2xl shadow-lg flex items-center justify-center gap-2 text-base transition-all active:scale-95">
+                <i class="fas fa-ad"></i> Watch Final Ad — Unlock Now
+            </button>
+            <button onclick="window._adFlow.cancel()" class="mt-3 w-full text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 py-2">
+                Cancel Process
+            </button>
+        </div>
+
+        <!-- ── STAGE 5: Final processing / unlock ── -->
+        <div id="stage-final" class="text-center py-2 hidden">
+            <div class="flex justify-center mb-4">
+                <div class="spinner-ring" style="border-top-color:#a855f7;"></div>
+            </div>
+            <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-1" id="final-title">Final Processing...</h3>
+            <p id="final-sub" class="text-sm text-gray-500 dark:text-gray-400 blink-dot mb-4">Unlocking your download</p>
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 overflow-hidden">
+                <div class="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div id="final-bar" class="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full" style="width:0%;transition:width 0.3s ease;"></div>
+                </div>
+                <p id="final-pct-text" class="text-xs text-gray-400 mt-1.5 text-right">0%</p>
+            </div>
+        </div>
+
+        <!-- ── STAGE 6: Already enough ads but still locked (regular progress) ── -->
+        <div id="stage-progress" class="text-center py-2 hidden">
+            <div class="w-14 h-14 bg-indigo-100 dark:bg-indigo-900/40 rounded-full flex items-center justify-center mx-auto mb-3">
+                <i class="fas fa-lock text-2xl text-indigo-600 dark:text-indigo-400"></i>
+            </div>
+            <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-2" id="progress-stage-title">Ad Completed!</h3>
+            <p id="progress-stage-msg" class="text-sm text-gray-500 dark:text-gray-400 mb-5"></p>
+            <div id="progress-stage-timer" class="hidden">
+                <div class="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2 overflow-hidden mb-2">
+                    <div id="progress-timer-bar" class="h-full bg-indigo-500 rounded-full" style="width:100%;transition:width 1s linear;"></div>
+                </div>
+                <p id="progress-timer-text" class="text-xs text-gray-400"></p>
+            </div>
+            <button id="progress-close-btn" onclick="window._adFlow.close()" class="hidden mt-4 w-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-bold py-3 rounded-2xl text-sm">
+                <i class="fas fa-times mr-1"></i> Close
             </button>
         </div>
 
@@ -427,964 +464,840 @@
 <!-- END AD OVERLAY -->
 
 <script type="module">
-import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, getDocs, doc, getDoc, updateDoc, increment, query, orderBy }
-    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, collection, getDocs, doc, getDoc, updateDoc, increment, query, orderBy }
+        from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-// ── Firebase ────────────────────────────────────────────────────────────
-const firebaseConfig = {
-    apiKey:            "AIzaSyCQV5Di_DTAKC8F6HGNZ2ofP8ElBXH9XiU",
-    authDomain:        "video-download-cbcae.firebaseapp.com",
-    projectId:         "video-download-cbcae",
-    storageBucket:     "video-download-cbcae.firebasestorage.app",
-    messagingSenderId: "763912335476",
-    appId:             "1:763912335476:web:8176e46766e03e72f72121"
-};
-const app  = initializeApp(firebaseConfig);
-const db   = getFirestore(app);
-const auth = getAuth(app);
+    // ─── Firebase Config ────────────────────────────────────────────────────
+    const firebaseConfig = {
+        apiKey:            "AIzaSyCQV5Di_DTAKC8F6HGNZ2ofP8ElBXH9XiU",
+        authDomain:        "video-download-cbcae.firebaseapp.com",
+        projectId:         "video-download-cbcae",
+        storageBucket:     "video-download-cbcae.firebasestorage.app",
+        messagingSenderId: "763912335476",
+        appId:             "1:763912335476:web:8176e46766e03e72f72121"
+    };
 
-// ── App State ───────────────────────────────────────────────────────────
-let allFiles      = [];
-let timerDuration = 10;
-let currentFileId = null;
-let userRating    = 0;
-let slideInterval = null;
-let adSettings    = {
-    adsgramEnabled:  true,
-    adsgramBlockId:  '20214',
-    adsgramScriptUrl:'https://sad.adsgram.ai/js/sad.min.js',
-    monetagEnabled:  true,
-    monetagZoneId:   '',
-    monetagCustomScript: '',
-    preloadDuration: 3,
-    interPause:      3,
-    finalDuration:   5,
-    showCancel:      true,
-    confetti:        true
-};
+    const app  = initializeApp(firebaseConfig);
+    const db   = getFirestore(app);
+    const auth = getAuth(app);
 
-// ── Telegram / Guest User ───────────────────────────────────────────────
-let tgUser = { id: null, name: "Guest User" };
-try {
-    if (window.Telegram?.WebApp) {
-        const tg = window.Telegram.WebApp;
-        tg.expand();
-        if (tg.initDataUnsafe?.user) {
-            tgUser.id   = tg.initDataUnsafe.user.id.toString();
-            tgUser.name = tg.initDataUnsafe.user.first_name || tg.initDataUnsafe.user.username;
-        }
-    }
-} catch(e) {}
-if (!tgUser.id) {
-    let sid = localStorage.getItem('guestUserId');
-    if (!sid) { sid = 'guest_' + Math.random().toString(36).substr(2,9); localStorage.setItem('guestUserId', sid); }
-    tgUser.id = sid;
-}
-document.getElementById('user-display-name').textContent = tgUser.name;
+    // ─── App State ─────────────────────────────────────────────────────────
+    let allFiles      = [];
+    let timerDuration = 10;
+    let currentLang   = 'en';
+    let currentFileId = null;
+    let userRating    = 0;
+    let slideInterval = null;
 
-// ── Dark Mode ───────────────────────────────────────────────────────────
-window.toggleDarkMode = () => {
-    document.documentElement.classList.toggle('dark');
-    const isDark = document.documentElement.classList.contains('dark');
-    localStorage.setItem('theme', isDark ? 'dark' : 'light');
-    document.getElementById('theme-icon').className = isDark ? 'fas fa-sun text-yellow-300' : 'fas fa-moon text-white';
-};
-if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-    document.documentElement.classList.add('dark');
-    document.getElementById('theme-icon').className = 'fas fa-sun text-yellow-300';
-}
-
-// ── Utils ───────────────────────────────────────────────────────────────
-function formatNumber(n) {
-    if (n >= 1e6) return (n/1e6).toFixed(1)+'M+';
-    if (n >= 1e3) return (n/1e3).toFixed(1)+'K+';
-    return n || 0;
-}
-function getStarsHTML(rating) {
-    return [1,2,3,4,5].map(i => i <= rating
-        ? '<i class="fas fa-star text-yellow-400"></i>'
-        : '<i class="fas fa-star text-gray-300 dark:text-gray-600"></i>'
-    ).join('');
-}
-function showToast(msg) {
-    const t = document.getElementById('toast');
-    document.getElementById('toast-message').textContent = msg;
-    t.classList.remove('-translate-y-24','opacity-0'); t.classList.add('translate-y-0','opacity-100');
-    setTimeout(() => { t.classList.add('-translate-y-24','opacity-0'); t.classList.remove('translate-y-0','opacity-100'); }, 3000);
-}
-
-// ── Skeleton ────────────────────────────────────────────────────────────
-function showSkeletonLoader() {
-    const grid = document.getElementById('files-grid');
-    grid.innerHTML = '';
-    for (let i = 0; i < 10; i++) {
-        grid.innerHTML += `
-        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-            <div class="w-full skeleton-box" style="aspect-ratio:16/9;"></div>
-            <div class="p-3 space-y-2">
-                <div class="h-4 skeleton-box rounded w-3/4"></div>
-                <div class="h-3 skeleton-box rounded w-full"></div>
-                <div class="h-8 skeleton-box rounded-xl w-full mt-2"></div>
-            </div>
-        </div>`;
-    }
-}
-
-// ── Load Adsgram script dynamically ────────────────────────────────────
-function loadAdsgramScript(url) {
-    return new Promise((resolve, reject) => {
-        // Remove existing if any
-        const existing = document.querySelector(`script[src="${url}"]`);
-        if (existing) { resolve(); return; }
-        const s = document.createElement('script');
-        s.src = url; s.async = true;
-        s.onload  = resolve;
-        s.onerror = reject;
-        document.head.appendChild(s);
-    });
-}
-
-// ══════════════════════════════════════════════════════════════════
-//  Monetag — Telegram Mini App Ad SDK
-//  Website ad নয় — TG Mini App এর ভেতরে চলে এমন interstitial ad
-//  SDK: https://tg.click/ads.js   (Monetag official TG SDK)
-//  API: window.Adsgram style নয় — show_{zoneId}() call
-// ══════════════════════════════════════════════════════════════════
-let _monetagReady    = false;
-let _monetagZoneId   = '';
-let _monetagReadyCbs = [];
-
-function onMonetagReady(cb) {
-    if (_monetagReady) { cb(); return; }
-    _monetagReadyCbs.push(cb);
-}
-
-function _monetagOnLoad() {
-    _monetagReady = true;
-    console.log('✅ Monetag TG Mini App SDK ready, zoneId:', _monetagZoneId);
-    _monetagReadyCbs.forEach(cb => { try { cb(); } catch(e){} });
-    _monetagReadyCbs = [];
-}
-
-function loadMonetagScript(zoneId, customScript) {
-    _monetagZoneId = zoneId || '';
-
-    // Custom script path (admin থেকে paste করা)
-    if (customScript && customScript.trim()) {
-        const div = document.createElement('div');
-        div.innerHTML = customScript;
-        const scripts = div.querySelectorAll('script');
-        let srcCount = 0;
-        let loadedCount = 0;
-        scripts.forEach(s => {
-            const ns = document.createElement('script');
-            ns.setAttribute('data-cfasync', 'false');
-            if (s.src) {
-                srcCount++;
-                ns.src = s.src;
-                ns.onload = () => { loadedCount++; if (loadedCount >= srcCount) _monetagOnLoad(); };
-                ns.onerror = () => console.warn('❌ Monetag custom script failed:', s.src);
-            } else {
-                ns.textContent = s.textContent;
-            }
-            document.head.appendChild(ns);
-        });
-        if (srcCount === 0) setTimeout(_monetagOnLoad, 500);
-        return;
-    }
-
-    if (!zoneId) {
-        console.warn('⚠️ Monetag Zone ID নেই — TG Ad load হবে না');
-        return;
-    }
-
-    // Monetag Telegram Mini App SDK — official URL
-    // এটা website popup/onclick নয়, TG Mini App এর ভেতরে চলে
-    let sdkEl = document.getElementById('monetag-sdk-script');
-    if (!sdkEl) {
-        sdkEl = document.createElement('script');
-        sdkEl.id = 'monetag-sdk-script';
-        sdkEl.setAttribute('data-cfasync', 'false');
-        document.head.appendChild(sdkEl);
-    }
-    sdkEl.onload  = _monetagOnLoad;
-    sdkEl.onerror = () => console.warn('❌ Monetag TG SDK failed to load — Zone ID চেক করুন');
-    // Monetag TG Mini App SDK endpoint
-    sdkEl.src = `https://tg.click/ads.js?z=${zoneId}`;
-    console.log('🔄 Monetag TG SDK loading:', sdkEl.src);
-}
-
-// ── Load All Data ───────────────────────────────────────────────────────
-async function loadData() {
-    showSkeletonLoader();
-
-    // 1. General settings
+    let tgUser = { id: null, name: "Guest User" };
     try {
-        const snap = await getDoc(doc(db,"settings","general"));
-        if (snap.exists()) {
-            const d = snap.data();
-            timerDuration = d.timerDuration || 10;
-            window._appSettings = d;
-            if (d.appTitle) {
-                document.title = d.appTitle;
-                document.querySelectorAll('.app-dynamic-title').forEach(el => el.textContent = d.appTitle);
-            }
-            if (d.themeColorFrom && d.themeColorTo) {
-                const h = document.getElementById('main-header');
-                if (h) { h.style.background = `linear-gradient(135deg, ${d.themeColorFrom}, ${d.themeColorTo})`; }
+        if (window.Telegram && window.Telegram.WebApp) {
+            const tg = window.Telegram.WebApp;
+            tg.expand();
+            if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+                tgUser.id   = tg.initDataUnsafe.user.id.toString();
+                tgUser.name = tg.initDataUnsafe.user.first_name || tg.initDataUnsafe.user.username;
             }
         }
-    } catch(e) { console.error("General settings error:", e); }
+    } catch (e) { console.error("Telegram WebApp Error", e); }
 
-    // 2. Ad Flow settings — CRITICAL FIX
-    try {
-        const snap = await getDoc(doc(db,"settings","adflow"));
-        if (snap.exists()) {
-            const d = snap.data();
-            if (d.adsgram) {
-                adSettings.adsgramEnabled   = d.adsgram.enabled !== false;
-                adSettings.adsgramBlockId   = d.adsgram.blockId   || '20214';
-                adSettings.adsgramScriptUrl = d.adsgram.scriptUrl || 'https://sad.adsgram.ai/js/sad.min.js';
-            }
-            if (d.monetag) {
-                adSettings.monetagEnabled      = d.monetag.enabled !== false;
-                adSettings.monetagZoneId       = d.monetag.zoneId       || '';
-                adSettings.monetagCustomScript = d.monetag.customScript  || '';
-            }
-            if (d.timing) {
-                adSettings.preloadDuration = d.timing.preloadDuration || 3;
-                adSettings.interPause      = d.timing.interPause      || 3;
-                adSettings.finalDuration   = d.timing.finalDuration   || 2;
-                timerDuration              = d.timing.cooldown         || timerDuration;
-            }
-            if (d.ui) {
-                adSettings.showCancel = d.ui.showCancel !== false;
-                adSettings.confetti   = d.ui.confetti   !== false;
-            }
+    if (!tgUser.id) {
+        let storedId = localStorage.getItem('guestUserId');
+        if (!storedId) {
+            storedId = 'guest_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('guestUserId', storedId);
         }
-    } catch(e) { console.error("AdFlow settings error:", e); }
+        tgUser.id = storedId;
+    }
+    document.getElementById('user-display-name').textContent = tgUser.name;
 
-    // Load Adsgram script with correct URL from admin settings
-    if (adSettings.adsgramEnabled) {
-        try {
-            await loadAdsgramScript(adSettings.adsgramScriptUrl);
-            console.log("✅ Adsgram script loaded:", adSettings.adsgramScriptUrl);
-        } catch(e) {
-            console.warn("⚠️ Adsgram script load failed:", e);
-        }
+    // ─── Dark Mode ─────────────────────────────────────────────────────────
+    window.toggleDarkMode = () => {
+        document.documentElement.classList.toggle('dark');
+        const isDark = document.documentElement.classList.contains('dark');
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        document.getElementById('theme-icon').className = isDark ? 'fas fa-sun text-yellow-300' : 'fas fa-moon text-white';
+    };
+    if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+        document.getElementById('theme-icon').className = 'fas fa-sun text-yellow-300';
     }
 
-    // Load Monetag script if configured
-    if (adSettings.monetagEnabled && (adSettings.monetagZoneId || adSettings.monetagCustomScript)) {
-        loadMonetagScript(adSettings.monetagZoneId, adSettings.monetagCustomScript);
+    // ─── Translations ──────────────────────────────────────────────────────
+    const translations = {
+        en: {
+            loading_data: "Loading App...", main_title: "File Hub",
+            main_subtitle: "Watch Ads, Unlock & Download!",
+            search_placeholder: "Search files...", available_files: "Available Files",
+            unlock_btn: "Unlock File", loading_ad: "Loading...",
+            wait_text: "Please wait {cd}s...", progress_text: "Progress: {count}/{req} Ads done",
+            unlocked_msg: "Unlocked Successfully!", ad_failed: "Ad Failed. Retry",
+            download_default: "Download", nav_home: "Home", nav_history: "History",
+            history_title: "Downloads", history_subtitle: "Files you have unlocked",
+            empty_history: "No downloads yet.", screenshots: "Screenshots",
+            about_app: "About this file", reviews: "Ratings & Reviews",
+            rate_this: "Rate this file", submit_review: "Submit Review",
+            update_review: "Update Review", no_reviews: "No reviews yet. Be the first!"
+        },
+        hi: {
+            loading_data: "लोड हो रहा है...", main_title: "फाइल हब",
+            main_subtitle: "विज्ञापन देखें और मुफ्त डाउनलोड करें!",
+            search_placeholder: "फाइलें खोजें...", available_files: "उपलब्ध फाइलें",
+            unlock_btn: "फाइल अनलॉक करें", loading_ad: "लोड हो रहा है...",
+            wait_text: "कृपया रुकें {cd}s...", progress_text: "प्रगति: {count}/{req} विज्ञापन",
+            unlocked_msg: "फाइल अनलॉक हो गई!", ad_failed: "विफल। पुनः प्रयास करें",
+            download_default: "डाउनलोड", nav_home: "होम", nav_history: "इतिहास",
+            history_title: "डाउनलोड्स", history_subtitle: "आपकी अनलॉक की गई फाइलें",
+            empty_history: "अभी तक कोई फाइल अनलॉक नहीं की गई।",
+            screenshots: "स्क्रीनशॉट्स", about_app: "इस फाइल के बारे में",
+            reviews: "रेटिंग और समीक्षाएं", rate_this: "इस फाइल को रेट करें",
+            submit_review: "समीक्षा जमा करें", update_review: "समीक्षा अपडेट करें",
+            no_reviews: "अभी तक कोई समीक्षा नहीं।"
+        },
+        bn: {
+            loading_data: "লোড হচ্ছে...", main_title: "ফাইল হাব",
+            main_subtitle: "বিজ্ঞাপন দেখুন এবং ডাউনলোড করুন!",
+            search_placeholder: "ফাইল খুঁজুন...", available_files: "উপলব্ধ ফাইল",
+            unlock_btn: "ফাইল আনলক করুন", loading_ad: "লোড হচ্ছে...",
+            wait_text: "অপেক্ষা করুন {cd}s...", progress_text: "অগ্রগতি: {count}/{req} বিজ্ঞাপন",
+            unlocked_msg: "আনলক সফল হয়েছে!", ad_failed: "ব্যর্থ। আবার চেষ্টা করুন",
+            download_default: "ডাউনলোড", nav_home: "হোম", nav_history: "ইতিহাস",
+            history_title: "ডাউনলোডস", history_subtitle: "আপনার আনলক করা ফাইলগুলি",
+            empty_history: "এখনও কোনও ফাইল আনলক করা হয়নি।",
+            screenshots: "স্ক্রিনশট", about_app: "এই ফাইল সম্পর্কে",
+            reviews: "রেটিং এবং পর্যালোচনা", rate_this: "এই ফাইলটি রেট করুন",
+            submit_review: "পর্যালোচনা জমা দিন", update_review: "পর্যালোচনা আপডেট করুন",
+            no_reviews: "এখনও কোন পর্যালোচনা নেই।"
+        }
+    };
+
+    function getText(key, params = {}) {
+        let text = (translations[currentLang] || translations.en)[key] || key;
+        for (const p in params) text = text.replace(`{${p}}`, params[p]);
+        return text;
+    }
+    function formatNumber(num) {
+        if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M+';
+        if (num >= 1000)    return (num / 1000).toFixed(1) + 'K+';
+        return num || 0;
+    }
+    function getStarsHTML(rating) {
+        let s = '';
+        for (let i = 1; i <= 5; i++)
+            s += i <= rating ? '<i class="fas fa-star text-yellow-400"></i>' : '<i class="fas fa-star text-gray-300 dark:text-gray-600"></i>';
+        return s;
     }
 
-    // 3. Banner ads
-    try {
-        const ads = await getDoc(doc(db,"settings","ads"));
-        if (ads.exists()) {
-            const d = ads.data();
-            if (d.adSlot1) document.getElementById('ad-container-1').innerHTML = d.adSlot1;
-            if (d.adSlot2) document.getElementById('ad-container-2').innerHTML = d.adSlot2;
-        }
-    } catch(e) { console.error("Banner ads error:", e); }
-
-    // 4. Sliders
-    try {
-        const sw     = document.getElementById('slider-wrapper');
-        const sTrack = document.getElementById('slider-track');
-        const sDots  = document.getElementById('slider-dots');
-        const q      = query(collection(db,"sliders"), orderBy("createdAt","desc"));
-        const ss     = await getDocs(q);
-        let slides   = [];
-        ss.forEach(d => slides.push(d.data()));
-        if (slides.length > 0) {
-            sw.classList.remove('hidden');
-            sTrack.innerHTML = ''; sDots.innerHTML = '';
-            slides.forEach((s, idx) => {
-                const div = document.createElement('div');
-                div.className = `w-full h-full flex-shrink-0 ${s.linkUrl ? 'cursor-pointer' : ''}`;
-                if (s.linkUrl) div.onclick = () => window.open(s.linkUrl,'_blank');
-                div.innerHTML = `<img src="${s.imageUrl}" class="w-full h-full object-cover">`;
-                sTrack.appendChild(div);
-                if (slides.length > 1) {
-                    const dot = document.createElement('div');
-                    dot.className = `w-2 h-2 rounded-full ${idx===0?'bg-white':'bg-white/50'} transition-colors`;
-                    dot.id = `dot-${idx}`;
-                    sDots.appendChild(dot);
-                }
-            });
-            if (slides.length > 1) {
-                let cur = 0;
-                if (slideInterval) clearInterval(slideInterval);
-                slideInterval = setInterval(() => {
-                    cur = (cur+1) % slides.length;
-                    sTrack.style.transform = `translateX(-${cur*100}%)`;
-                    slides.forEach((_,i) => {
-                        const d = document.getElementById(`dot-${i}`);
-                        if (d) d.className = `w-2 h-2 rounded-full ${i===cur?'bg-white':'bg-white/50'} transition-colors`;
-                    });
-                }, 3500);
-            }
-        }
-    } catch(e) { console.error("Slider error:", e); }
-
-    // 5. Files
-    try {
-        const snaps = await getDocs(collection(db,"files"));
-        allFiles = [];
-        snaps.forEach(d => { allFiles.push({ id: d.id, downloads: 0, reviews: [], ...d.data() }); });
+    // ─── Language ──────────────────────────────────────────────────────────
+    function applyLanguage(lang) {
+        currentLang = lang;
+        localStorage.setItem('userLanguage', lang);
+        document.querySelectorAll('[data-key]').forEach(el => { el.textContent = getText(el.getAttribute('data-key')); });
+        document.querySelectorAll('[data-key-placeholder]').forEach(el => { el.placeholder = getText(el.getAttribute('data-key-placeholder')); });
+        document.getElementById('submit-review-btn').textContent = getText('submit_review');
         renderFiles(); renderHistory();
-    } catch(e) { console.error("Files error:", e); }
-}
-
-// ── Render Grid ─────────────────────────────────────────────────────────
-function renderFiles() {
-    const grid = document.getElementById('files-grid');
-    grid.innerHTML = '';
-    const term     = document.getElementById('searchInput').value.toLowerCase();
-    const filtered = allFiles.filter(f => (f.title||'').toLowerCase().includes(term));
-    if (!filtered.length) {
-        grid.innerHTML = `<div class="col-span-full text-center py-10 text-gray-400"><i class="fas fa-search text-4xl mb-3"></i><p>No videos found.</p></div>`;
-        return;
+        if (currentFileId) { const f = allFiles.find(f => f.id === currentFileId); if (f) { updateDetailButtonState(f); renderReviews(f); } }
+        document.getElementById('language-modal').classList.add('hidden');
     }
-    filtered.forEach(file => {
-        const count = parseInt(localStorage.getItem(`adCount_${file.id}`))||0;
-        const req   = parseInt(file.requiredAds)||2;
-        const isUnlocked = count >= req;
-        const card  = document.createElement('div');
-        card.className = 'bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col hover:shadow-lg transition-all duration-300 group';
-        card.innerHTML = `
-            <div class="relative w-full bg-gray-100 dark:bg-gray-700 cursor-pointer overflow-hidden" style="aspect-ratio:16/9;" onclick="window.openDetails('${file.id}')">
-                <img src="${file.thumbnailUrl}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="Thumbnail">
-                <div class="play-overlay">
-                    <div class="play-icon-circle">
-                        <i class="fas fa-play text-indigo-600 text-base ml-1"></i>
+
+    // ─── Skeleton Loader ───────────────────────────────────────────────────
+    function showSkeletonLoader() {
+        const grid = document.getElementById('files-grid');
+        grid.innerHTML = '';
+        for (let i = 0; i < 10; i++) {
+            grid.innerHTML += `
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col">
+                    <div class="w-full aspect-video skeleton-box"></div>
+                    <div class="p-3 md:p-4 flex flex-col flex-1 gap-3">
+                        <div class="h-4 skeleton-box rounded w-3/4"></div>
+                        <div class="space-y-2"><div class="h-3 skeleton-box rounded w-full"></div><div class="h-3 skeleton-box rounded w-5/6"></div></div>
+                        <div class="h-9 skeleton-box rounded-xl w-full mt-auto"></div>
                     </div>
-                </div>
-                <div class="absolute top-2 left-2 bg-black/60 text-white text-[9px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
-                    <i class="fas fa-film text-[8px]"></i> VIDEO
-                </div>
-                <div class="absolute bottom-2 right-2 bg-black/60 text-white text-[9px] px-2 py-0.5 rounded-md flex items-center gap-1">
-                    <i class="fas fa-download text-[8px]"></i> ${formatNumber(file.downloads)}
-                </div>
-                ${isUnlocked ? `<div class="absolute top-2 right-2 bg-green-500 text-white text-[9px] px-2 py-0.5 rounded-full font-bold"><i class="fas fa-unlock text-[8px]"></i> Free</div>` : ''}
-            </div>
-            <div class="p-3 flex flex-col flex-1">
-                <h3 class="font-bold text-sm text-gray-800 dark:text-white line-clamp-2 cursor-pointer mb-2 leading-snug" onclick="window.openDetails('${file.id}')">${file.title}</h3>
-                <button onclick="window.openDetails('${file.id}')" class="w-full py-2 mt-auto ${isUnlocked ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-100 dark:border-green-800/50 hover:bg-green-600 hover:text-white dark:hover:bg-green-600' : 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600'} active:scale-95 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 border">
-                    <i class="fas ${isUnlocked ? 'fa-download' : 'fa-lock'} text-xs"></i>
-                    ${isUnlocked ? 'Download' : 'Unlock'}
-                </button>
-            </div>`;
-        grid.appendChild(card);
-    });
-}
-
-// ── Details ──────────────────────────────────────────────────────────────
-window.openDetails = (id) => {
-    currentFileId = id;
-    const file = allFiles.find(f => f.id===id);
-    if (!file) return;
-    document.getElementById('detail-title').textContent        = file.title;
-    document.getElementById('detail-header-title').textContent = file.title;
-    document.getElementById('detail-icon').src        = file.thumbnailUrl;
-    document.getElementById('detail-small-icon').src  = file.thumbnailUrl;
-    document.getElementById('detail-small-icon').classList.remove('hidden');
-    document.getElementById('detail-desc').textContent = file.description || 'No description available.';
-    document.getElementById('detail-downloads').textContent = formatNumber(file.downloads);
-
-    // Screenshots / preview
-    const sc = document.getElementById('detail-screenshots');
-    sc.innerHTML = '';
-    const imgs = (file.screenshots && file.screenshots.length>0) ? file.screenshots : [file.thumbnailUrl];
-    imgs.forEach(u => {
-        sc.innerHTML += `
-        <div class="snap-center shrink-0 cursor-pointer" onclick="window.openImageViewer('${u}')">
-            <img src="${u}" class="h-48 md:h-64 aspect-video rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm object-cover hover:shadow-md transition-shadow">
-        </div>`;
-    });
-    window.cancelEditReview();
-    renderReviews(file);
-    updateDetailButtonState(file);
-    const dv = document.getElementById('details-view');
-    dv.classList.remove('hidden'); dv.classList.add('flex');
-    dv.querySelector('.flex-1').scrollTop = 0;
-};
-window.closeDetails = () => {
-    currentFileId = null;
-    const dv = document.getElementById('details-view');
-    dv.classList.add('hidden'); dv.classList.remove('flex');
-};
-window.openImageViewer = (src) => {
-    const v = document.getElementById('image-viewer');
-    document.getElementById('image-viewer-img').src = src;
-    v.classList.remove('hidden'); v.classList.add('flex');
-    setTimeout(() => { v.classList.replace('opacity-0','opacity-100'); document.getElementById('image-viewer-img').classList.replace('scale-95','scale-100'); }, 10);
-};
-window.closeImageViewer = () => {
-    const v = document.getElementById('image-viewer');
-    const i = document.getElementById('image-viewer-img');
-    v.classList.replace('opacity-100','opacity-0'); i.classList.replace('scale-100','scale-95');
-    setTimeout(() => { v.classList.remove('flex'); v.classList.add('hidden'); }, 300);
-};
-document.getElementById('image-viewer').addEventListener('click', e => { if(e.target.id==='image-viewer') window.closeImageViewer(); });
-
-// ── Reviews ──────────────────────────────────────────────────────────────
-function renderReviews(file) {
-    const list     = document.getElementById('reviews-list');
-    const avgLabel = document.getElementById('detail-rating-avg');
-    list.innerHTML = '';
-    const reviews  = file.reviews || [];
-    if (!reviews.length) {
-        avgLabel.textContent = "0.0";
-        list.innerHTML = `<div class="text-center text-gray-400 py-4"><i class="fas fa-comment-slash text-3xl mb-2"></i><p>No reviews yet. Be the first!</p></div>`;
-        return;
-    }
-    avgLabel.textContent = (reviews.reduce((a,b)=>a+b.rating,0)/reviews.length).toFixed(1);
-    [...reviews].sort((a,b)=>b.timestamp-a.timestamp).forEach(rev => {
-        const item = document.createElement('div');
-        item.className = 'bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm relative';
-        const isOwner = rev.userId === tgUser.id;
-        item.innerHTML = `
-            <div class="flex justify-between items-start mb-2 ${isOwner?'pr-16':''}">
-                <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 flex items-center justify-center font-bold text-xs uppercase">${(rev.user||'U').charAt(0)}</div>
-                    <div>
-                        <h5 class="text-sm font-bold text-gray-800 dark:text-white">${rev.user} ${isOwner?'<span class="text-[10px] bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 px-1.5 rounded ml-1">You</span>':''}</h5>
-                        <div class="text-[10px] text-gray-400">${new Date(rev.timestamp).toLocaleDateString()}</div>
-                    </div>
-                </div>
-                <div class="text-xs">${getStarsHTML(rev.rating)}</div>
-            </div>
-            <p class="text-gray-600 dark:text-gray-300 text-sm">${rev.text}</p>
-            ${isOwner?`<div class="absolute top-4 right-4 flex gap-3"><button onclick="window.editReviewForm('${rev.userId}')" class="text-indigo-500 hover:text-indigo-700"><i class="fas fa-edit"></i></button><button onclick="window.deleteReview('${rev.userId}')" class="text-red-500 hover:text-red-700"><i class="fas fa-trash-alt"></i></button></div>`:''}`;
-        list.appendChild(item);
-    });
-}
-function updateStarUI() {
-    document.querySelectorAll('.star-btn').forEach(btn => {
-        const v = parseInt(btn.getAttribute('data-val'));
-        btn.classList.toggle('text-yellow-400', v<=userRating);
-        btn.classList.toggle('text-gray-300', v>userRating);
-    });
-}
-document.querySelectorAll('.star-btn').forEach(btn => btn.addEventListener('click', ()=>{ userRating=parseInt(btn.getAttribute('data-val')); updateStarUI(); }));
-window.editReviewForm = (uid) => {
-    const file = allFiles.find(f=>f.id===currentFileId);
-    const rev  = file?.reviews.find(r=>r.userId===uid);
-    if (rev) {
-        userRating = rev.rating; updateStarUI();
-        document.getElementById('review-text').value = rev.text;
-        document.getElementById('submit-review-btn').textContent = 'Update Review';
-        document.getElementById('cancel-edit-btn').classList.remove('hidden');
-        document.getElementById('star-rating-container').scrollIntoView({behavior:'smooth',block:'center'});
-    }
-};
-window.cancelEditReview = () => {
-    userRating = 0; updateStarUI();
-    document.getElementById('review-text').value = '';
-    document.getElementById('submit-review-btn').textContent = 'Submit Review';
-    document.getElementById('cancel-edit-btn').classList.add('hidden');
-};
-window.deleteReview = async (uid) => {
-    if (!confirm("Delete your review?")) return;
-    const file = allFiles.find(f=>f.id===currentFileId);
-    if (!file) return;
-    file.reviews = file.reviews.filter(r=>r.userId!==uid);
-    renderReviews(file); window.cancelEditReview(); showToast("Review deleted");
-    try { await updateDoc(doc(db,"files",currentFileId),{reviews:file.reviews}); } catch(e){}
-};
-document.getElementById('submit-review-btn').addEventListener('click', async () => {
-    if (!userRating) return showToast("Please select a star rating");
-    const text = document.getElementById('review-text').value.trim();
-    if (!text) return showToast("Please write a review");
-    const file = allFiles.find(f=>f.id===currentFileId);
-    let upd = [...(file.reviews||[])];
-    const idx = upd.findIndex(r=>r.userId===tgUser.id);
-    const nr  = { userId:tgUser.id, user:tgUser.name, rating:userRating, text, timestamp:Date.now() };
-    idx>=0 ? upd[idx]=nr : upd.push(nr);
-    file.reviews = upd; renderReviews(file); window.cancelEditReview(); showToast("Review saved!");
-    try { await updateDoc(doc(db,"files",currentFileId),{reviews:upd}); } catch(e){}
-});
-
-// ── Detail Button State ──────────────────────────────────────────────────
-function updateDetailButtonState(file) {
-    const req        = parseInt(file.requiredAds)||2;
-    const count      = parseInt(localStorage.getItem(`adCount_${file.id}`))||0;
-    const isUnlocked = count >= req;
-    const container  = document.getElementById('detail-actions');
-    const shareBtn   = `<button onclick="window.shareFile('${file.id}')" class="py-3.5 px-4 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl font-bold transition-colors flex items-center justify-center gap-2 border border-gray-200 dark:border-gray-700"><i class="fas fa-share-alt"></i></button>`;
-    if (isUnlocked) {
-        saveToHistory(file.id);
-        container.innerHTML = `
-            <a href="${file.downloadUrl}" target="_blank" class="flex-1 py-3.5 bg-green-600 hover:bg-green-700 text-white text-center rounded-xl font-bold shadow-lg flex items-center justify-center gap-2">
-                <i class="fas fa-download"></i> ${file.btnName1||'Download'}
-            </a>
-            ${file.downloadUrl2?`<a href="${file.downloadUrl2}" target="_blank" class="flex-1 py-3.5 bg-teal-600 hover:bg-teal-700 text-white text-center rounded-xl font-bold shadow-lg flex items-center justify-center gap-2"><i class="fas fa-link"></i> ${file.btnName2||'Mirror'}</a>`:''}
-            ${shareBtn}`;
-    } else {
-        container.innerHTML = `
-            <button id="unlock-action-btn" onclick="window.unlockFile('${file.id}',${req})"
-                class="flex-1 py-3.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2">
-                <i class="fas fa-lock"></i>
-                <span>Unlock Video</span>
-            </button>
-            ${shareBtn}`;
-    }
-}
-window.shareFile = (fileId) => {
-    const fid = fileId||currentFileId;
-    if (!fid) return;
-    const bot = window._appSettings?.botUsername||'';
-    const url = bot ? `https://t.me/${bot}?start=file_${fid}` : window.location.href;
-    if (navigator.share) { navigator.share({ title: document.getElementById('detail-title')?.textContent||'', url }).catch(()=>{}); }
-    else { navigator.clipboard?.writeText(url).then(()=>showToast('🔗 Link copied!')); }
-};
-
-// ═══════════════════════════════════════════════════════════
-//  AD FLOW ENGINE — Fixed Adsgram (Ad1) + Monetag (Ad2)
-//  Security: দুটো Ad সফলভাবে না দেখলে count হবে না
-// ═══════════════════════════════════════════════════════════
-let _adFileId      = null;
-let _adRequired    = 0;
-let _ad1Completed  = false;  // Adsgram সফল হলে true
-let _ad2Completed  = false;  // Monetag সফল হলে true
-
-function showStage(id) {
-    ['stage-preload','stage-loading-ad','stage-ad1-btn','stage-play-btn','stage-processing',
-     'stage-ad1-done','stage-final','stage-progress'
-    ].forEach(s => { const el=document.getElementById(s); if(el) el.classList.add('hidden'); });
-    const t = document.getElementById(id);
-    if (t) t.classList.remove('hidden');
-}
-function openOverlay()  { document.getElementById('ad-overlay').classList.remove('hidden'); }
-function closeOverlay() { document.getElementById('ad-overlay').classList.add('hidden'); }
-
-function startCountdown(spanId, seconds, onDone) {
-    const el = document.getElementById(spanId);
-    let cd = seconds;
-    if (el) el.textContent = cd;
-    const iv = setInterval(()=>{
-        cd--;
-        if (el) el.textContent = Math.max(0,cd);
-        if (cd<=0) { clearInterval(iv); if(onDone) onDone(); }
-    }, 1000);
-    return iv;
-}
-
-function spawnConfetti() {
-    if (!adSettings.confetti) return;
-    const container = document.getElementById('stage-ad1-done');
-    if (!container) return;
-    const colors = ['#6366f1','#a855f7','#ec4899','#22c55e','#f59e0b'];
-    for (let i=0; i<10; i++) {
-        const dot = document.createElement('div');
-        dot.className = 'confetti-dot';
-        dot.style.cssText = `left:${Math.random()*100}%;top:0;background:${colors[i%colors.length]};animation-delay:${Math.random()*0.5}s;`;
-        container.appendChild(dot);
-        setTimeout(()=>dot.remove(), 1500);
-    }
-}
-
-// ── Adsgram show — FIXED: always init with correct blockId ──────────────
-async function showAdsgramAd(blockId) {
-    if (!window.Adsgram) throw new Error("Adsgram not loaded");
-    return new Promise((resolve, reject) => {
-        try {
-            const AdController = window.Adsgram.init({ blockId: String(blockId) });
-            AdController.show().then(resolve).catch(reject);
-        } catch(e) { reject(e); }
-    });
-}
-
-// ── Monetag Mini App Ad show ─────────────────────────────────────────────
-// SDK ready হওয়ার পরেই call হবে — popup/popunder নয়, শুধু Mini App Ad
-// ══════════════════════════════════════════════════════════════════
-//  showMonetagAd — Monetag Telegram Mini App Interstitial Ad
-//  SDK: tg.click/ads.js
-//  Monetag TG SDK load হলে window.show_{zoneId} expose করে
-//  Ad দেখানো শেষ হলে SDK নিজে Promise resolve করে
-// ══════════════════════════════════════════════════════════════════
-async function showMonetagAd(zoneId) {
-    return new Promise((resolve, reject) => {
-        const z = String(zoneId || _monetagZoneId || '').trim();
-
-        if (!z) {
-            // Zone ID নেই — silently skip করো (bypass allow করো না, তাই reject)
-            reject(new Error('no_zone'));
-            return;
+                </div>`;
         }
+    }
 
-        let _settled = false;
-        const _ok  = () => { if (!_settled) { _settled = true; resolve(); } };
-        const _err = (e) => { if (!_settled) { _settled = true; reject(typeof e === 'string' ? new Error(e) : e); } };
+    // ─── Monetag SDK ────────────────────────────────────────────────────────
+    let _monetagZoneId = '';
+    let _monetagReady  = false;
+    let _monetagCbs    = [];
 
-        onMonetagReady(() => {
-            try {
-                // ── Method 1: window.show_{zoneId}() — Monetag popup/interstitial
-                const showFn = window[`show_${z}`];
-                if (typeof showFn === 'function') {
-                    const p = showFn();
-                    if (p && typeof p.then === 'function') { p.then(_ok).catch(_ok); }
-                    else { setTimeout(_ok, 1500); }
-                    return;
-                }
-
-                // ── Method 2: window.Monetag SDK (newer versions)
-                if (window.Monetag && typeof window.Monetag.show === 'function') {
-                    const p = window.Monetag.show({ zoneId: z });
-                    if (p && typeof p.then === 'function') { p.then(_ok).catch(_ok); }
-                    else { setTimeout(_ok, 1500); }
-                    return;
-                }
-
-                // ── Method 3: window.AdController (some SDK variants)
-                if (window.AdController && typeof window.AdController.show === 'function') {
-                    const p = window.AdController.show();
-                    if (p && typeof p.then === 'function') { p.then(_ok).catch(_ok); }
-                    else { setTimeout(_ok, 1500); }
-                    return;
-                }
-
-                // ── Method 4: SDK load হয়েছে কিন্তু কোনো function নেই
-                // → তবুও reject করবো না, gracefully resolve করি
-                // (Zone ID config-এ আছে মানে SDK চেষ্টা হয়েছে)
-                console.warn('Monetag: No known ad function found. Zone:', z,
-                    '| Available show_* fns:', Object.keys(window).filter(k=>k.startsWith('show_')));
-                // Ad দেখানো সম্ভব হয়নি কিন্তু flow ভেঙে দেবো না — resolve
-                setTimeout(_ok, 800);
-
-            } catch(e) {
-                // Error হলেও flow ভাঙবে না
-                console.warn('Monetag ad error (non-fatal):', e);
-                setTimeout(_ok, 800);
-            }
-        });
-
-        // SDK load timeout — 12s পরেও ready না হলে continue
-        setTimeout(() => { if (!_settled) { console.warn('Monetag SDK timeout — continuing'); _ok(); } }, 12000);
-    });
-}
-
-// ── Anti-bypass: _adFlow object sealed after definition
-// Console থেকে সরাসরি _adFlow.finalProcess() call করা যাবে না
-window._adFlow = {
-
-    // ── Entry: start round-based flow ──────────────────────────────────
-    // 1 round = Adsgram (সফল) + Monetag Mini App Ad (সফল) = 1 count
-    // ⛔ দুটো Ad-ই সফল না হলে COUNT হবে না, UNLOCK হবে না
-    start(fileId, req) {
-        _adFileId     = fileId;
-        _adRequired   = req;
-        _ad1Completed = false;
-        _ad2Completed = false;
-        openOverlay();
-        showStage('stage-preload');
-
-        document.querySelectorAll('.ad-cancel-btn').forEach(b => {
-            b.style.display = adSettings.showCancel ? '' : 'none';
-        });
-
-        startCountdown('preload-countdown', adSettings.preloadDuration, ()=>{
-            showStage('stage-ad1-btn');
-        });
-    },
-
-    // ── STEP 1: Ad 1 ────────────────────────────────────────────────────
-    async watchAd1() {
-        const btn = document.getElementById('watch-ad1-btn');
-        if (btn) btn.disabled = true;
-
-        showStage('stage-loading-ad');
-        document.getElementById('ad-error-badge').classList.add('hidden');
-
-        const blockId = adSettings.adsgramBlockId || '20214';
-
-        try {
-            await showAdsgramAd(blockId);
-            _ad1Completed = true;
-
-            // Ad 1 শেষ → processing spinner দেখাও → auto Ad 2 শুরু
-            showStage('stage-processing');
-            startCountdown('processing-countdown', adSettings.interPause, ()=>{
-                // spinner দিয়ে Ad 2 auto-load করো — কোনো network name বা button নয়
-                showStage('stage-ad1-done');
-                document.getElementById('ad-error-badge2').classList.add('hidden');
-                window._adFlow._startAd2();
+    function _onMonetagReady(cb) {
+        if (_monetagReady) { cb(); return; }
+        _monetagCbs.push(cb);
+    }
+    function _monetagLoaded() {
+        _monetagReady = true;
+        _monetagCbs.forEach(cb => { try { cb(); } catch(e){} });
+        _monetagCbs = [];
+    }
+    function loadMonetagSDK(zoneId, customScript) {
+        _monetagZoneId = String(zoneId || '').trim();
+        if (customScript && customScript.trim()) {
+            const div = document.createElement('div');
+            div.innerHTML = customScript;
+            let srcCount = 0, loaded = 0;
+            div.querySelectorAll('script').forEach(s => {
+                const ns = document.createElement('script');
+                ns.setAttribute('data-cfasync','false');
+                if (s.src) { srcCount++; ns.src = s.src; ns.onload = () => { loaded++; if (loaded >= srcCount) _monetagLoaded(); }; ns.onerror = _monetagLoaded; }
+                else { ns.textContent = s.textContent; }
+                document.head.appendChild(ns);
             });
-        } catch(e) {
-            _ad1Completed = false;
-            document.getElementById('ad-error-badge').classList.remove('hidden');
-            if (btn) btn.disabled = false;
-            setTimeout(()=>{ showStage('stage-ad1-btn'); if (btn) btn.disabled = false; }, 2000);
-        }
-    },
-
-    // ── STEP 2: Ad 2 (Monetag TG) — auto-called after Ad 1 ───────────
-    async _startAd2() {
-        if (!_ad1Completed) { showStage('stage-ad1-btn'); return; }
-        // spinner দেখাচ্ছে (stage-ad1-done) — ad চালাও
-        try {
-            await showMonetagAd(adSettings.monetagZoneId || '');
-            _ad2Completed = true;
-            setTimeout(()=>{ window._adFlow.finalProcess(); }, 300);
-        } catch(e) {
-            _ad2Completed = false;
-            if (e && e.message === 'no_zone') {
-                // Zone ID নেই — ad2 skip করে directly finalProcess
-                // (Zone ID ছাড়া flow ভাঙবে না, তবে count হবে ad1 দিয়েই)
-                _ad2Completed = true;
-                setTimeout(()=>{ window._adFlow.finalProcess(); }, 300);
-            } else {
-                // Ad load fail → Play button দেখাও (network name ছাড়া)
-                showStage('stage-play-btn');
-            }
-        }
-    },
-
-    // Play button click করলে আবার Ad 2 try করো
-    _triggerAd2() {
-        const btn = document.getElementById('play-ad2-btn');
-        if (btn) btn.disabled = true;
-        showStage('stage-ad1-done'); // spinner
-        window._adFlow._startAd2();
-    },
-
-    // Retry Ad 2 (error badge থেকে)
-    retryAd2() {
-        if (!_ad1Completed) { showStage('stage-ad1-btn'); return; }
-        showStage('stage-ad1-done');
-        window._adFlow._startAd2();
-    },
-
-    // ── STEP 3: Both ads done → count +1, check if more rounds needed ──
-    finalProcess() {
-        // 🔒 STRICT Security: দুটো Ad-ই সত্যিকারভাবে সফল না হলে count হবে না
-        // Ad 1 (Adsgram) + Ad 2 (Monetag) দুটোই বাধ্যতামূলক
-        if (!_ad1Completed || !_ad2Completed) {
-            console.warn("🚫 Bypass blocked! Ad1:", _ad1Completed, "Ad2:", _ad2Completed);
-            // Flags reset করে শুরু থেকে পাঠাও
-            _ad1Completed = false;
-            _ad2Completed = false;
-            showToast("⚠️ Both ads must be watched to unlock!");
-            showStage('stage-ad1-btn');
+            if (srcCount === 0) setTimeout(_monetagLoaded, 300);
             return;
         }
-
-        showStage('stage-final');
-        startCountdown('final-countdown', adSettings.finalDuration || 5, async ()=>{
-            // 🔒 উভয় Ad সফল confirmed → count +1
-            // Firebase থেকে current count যাচাই করে তারপর increment
-            try {
-                const fileDoc = await getDoc(doc(db,"files",_adFileId));
-                if (!fileDoc.exists()) {
-                    showToast("❌ File not found!"); return;
-                }
-                // Firebase-এ adUnlockCount field ব্যবহার করে track করো
-                const firebaseCount = fileDoc.data().adUnlockCount?.[tgUser.id] || 0;
-                const newCount = firebaseCount + 1;
-
-                // Firebase-এ user-specific count save করো (localStorage নয়)
-                await updateDoc(doc(db,"files",_adFileId), {
-                    [`adUnlockCount.${tgUser.id}`]: newCount
-                });
-
-                // localStorage-ও sync রাখো (UI এর জন্য)
-                localStorage.setItem(`adCount_${_adFileId}`, newCount);
-
-                // Flags reset করো পরের রাউন্ডের জন্য
-                _ad1Completed = false;
-                _ad2Completed = false;
-
-                console.log(`✅ Round complete. Count: ${newCount} / ${_adRequired}`);
-
-                if (newCount >= _adRequired) {
-                    // সব রাউন্ড শেষ → Unlock!
-                    closeOverlay();
-                    const file = allFiles.find(f=>f.id===_adFileId);
-                    if (file) {
-                        saveToHistory(_adFileId);
-                        try { await updateDoc(doc(db,"files",_adFileId),{downloads:increment(1)}); } catch(e){}
-                        file.downloads++;
-                        updateDetailButtonState(file);
-                        document.getElementById('detail-downloads').textContent = formatNumber(file.downloads);
-                        renderFiles(); renderHistory();
+        if (!_monetagZoneId) return;
+        const s = document.createElement('script');
+        s.setAttribute('data-cfasync','false');
+        s.src = `https://tg.click/ads.js?z=${_monetagZoneId}`;
+        s.onload  = _monetagLoaded;
+        s.onerror = _monetagLoaded; // fail silently, flow continues
+        document.head.appendChild(s);
+    }
+    function showMonetagAd() {
+        return new Promise(resolve => {
+            const z = _monetagZoneId;
+            if (!z) { resolve(); return; }
+            let done = false;
+            const ok = () => { if (!done) { done = true; resolve(); } };
+            _onMonetagReady(() => {
+                try {
+                    // Method 1: window.show_{zoneId}  (Monetag TG SDK standard)
+                    if (typeof window[`show_${z}`] === 'function') {
+                        const p = window[`show_${z}`]();
+                        p && typeof p.then === 'function' ? p.then(ok).catch(ok) : setTimeout(ok, 1500);
+                        return;
                     }
-                    showToast("✅ Unlocked Successfully!");
-                } else {
-                    // আরও রাউন্ড বাকি → progress দেখাও, তারপর পরের রাউন্ড
-                    closeOverlay();
-                    window._adFlow._showRoundProgress(newCount, _adRequired, _adFileId);
+                    // Method 2: window.Monetag.show
+                    if (window.Monetag && typeof window.Monetag.show === 'function') {
+                        const p = window.Monetag.show({ zoneId: z });
+                        p && typeof p.then === 'function' ? p.then(ok).catch(ok) : setTimeout(ok, 1500);
+                        return;
+                    }
+                    // Method 3: window.AdController
+                    if (window.AdController && typeof window.AdController.show === 'function') {
+                        const p = window.AdController.show();
+                        p && typeof p.then === 'function' ? p.then(ok).catch(ok) : setTimeout(ok, 1500);
+                        return;
+                    }
+                    // SDK loaded but no known function → resolve anyway
+                    console.warn('Monetag: no ad fn found for zone', z, '| window keys:', Object.keys(window).filter(k=>k.startsWith('show_')));
+                    setTimeout(ok, 500);
+                } catch(e) { console.warn('Monetag ad error:', e); setTimeout(ok, 500); }
+            });
+            setTimeout(ok, 12000); // hard timeout
+        });
+    }
+
+    // ─── Load Data ─────────────────────────────────────────────────────────
+    async function loadData() {
+        showSkeletonLoader();
+
+        // Load adflow settings (Adsgram Block ID, Monetag Zone ID etc.)
+        try {
+            const af = await getDoc(doc(db, "settings", "adflow"));
+            if (af.exists()) {
+                const d = af.data();
+                // Adsgram Block ID — override hardcoded "20214" if set
+                if (d.adsgram?.blockId) window._adsgramBlockId = d.adsgram.blockId;
+                // Monetag — load SDK
+                if (d.monetag?.zoneId || d.monetag?.customScript) {
+                    loadMonetagSDK(d.monetag.zoneId || '', d.monetag.customScript || '');
                 }
-            } catch(e) {
-                console.error("❌ Count update failed:", e);
-                showToast("❌ Error! Please try again.");
-                closeOverlay();
+                if (d.timing?.cooldown) timerDuration = d.timing.cooldown;
             }
-        });
-    },
+        } catch(e) { console.warn("adflow settings load failed:", e); }
 
-    // ── Inter-round progress screen ────────────────────────────────────
-    _showRoundProgress(doneCount, req, fileId) {
-        openOverlay();
-        showStage('stage-progress');
-        document.getElementById('progress-stage-title').textContent = `Please wait...`;
-        // count/round info ইউজারকে দেখানো হবে না
-
-        const timerDiv = document.getElementById('progress-stage-timer');
-        const timerBar = document.getElementById('progress-timer-bar');
-        const timerTxt = document.getElementById('progress-timer-text');
-        const closeBtn = document.getElementById('progress-close-btn');
-        timerDiv.classList.remove('hidden'); closeBtn.classList.add('hidden');
-
-        let cd = timerDuration;
-        timerTxt.textContent = `Next round in ${cd}s...`;
-        timerBar.style.transition = 'none'; timerBar.style.width = '100%';
-        setTimeout(()=>{ timerBar.style.transition = `width ${timerDuration}s linear`; timerBar.style.width = '0%'; }, 50);
-
-        const iv = setInterval(()=>{
-            cd--;
-            // timer text ইউজারকে দেখাবো না
-            if (cd <= 0) {
-                clearInterval(iv);
-                closeBtn.classList.remove('hidden');
-                timerDiv.classList.add('hidden');
-                // progress-close-btn click করলে পরের রাউন্ড শুরু
-                closeBtn.onclick = () => {
-                    closeOverlay();
-                    window._adFlow.start(fileId, req);
-                };
+        try {
+            const s = await getDoc(doc(db, "settings", "general"));
+            if (s.exists()) {
+                const data = s.data();
+                timerDuration = data.timerDuration || 10;
+                if (data.appTitle) {
+                    document.title = data.appTitle;
+                    ['en','hi','bn'].forEach(l => translations[l].main_title = data.appTitle);
+                    document.querySelectorAll('.app-dynamic-title').forEach(el => el.textContent = data.appTitle);
+                    applyLanguage(currentLang);
+                }
+                if (data.themeColorFrom && data.themeColorTo) {
+                    const header = document.querySelector('header');
+                    if (header) { header.removeAttribute('class'); header.style.background = `linear-gradient(to bottom right, ${data.themeColorFrom}, ${data.themeColorTo})`; header.className = 'text-white p-6 rounded-2xl shadow-xl mb-6 relative overflow-hidden'; }
+                }
             }
-        }, 1000);
-    },
+            const ads = await getDoc(doc(db, "settings", "ads"));
+            if (ads.exists()) {
+                const d = ads.data();
+                if (d.adSlot1) document.getElementById('ad-container-1').innerHTML = d.adSlot1;
+                if (d.adSlot2) document.getElementById('ad-container-2').innerHTML = d.adSlot2;
+            }
+        } catch(e) { console.error("Settings error", e); }
 
-    cancel() {
-        // Cancel করলে উভয় flag reset
-        _ad1Completed = false;
-        _ad2Completed = false;
-        closeOverlay();
-    },
-    close()  {
-        _ad1Completed = false;
-        _ad2Completed = false;
-        closeOverlay();
+        try {
+            const sw = document.getElementById('slider-wrapper');
+            const sTrack = document.getElementById('slider-track');
+            const sDots  = document.getElementById('slider-dots');
+            const qS = query(collection(db, "sliders"), orderBy("createdAt", "desc"));
+            const sS = await getDocs(qS);
+            let slides = [];
+            sS.forEach(d => slides.push(d.data()));
+            if (slides.length > 0) {
+                sw.classList.remove('hidden');
+                sTrack.innerHTML = ''; sDots.innerHTML = '';
+                slides.forEach((s, idx) => {
+                    let div = document.createElement('div');
+                    div.className = `w-full h-full flex-shrink-0 ${s.linkUrl ? 'cursor-pointer' : ''}`;
+                    if (s.linkUrl) div.onclick = () => window.open(s.linkUrl, '_blank');
+                    div.innerHTML = `<img src="${s.imageUrl}" class="w-full h-full object-cover">`;
+                    sTrack.appendChild(div);
+                    if (slides.length > 1) {
+                        let dot = document.createElement('div');
+                        dot.className = `w-2 h-2 rounded-full ${idx === 0 ? 'bg-white' : 'bg-white/50'} transition-colors`;
+                        dot.id = `dot-${idx}`;
+                        sDots.appendChild(dot);
+                    }
+                });
+                if (slides.length > 1) {
+                    let cur = 0;
+                    if (slideInterval) clearInterval(slideInterval);
+                    slideInterval = setInterval(() => {
+                        cur = (cur + 1) % slides.length;
+                        sTrack.style.transform = `translateX(-${cur * 100}%)`;
+                        for (let i = 0; i < slides.length; i++)
+                            document.getElementById(`dot-${i}`).className = `w-2 h-2 rounded-full ${i === cur ? 'bg-white' : 'bg-white/50'} transition-colors`;
+                    }, 3000);
+                }
+            }
+        } catch(e) { console.error("Slider error", e); }
+
+        try {
+            const q = collection(db, "files");
+            const snaps = await getDocs(q);
+            allFiles = [];
+            snaps.forEach(d => { const data = d.data(); allFiles.push({ id: d.id, downloads: data.downloads || 0, reviews: data.reviews || [], ...data }); });
+            renderFiles(); renderHistory();
+        } catch(e) { console.error("Files error", e); }
     }
-};
 
-// ⛔ Anti-bypass: Console থেকে _adFlow replace বা flags override ঠেকানো
-// _ad1Completed / _ad2Completed সরাসরি set করে bypass করা যাবে না
-// কারণ finalProcess() এ server (Firebase) থেকে count verify হয়
-Object.freeze(window._adFlow);
-
-// ── Main unlock entry ────────────────────────────────────────────────────
-window.unlockFile = async (id, req) => {
-    const btn = document.getElementById('unlock-action-btn');
-    if (btn) { btn.disabled = true; btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> <span>Loading...</span>`; }
-
-    try {
-        // 🔒 Firebase থেকে real count যাচাই করো — localStorage bypass ঠেকানো
-        const fileDoc = await getDoc(doc(db,"files",id));
-        const firebaseCount = fileDoc.exists()
-            ? (fileDoc.data().adUnlockCount?.[tgUser.id] || 0)
-            : 0;
-
-        // localStorage Firebase-এর সাথে sync করো
-        localStorage.setItem(`adCount_${id}`, firebaseCount);
-
-        const remaining = req - firebaseCount;
-
-        if (remaining > 0) {
-            // Ad flow শুরু করো
-            window._adFlow.start(id, req);
-        } else {
-            // Already unlocked (Firebase-এ verified)
-            if (btn) { btn.disabled = false; updateDetailButtonState(allFiles.find(f=>f.id===id)); }
+    // ─── Render Grid ───────────────────────────────────────────────────────
+    function renderFiles() {
+        const grid = document.getElementById('files-grid');
+        grid.innerHTML = '';
+        const term = document.getElementById('searchInput').value.toLowerCase();
+        const filtered = allFiles.filter(f => (f.title || '').toLowerCase().includes(term));
+        if (filtered.length === 0) {
+            grid.innerHTML = `<div class="col-span-full text-center py-10 text-gray-400 dark:text-gray-600"><i class="fas fa-search text-4xl mb-3"></i><p>No files found.</p></div>`;
+            return;
         }
-    } catch(e) {
-        console.error("Unlock check failed:", e);
-        // Firebase error হলে localStorage fallback (offline mode)
-        const localCount = parseInt(localStorage.getItem(`adCount_${id}`))||0;
-        if (localCount < req) {
-            window._adFlow.start(id, req);
-        } else {
-            if (btn) { btn.disabled = false; updateDetailButtonState(allFiles.find(f=>f.id===id)); }
-        }
-    }
-};
-
-// ── History ──────────────────────────────────────────────────────────────
-function saveToHistory(fileId) {
-    let h = JSON.parse(localStorage.getItem('downloadHistory')||'[]');
-    if (!h.includes(fileId)) { h.push(fileId); localStorage.setItem('downloadHistory', JSON.stringify(h)); }
-}
-function renderHistory() {
-    const list  = document.getElementById('history-list');
-    const empty = document.getElementById('empty-history');
-    const ids   = JSON.parse(localStorage.getItem('downloadHistory')||'[]')
-        .filter(id => {
-            const f = allFiles.find(x=>x.id===id);
-            // Firebase count localStorage-এ sync হয়েছে, সেটাই ব্যবহার করো
-            const count = parseInt(localStorage.getItem(`adCount_${id}`))||0;
-            return f && count >= (parseInt(f.requiredAds)||2);
-        });
-    list.innerHTML = '';
-    if (!ids.length) { empty.classList.remove('hidden'); return; }
-    empty.classList.add('hidden');
-    ids.reverse().forEach(id => {
-        const file = allFiles.find(f=>f.id===id);
-        if (!file) return;
-        const item = document.createElement('div');
-        item.className = 'bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border dark:border-gray-700 flex items-center gap-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors';
-        item.onclick = ()=>window.openDetails(file.id);
-        item.innerHTML = `
-            <div class="relative w-24 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100 dark:bg-gray-700">
-                <img src="${file.thumbnailUrl}" class="w-full h-full object-cover">
-                <div class="absolute inset-0 flex items-center justify-center">
-                    <div class="w-7 h-7 rounded-full bg-white/80 flex items-center justify-center">
-                        <i class="fas fa-play text-indigo-600 text-xs ml-0.5"></i>
+        filtered.forEach(file => {
+            const card = document.createElement('div');
+            card.className = 'bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col hover:shadow-lg transition-all duration-300';
+            card.innerHTML = `
+                <div class="relative w-full aspect-video bg-gray-100 dark:bg-gray-700 cursor-pointer overflow-hidden group" onclick="window.openDetails('${file.id}')">
+                    <img src="${file.thumbnailUrl}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="Thumbnail">
+                    <div class="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-white text-[10px] px-2 py-1 rounded-md font-medium flex items-center gap-1 shadow">
+                        <i class="fas fa-download"></i> ${formatNumber(file.downloads)}
                     </div>
                 </div>
-            </div>
-            <div class="flex-1">
-                <h3 class="font-bold text-gray-800 dark:text-white line-clamp-1 text-sm">${file.title}</h3>
-                <p class="text-xs text-green-600 dark:text-green-400 font-semibold mt-1"><i class="fas fa-check-circle"></i> Unlocked</p>
-            </div>
-            <button class="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0">
-                <i class="fas fa-chevron-right"></i>
-            </button>`;
-        list.appendChild(item);
-    });
-}
-
-// ── Tab switcher ─────────────────────────────────────────────────────────
-window.switchTab = (tab) => {
-    const hv  = document.getElementById('home-view');
-    const hiv = document.getElementById('history-view');
-    const nh  = document.getElementById('nav-home');
-    const nhi = document.getElementById('nav-history');
-    if (tab==='home') {
-        hv.classList.remove('hidden'); hiv.classList.add('hidden');
-        nh.className  = 'nav-btn flex flex-col items-center justify-center w-full h-full text-indigo-600 dark:text-indigo-400';
-        nhi.className = 'nav-btn flex flex-col items-center justify-center w-full h-full text-gray-400 dark:text-gray-500 hover:text-indigo-500 transition-colors';
-    } else {
-        hv.classList.add('hidden'); hiv.classList.remove('hidden');
-        nhi.className = 'nav-btn flex flex-col items-center justify-center w-full h-full text-indigo-600 dark:text-indigo-400';
-        nh.className  = 'nav-btn flex flex-col items-center justify-center w-full h-full text-gray-400 dark:text-gray-500 hover:text-indigo-500 transition-colors';
-        renderHistory();
+                <div class="p-3 md:p-4 flex flex-col flex-1">
+                    <h3 class="font-bold text-sm md:text-base text-gray-800 dark:text-white line-clamp-1 cursor-pointer mb-2" onclick="window.openDetails('${file.id}')">${file.title}</h3>
+                    <p class="text-[11px] md:text-xs text-gray-500 dark:text-gray-400 mb-3 line-clamp-2 flex-1">${file.description}</p>
+                    <button onclick="window.openDetails('${file.id}')" class="w-full py-2 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-600 dark:hover:bg-indigo-600 hover:text-white dark:hover:text-white active:scale-95 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 border border-indigo-100 dark:border-indigo-800/50">
+                        <i class="fas fa-download text-xs"></i> ${getText('download_default')}
+                    </button>
+                </div>`;
+            grid.appendChild(card);
+        });
     }
-};
 
-// ── Search ────────────────────────────────────────────────────────────────
-document.getElementById('searchInput').addEventListener('input', renderFiles);
+    // ─── Details Page ──────────────────────────────────────────────────────
+    window.openDetails = (id) => {
+        currentFileId = id;
+        const file = allFiles.find(f => f.id === id);
+        if (!file) return;
+        document.getElementById('detail-title').textContent        = file.title;
+        document.getElementById('detail-header-title').textContent = file.title;
+        document.getElementById('detail-icon').src        = file.thumbnailUrl;
+        document.getElementById('detail-small-icon').src  = file.thumbnailUrl;
+        document.getElementById('detail-small-icon').classList.remove('hidden');
+        document.getElementById('detail-desc').textContent = file.description || 'No description available.';
+        document.getElementById('detail-downloads').textContent = formatNumber(file.downloads);
+        const scContainer = document.getElementById('detail-screenshots');
+        scContainer.innerHTML = '';
+        const images = file.screenshots && file.screenshots.length > 0 ? file.screenshots : [file.thumbnailUrl];
+        images.forEach(imgUrl => {
+            scContainer.innerHTML += `
+                <div class="snap-center shrink-0 cursor-pointer" onclick="window.openImageViewer('${imgUrl}')">
+                    <img src="${imgUrl}" class="h-64 md:h-80 aspect-[9/16] rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm object-cover hover:shadow-md transition-shadow">
+                </div>`;
+        });
+        window.cancelEditReview();
+        renderReviews(file);
+        updateDetailButtonState(file);
+        const dv = document.getElementById('details-view');
+        dv.classList.remove('hidden'); dv.classList.add('flex');
+        dv.querySelector('.flex-1').scrollTop = 0;
+    };
 
-// ── Init ──────────────────────────────────────────────────────────────────
-(async () => {
-    try { await signInAnonymously(auth); } catch(e) { console.warn("Auth:", e); }
-    await loadData();
-})();
+    window.closeDetails = () => {
+        currentFileId = null;
+        const dv = document.getElementById('details-view');
+        dv.classList.add('hidden'); dv.classList.remove('flex');
+    };
+
+    window.openImageViewer = (src) => {
+        const viewer = document.getElementById('image-viewer');
+        document.getElementById('image-viewer-img').src = src;
+        viewer.classList.remove('hidden'); viewer.classList.add('flex');
+        setTimeout(() => { viewer.classList.replace('opacity-0','opacity-100'); document.getElementById('image-viewer-img').classList.replace('scale-95','scale-100'); }, 10);
+    };
+    window.closeImageViewer = () => {
+        const viewer = document.getElementById('image-viewer');
+        const img    = document.getElementById('image-viewer-img');
+        viewer.classList.replace('opacity-100','opacity-0');
+        img.classList.replace('scale-100','scale-95');
+        setTimeout(() => { viewer.classList.remove('flex'); viewer.classList.add('hidden'); }, 300);
+    };
+    document.getElementById('image-viewer').addEventListener('click', e => { if (e.target.id === 'image-viewer') window.closeImageViewer(); });
+
+    // ─── Reviews ───────────────────────────────────────────────────────────
+    function renderReviews(file) {
+        const list     = document.getElementById('reviews-list');
+        const avgLabel = document.getElementById('detail-rating-avg');
+        list.innerHTML = '';
+        const reviews  = file.reviews || [];
+        if (reviews.length === 0) {
+            avgLabel.textContent = "0.0";
+            list.innerHTML = `<div class="text-center text-gray-400 dark:text-gray-500 py-4"><i class="fas fa-comment-slash text-3xl mb-2"></i><p>${getText('no_reviews')}</p></div>`;
+            return;
+        }
+        const sum = reviews.reduce((a, b) => a + b.rating, 0);
+        avgLabel.textContent = (sum / reviews.length).toFixed(1);
+        [...reviews].sort((a,b) => b.timestamp - a.timestamp).forEach(rev => {
+            const item    = document.createElement('div');
+            item.className = 'bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm relative group';
+            const isOwner = rev.userId === tgUser.id;
+            item.innerHTML = `
+                <div class="flex justify-between items-start mb-2 pr-12">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xs uppercase">${(rev.user || 'U').charAt(0)}</div>
+                        <div>
+                            <h5 class="text-sm font-bold text-gray-800 dark:text-white">${rev.user} ${isOwner ? '<span class="text-[10px] bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 px-1.5 rounded ml-1">You</span>':''}</h5>
+                            <div class="text-[10px] text-gray-400">${new Date(rev.timestamp).toLocaleDateString()}</div>
+                        </div>
+                    </div>
+                    <div class="text-xs tracking-wider">${getStarsHTML(rev.rating)}</div>
+                </div>
+                <p class="text-gray-600 dark:text-gray-300 text-sm mt-2">${rev.text}</p>
+                ${isOwner ? `<div class="absolute top-4 right-4 flex gap-3"><button onclick="window.editReviewForm('${rev.userId}')" class="text-indigo-500 hover:text-indigo-700 transition-colors"><i class="fas fa-edit"></i></button><button onclick="window.deleteReview('${rev.userId}')" class="text-red-500 hover:text-red-700 transition-colors"><i class="fas fa-trash-alt"></i></button></div>` : ''}`;
+            list.appendChild(item);
+        });
+    }
+
+    function updateStarUI() {
+        document.querySelectorAll('.star-btn').forEach(btn => {
+            const val = parseInt(btn.getAttribute('data-val'));
+            btn.classList.toggle('text-yellow-400', val <= userRating);
+            btn.classList.toggle('text-gray-300',   val > userRating);
+            btn.classList.toggle('dark:text-gray-600', val > userRating);
+        });
+    }
+    document.querySelectorAll('.star-btn').forEach(btn => btn.addEventListener('click', () => { userRating = parseInt(btn.getAttribute('data-val')); updateStarUI(); }));
+
+    window.editReviewForm = (userId) => {
+        const file = allFiles.find(f => f.id === currentFileId);
+        const rev  = file && file.reviews.find(r => r.userId === userId);
+        if (rev) {
+            userRating = rev.rating; updateStarUI();
+            document.getElementById('review-text').value = rev.text;
+            document.getElementById('submit-review-btn').textContent = getText('update_review');
+            document.getElementById('cancel-edit-btn').classList.remove('hidden');
+            document.getElementById('star-rating-container').scrollIntoView({behavior:'smooth',block:'center'});
+        }
+    };
+    window.cancelEditReview = () => {
+        userRating = 0; updateStarUI();
+        document.getElementById('review-text').value = '';
+        document.getElementById('submit-review-btn').textContent = getText('submit_review');
+        document.getElementById('cancel-edit-btn').classList.add('hidden');
+    };
+    window.deleteReview = async (userId) => {
+        if (!confirm("Delete your review?")) return;
+        const file = allFiles.find(f => f.id === currentFileId);
+        if (!file) return;
+        const upd = file.reviews.filter(r => r.userId !== userId);
+        file.reviews = upd; renderReviews(file); window.cancelEditReview(); showToast("Review deleted");
+        try { await updateDoc(doc(db,"files",currentFileId), { reviews: upd }); } catch(e){ console.error(e); }
+    };
+    document.getElementById('submit-review-btn').addEventListener('click', async () => {
+        if (!userRating)    return showToast("Please select a star rating");
+        const text = document.getElementById('review-text').value.trim();
+        if (!text) return showToast("Please write a review");
+        const file = allFiles.find(f => f.id === currentFileId);
+        let upd = [...(file.reviews || [])];
+        const idx = upd.findIndex(r => r.userId === tgUser.id);
+        const newRev = { userId: tgUser.id, user: tgUser.name, rating: userRating, text, timestamp: Date.now() };
+        idx >= 0 ? upd[idx] = newRev : upd.push(newRev);
+        file.reviews = upd; renderReviews(file); window.cancelEditReview(); showToast("Review saved!");
+        try { await updateDoc(doc(db,"files",currentFileId), { reviews: upd }); } catch(e){ console.error(e); }
+    });
+
+    // ─── Button State ──────────────────────────────────────────────────────
+    function updateDetailButtonState(file) {
+        const req        = parseInt(file.requiredAds) || 5;
+        const count      = parseInt(localStorage.getItem(`adCount_${file.id}`)) || 0;
+        const isUnlocked = count >= req;
+        const container  = document.getElementById('detail-actions');
+        if (isUnlocked) {
+            saveToHistory(file.id);
+            container.innerHTML = `
+                <a href="${file.downloadUrl}" target="_blank" class="flex-1 py-3.5 bg-green-600 hover:bg-green-700 text-white text-center rounded-xl font-bold shadow-lg transition-colors flex items-center justify-center gap-2">
+                    <i class="fas fa-download"></i> ${file.btnName1 || getText('download_default')}
+                </a>
+                ${file.downloadUrl2 ? `<a href="${file.downloadUrl2}" target="_blank" class="flex-1 py-3.5 bg-teal-600 hover:bg-teal-700 text-white text-center rounded-xl font-bold shadow-lg transition-colors flex items-center justify-center gap-2"><i class="fas fa-link"></i> ${file.btnName2 || 'Link 2'}</a>` : ''}`;
+        } else {
+            container.innerHTML = `
+                <button id="unlock-action-btn" onclick="window.unlockFile('${file.id}',${req})"
+                    class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl font-bold shadow-lg transition-all flex items-center justify-center gap-2">
+                    <i class="fas fa-lock"></i>
+                    <span>${getText('unlock_btn')} (${count}/${req})</span>
+                </button>`;
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    //  AD FLOW ENGINE
+    // ─────────────────────────────────────────────────────────────────────
+    let _adFileId   = null;
+    let _adRequired = 0;
+
+    // Helpers
+    function showStage(id) {
+        const stages = ['stage-preload','stage-ad1-btn','stage-ad1-done','stage-preload2','stage-ad2-btn','stage-final','stage-progress'];
+        stages.forEach(s => document.getElementById(s).classList.add('hidden'));
+        document.getElementById(id).classList.remove('hidden');
+    }
+    function setStepBar(pct, label) {
+        document.getElementById('ad-step-bar').style.width   = pct + '%';
+        document.getElementById('ad-step-pct').textContent   = pct + '%';
+        document.getElementById('ad-step-label').textContent = label;
+    }
+    function animateBar(barId, pctTextId, durationMs, onDone) {
+        const bar     = document.getElementById(barId);
+        const pctText = pctTextId ? document.getElementById(pctTextId) : null;
+        let pct = 0;
+        const steps = 40;
+        const inc   = 100 / steps;
+        const delay = durationMs / steps;
+        const iv = setInterval(() => {
+            pct = Math.min(100, pct + inc + (Math.random() * inc * 0.5));
+            if (bar) bar.style.width = pct + '%';
+            if (pctText) pctText.textContent = Math.floor(pct) + '%';
+            if (pct >= 100) { clearInterval(iv); if (onDone) onDone(); }
+        }, delay);
+        return iv;
+    }
+    function spawnConfetti() {
+        const container = document.getElementById('stage-ad1-done').querySelector('.relative');
+        const colors    = ['#6366f1','#a855f7','#ec4899','#22c55e','#f59e0b'];
+        for (let i = 0; i < 8; i++) {
+            const dot = document.createElement('div');
+            dot.className = 'confetti-dot';
+            dot.style.cssText = `left:${Math.random()*100}%;top:-5px;background:${colors[i%colors.length]};animation-delay:${Math.random()*0.4}s;`;
+            container.appendChild(dot);
+            setTimeout(() => dot.remove(), 1400);
+        }
+    }
+    function openOverlay()  { document.getElementById('ad-overlay').classList.remove('hidden'); }
+    function closeOverlay() { document.getElementById('ad-overlay').classList.add('hidden'); }
+
+    // ─── Public ad flow controller ─────────────────────────────────────────
+    window._adFlow = {
+
+        // Entry point called by unlock button
+        start(fileId, req) {
+            _adFileId   = fileId;
+            _adRequired = req;
+            openOverlay();
+            setStepBar(0, 'Step 1 of 2');
+            showStage('stage-preload');
+
+            // Animate pre-load bar: 3 second processing feel
+            let statusMsgs = ["Processing...", "Please wait 3 seconds", "Preparing button..."];
+            let msgIdx = 0;
+            document.getElementById('preload-title').textContent = statusMsgs[0];
+            document.getElementById('preload-sub').textContent   = statusMsgs[1];
+
+            const msgIv = setInterval(() => {
+                msgIdx = (msgIdx + 1) % statusMsgs.length;
+                document.getElementById('preload-title').textContent = statusMsgs[msgIdx];
+            }, 900);
+
+            animateBar('preload-bar','preload-pct-text', 3000, () => {
+                clearInterval(msgIv);
+                document.getElementById('preload-title').textContent = 'Ready!';
+                document.getElementById('preload-sub').textContent   = 'Button prepared';
+                setTimeout(() => {
+                    setStepBar(25, 'Step 1 of 2 — Watch Ad');
+                    showStage('stage-ad1-btn');
+                }, 400);
+            });
+        },
+
+        async watchAd1() {
+            const btn = document.getElementById('watch-ad1-btn');
+            btn.disabled = true;
+            btn.innerHTML = `<div class="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div> Loading Ad...`;
+
+            try {
+                if (window.Adsgram) {
+                    const AdController = window.Adsgram.init({ blockId: String(window._adsgramBlockId || "20214") });
+                    await AdController.show();
+                } else {
+                    // Demo mode – simulate ad
+                    await new Promise(r => setTimeout(r, 1800));
+                }
+                setStepBar(50, 'Step 1 Complete ✓');
+                showStage('stage-ad1-done');
+                spawnConfetti();
+            } catch(e) {
+                console.error("Ad1 error", e);
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fas fa-exclamation-triangle mr-2"></i> Ad Failed — Retry`;
+            }
+        },
+
+        prepareAd2() {
+            setStepBar(60, 'Step 2 of 2 — Loading');
+            showStage('stage-preload2');
+
+            setTimeout(() => {
+                setStepBar(75, 'Step 2 of 2 — Watch Final Ad');
+                showStage('stage-ad2-btn');
+            }, 2200);
+        },
+
+        async watchAd2() {
+            const btn = document.getElementById('watch-ad2-btn');
+            btn.disabled = true;
+            btn.innerHTML = `<div class="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div> Loading Ad...`;
+
+            try {
+                await showMonetagAd();
+                window._adFlow.finalProcess();
+            } catch(e) {
+                console.error("Ad2 error", e);
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fas fa-ad mr-2"></i> Watch Final Ad — Unlock Now`;
+            }
+        },
+
+        finalProcess() {
+            setStepBar(88, 'Almost done...');
+            showStage('stage-final');
+            const msgs = [
+                { title:"Final Processing...", sub:"Please wait 2 seconds" },
+                { title:"Verifying...",        sub:"Unlocking your download..." },
+                { title:"Almost there...",     sub:"Setting up your file..." }
+            ];
+            let mi = 0;
+            document.getElementById('final-title').textContent = msgs[0].title;
+            document.getElementById('final-sub').textContent   = msgs[0].sub;
+            const msgIv = setInterval(() => {
+                mi = (mi + 1) % msgs.length;
+                document.getElementById('final-title').textContent = msgs[mi].title;
+                document.getElementById('final-sub').textContent   = msgs[mi].sub;
+            }, 700);
+
+            animateBar('final-bar','final-pct-text', 2500, async () => {
+                clearInterval(msgIv);
+                document.getElementById('final-title').textContent = 'Unlocked!';
+                document.getElementById('final-sub').textContent   = 'Your file is ready';
+                await new Promise(r => setTimeout(r, 500));
+
+                // Count ad and unlock
+                let count = parseInt(localStorage.getItem(`adCount_${_adFileId}`)) || 0;
+                count += 2; // Two ads watched
+                localStorage.setItem(`adCount_${_adFileId}`, count);
+
+                setStepBar(100, '✓ Complete!');
+                closeOverlay();
+
+                const file = allFiles.find(f => f.id === _adFileId);
+                if (file) {
+                    saveToHistory(_adFileId);
+                    try { await updateDoc(doc(db,"files",_adFileId), { downloads: increment(1) }); } catch(e){ console.error(e); }
+                    file.downloads++;
+                    updateDetailButtonState(file);
+                    document.getElementById('detail-downloads').textContent = formatNumber(file.downloads);
+                    renderFiles(); renderHistory();
+                }
+                showToast(getText('unlocked_msg'));
+            });
+        },
+
+        // For ad count flows where file needs > 2 ads (progress mode)
+        async showProgress(fileId, req) {
+            _adFileId   = fileId;
+            _adRequired = req;
+            let count = parseInt(localStorage.getItem(`adCount_${fileId}`)) || 0;
+            count++;
+            localStorage.setItem(`adCount_${fileId}`, count);
+
+            openOverlay();
+            setStepBar(Math.round((count/req)*100), `${count}/${req} Ads done`);
+            showStage('stage-progress');
+            document.getElementById('progress-stage-title').textContent = 'Ad Completed!';
+            document.getElementById('progress-stage-msg').textContent   = `Progress: ${count} of ${req} ads watched.`;
+
+            const timerDiv  = document.getElementById('progress-stage-timer');
+            const timerBar  = document.getElementById('progress-timer-bar');
+            const timerText = document.getElementById('progress-timer-text');
+            const closeBtn  = document.getElementById('progress-close-btn');
+
+            timerDiv.classList.remove('hidden');
+            closeBtn.classList.add('hidden');
+
+            let cd = timerDuration;
+            timerText.textContent = `Next button in ${cd}s...`;
+            timerBar.style.transition = 'none';
+            timerBar.style.width = '100%';
+
+            const file = allFiles.find(f => f.id === fileId);
+            if (file) { file.downloads; updateDetailButtonState(file); }
+
+            setTimeout(() => {
+                timerBar.style.transition = `width ${timerDuration}s linear`;
+                timerBar.style.width = '0%';
+            }, 50);
+
+            const iv = setInterval(() => {
+                cd--;
+                timerText.textContent = cd > 0 ? `Next button in ${cd}s...` : 'Ready!';
+                if (cd <= 0) {
+                    clearInterval(iv);
+                    closeBtn.classList.remove('hidden');
+                    timerDiv.classList.add('hidden');
+                    if (file) updateDetailButtonState(file);
+                }
+            }, 1000);
+        },
+
+        cancel() {
+            closeOverlay();
+        },
+        close() {
+            closeOverlay();
+        }
+    };
+
+    // ─── Main unlock entry ─────────────────────────────────────────────────
+    window.unlockFile = async (id, req) => {
+        const btn = document.getElementById('unlock-action-btn');
+        if (btn) { btn.disabled = true; btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> <span>${getText('loading_ad')}</span>`; }
+
+        try {
+            const count = parseInt(localStorage.getItem(`adCount_${id}`)) || 0;
+            const remaining = req - count;
+
+            if (remaining >= 2) {
+                // Full 2-ad staged flow
+                window._adFlow.start(id, req);
+            } else if (remaining === 1) {
+                // Only 1 ad left — show single ad then unlock
+                openOverlay();
+                setStepBar(50, 'Final Ad');
+                showStage('stage-ad2-btn');
+                _adFileId   = id;
+                _adRequired = req;
+                document.getElementById('stage-ad2-btn').querySelector('h3').textContent = 'Last Step!';
+                document.getElementById('stage-ad2-btn').querySelector('p').textContent  = 'Watch one more ad to unlock your file.';
+            } else {
+                // Should not happen but handle gracefully
+                if (btn) { btn.disabled = false; updateDetailButtonState(allFiles.find(f => f.id === id)); }
+            }
+        } catch(e) {
+            console.error("Unlock error", e);
+            if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fas fa-exclamation-triangle"></i> <span>${getText('ad_failed')}</span>`; }
+        }
+    };
+
+    // ─── History ────────────────────────────────────────────────────────────
+    function saveToHistory(fileId) {
+        let history = JSON.parse(localStorage.getItem('downloadHistory') || '[]');
+        if (!history.includes(fileId)) { history.push(fileId); localStorage.setItem('downloadHistory', JSON.stringify(history)); }
+    }
+    function renderHistory() {
+        const list     = document.getElementById('history-list');
+        const empty    = document.getElementById('empty-history');
+        let historyIds = JSON.parse(localStorage.getItem('downloadHistory') || '[]')
+            .filter(id => { const f = allFiles.find(x => x.id === id); if (!f) return false; return (parseInt(localStorage.getItem(`adCount_${id}`)) || 0) >= (parseInt(f.requiredAds) || 5); });
+        list.innerHTML = '';
+        if (historyIds.length === 0) { empty.classList.remove('hidden'); return; }
+        empty.classList.add('hidden');
+        historyIds.forEach(id => {
+            const file = allFiles.find(f => f.id === id);
+            if (file) {
+                const item = document.createElement('div');
+                item.className = 'bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-transparent dark:border-gray-700 flex items-center gap-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors';
+                item.onclick = () => window.openDetails(file.id);
+                item.innerHTML = `
+                    <img src="${file.thumbnailUrl}" class="w-16 h-16 rounded-xl object-cover shadow-sm bg-gray-100 dark:bg-gray-700">
+                    <div class="flex-1">
+                        <h3 class="font-bold text-gray-800 dark:text-white line-clamp-1">${file.title}</h3>
+                        <p class="text-xs text-green-600 dark:text-green-400 font-semibold mt-1"><i class="fas fa-check-circle"></i> Unlocked</p>
+                    </div>
+                    <button class="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 w-10 h-10 rounded-full flex items-center justify-center">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>`;
+                list.appendChild(item);
+            }
+        });
+    }
+
+    // ─── Tab switcher ───────────────────────────────────────────────────────
+    window.switchTab = (tab) => {
+        const hv  = document.getElementById('home-view');
+        const hiv = document.getElementById('history-view');
+        const nh  = document.getElementById('nav-home');
+        const nhi = document.getElementById('nav-history');
+        if (tab === 'home') {
+            hv.classList.remove('hidden'); hiv.classList.add('hidden');
+            nh.classList.replace('text-gray-400','text-indigo-600'); nh.classList.replace('dark:text-gray-500','dark:text-indigo-400');
+            nhi.classList.replace('text-indigo-600','text-gray-400'); nhi.classList.replace('dark:text-indigo-400','dark:text-gray-500');
+        } else {
+            hv.classList.add('hidden'); hiv.classList.remove('hidden');
+            nhi.classList.replace('text-gray-400','text-indigo-600'); nhi.classList.replace('dark:text-gray-500','dark:text-indigo-400');
+            nh.classList.replace('text-indigo-600','text-gray-400'); nh.classList.replace('dark:text-indigo-400','dark:text-gray-500');
+            renderHistory();
+        }
+    };
+
+    // ─── Toast ──────────────────────────────────────────────────────────────
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        document.getElementById('toast-message').textContent = msg;
+        t.classList.remove('-translate-y-24','opacity-0'); t.classList.add('translate-y-0','opacity-100');
+        setTimeout(() => { t.classList.add('-translate-y-24','opacity-0'); t.classList.remove('translate-y-0','opacity-100'); }, 3000);
+    }
+
+    // ─── Init ───────────────────────────────────────────────────────────────
+    document.getElementById('searchInput').addEventListener('input', renderFiles);
+    document.querySelectorAll('.lang-btn').forEach(btn => btn.addEventListener('click', () => applyLanguage(btn.dataset.lang)));
+    document.getElementById('searchInput').addEventListener('focus', () => window.scrollTo({top:0,behavior:'smooth'}));
+
+    const savedLang = localStorage.getItem('userLanguage');
+    if (savedLang) applyLanguage(savedLang);
+    else document.getElementById('language-modal').classList.remove('hidden');
+
+    async function initializeAppWithAuth() {
+        try { await signInAnonymously(auth); } catch(e) { console.warn("Auth failed:", e); }
+        loadData();
+    }
+    initializeAppWithAuth();
+
 </script>
 </body>
 </html>
