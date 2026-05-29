@@ -9,8 +9,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-    <!-- Ad SDK — head এ থাকা আবশ্যক -->
-    <!-- Zone ID admin থেকে load হওয়ার পরে src set হবে -->
+    <!-- Ad SDK placeholder — src set হবে admin Zone ID দিয়ে -->
     <script id="monetag-sdk-script" data-cfasync="false"></script>
 
     <style>
@@ -337,14 +336,14 @@
             <p style="color:rgba(255,255,255,0.2);font-size:12px;margin-top:6px;">Preparing button...</p>
         </div>
 
-        <!-- STAGE 1: Watch Ad 1 button -->
+        <!-- STAGE 1: Watch First Ad button -->
         <div id="stage-ad1-btn" class="text-center hidden">
             <p class="ad-title-white">🎬 Watch an ad to unlock this video</p>
             <p class="ad-sub-gray">Premium Content — Watch Ads to Unlock</p>
             <button id="watch-ad1-btn" class="ad-watch-btn" onclick="window._adFlow.watchAd1()">
-                <i class="fas fa-video"></i> WATCH AD (<span id="ad1-count-label">0</span>/<span id="ad1-req-label">2</span>)
+                <i class="fas fa-video"></i> WATCH FIRST AD
             </button>
-            <p style="color:rgba(255,255,255,0.25);font-size:12px;margin-top:12px;" id="ad1-remaining-label">2 more ad(s) needed</p>
+            <p style="color:rgba(255,255,255,0.25);font-size:12px;margin-top:12px;" id="ad1-remaining-label"></p>
             <button onclick="window._adFlow.cancel()" class="ad-cancel-btn">Cancel</button>
         </div>
 
@@ -371,15 +370,15 @@
             <p class="ad-processing-sub">Please wait <span id="processing-countdown">3</span> seconds ⏳</p>
         </div>
 
-        <!-- STAGE 4: First Ad Done → Play Video (Second Ad) -->
+        <!-- STAGE 4: First Ad Done → Play Final Ad -->
         <div id="stage-ad1-done" class="text-center hidden" style="position:relative;">
             <div class="ad-check-circle">
                 <i class="fas fa-check text-white text-2xl"></i>
             </div>
-            <p class="ad-first-done-title">Ad 1 Complete! 🎉</p>
-            <p style="color:rgba(255,255,255,0.5);font-size:14px;margin-bottom:20px;">Now watch the Mini App Ad<br>to complete this round.</p>
+            <p class="ad-first-done-title">First Ad Complete! 🎉</p>
+            <p style="color:rgba(255,255,255,0.5);font-size:14px;margin-bottom:20px;">Now watch the Final Ad<br>to complete this round.</p>
             <button id="play-video-btn" class="ad-play-btn" onclick="window._adFlow.playVideo()">
-                <i class="fas fa-play"></i> Watch Mini App Ad (2/2)
+                <i class="fas fa-play"></i> WATCH FINAL AD
             </button>
             <button onclick="window._adFlow.cancel()" class="ad-cancel-btn">Cancel Process</button>
         </div>
@@ -550,10 +549,10 @@ function loadAdsgramScript(url) {
     });
 }
 
-// ── Load Monetag script dynamically ─────────────────────────────────────
+// ── Ad SDK (Monetag libtl.com) loader ───────────────────────────────────
 let _monetagReady    = false;
 let _monetagZoneId   = '';
-let _monetagReadyCbs = [];  // ready হলে যেসব callback চালাতে হবে
+let _monetagReadyCbs = [];
 
 function onMonetagReady(cb) {
     if (_monetagReady) { cb(); return; }
@@ -561,39 +560,42 @@ function onMonetagReady(cb) {
 }
 
 function _monetagOnLoad() {
-    _monetagReady = true;
-    _monetagReadyCbs.forEach(cb => { try { cb(); } catch(e){} });
-    _monetagReadyCbs = [];
+    // libtl.com SDK registers show_{zoneId} asynchronously after onload
+    // Give it a short tick to register the function
+    setTimeout(() => {
+        _monetagReady = true;
+        _monetagReadyCbs.forEach(cb => { try { cb(); } catch(e){} });
+        _monetagReadyCbs = [];
+    }, 300);
 }
 
 function loadMonetagScript(zoneId, customScript) {
     _monetagZoneId = zoneId || '';
 
     if (customScript && customScript.trim()) {
-        // Custom script — parse করে head এ inject করো
         const div = document.createElement('div');
         div.innerHTML = customScript;
-        let loaded = 0;
+        let totalSrc = 0, loadedSrc = 0;
         const scripts = div.querySelectorAll('script');
+        scripts.forEach(s => { if (s.src) totalSrc++; });
         scripts.forEach(s => {
             const ns = document.createElement('script');
             ns.setAttribute('data-cfasync', 'false');
             if (s.src) {
                 ns.src = s.src;
-                ns.onload = () => { loaded++; if (loaded === scripts.length) _monetagOnLoad(); };
+                ns.onload = () => { loadedSrc++; if (loadedSrc === totalSrc) _monetagOnLoad(); };
             } else {
                 ns.textContent = s.textContent;
             }
             document.head.appendChild(ns);
         });
-        if (!div.querySelector('script[src]')) setTimeout(_monetagOnLoad, 2000);
+        if (!totalSrc) setTimeout(_monetagOnLoad, 1000);
         return;
     }
 
     if (!zoneId) return;
 
-    // libtl.com SDK — Monetag Mini App Ad এর সঠিক format
-    // data-zone ও data-sdk attributes দিয়ে load করতে হবে
+    // libtl.com SDK — requires data-zone and data-sdk attributes
     let sdkEl = document.getElementById('monetag-sdk-script');
     if (!sdkEl) {
         sdkEl = document.createElement('script');
@@ -601,11 +603,19 @@ function loadMonetagScript(zoneId, customScript) {
         sdkEl.setAttribute('data-cfasync', 'false');
         document.head.appendChild(sdkEl);
     }
+    // Remove old src if already set (avoid duplicate)
+    if (sdkEl.src) {
+        // Already loaded — just mark ready
+        if (typeof window[`show_${zoneId}`] === 'function') {
+            _monetagOnLoad();
+            return;
+        }
+    }
     sdkEl.setAttribute('data-zone', zoneId);
     sdkEl.setAttribute('data-sdk', `show_${zoneId}`);
     sdkEl.onload = _monetagOnLoad;
-    sdkEl.onerror = () => console.warn('❌ Ad SDK failed to load');
-    sdkEl.src = '//libtl.com/sdk.js';
+    sdkEl.onerror = () => {};
+    sdkEl.src = `//libtl.com/sdk.js`;
 }
 
 // ── Load All Data ───────────────────────────────────────────────────────
@@ -992,60 +1002,71 @@ async function showAdsgramAd(blockId) {
     });
 }
 
-// ── Monetag Mini App Ad show ─────────────────────────────────────────────
-// SDK ready হওয়ার পরেই call হবে — popup/popunder নয়, শুধু Mini App Ad
+// ── Final Ad (Monetag Mini App) show ────────────────────────────────────
 async function showMonetagAd(zoneId) {
     return new Promise((resolve, reject) => {
         const z = zoneId || _monetagZoneId || '';
 
         if (!z) {
-            reject(new Error('Monetag Zone ID সেট করা নেই — admin প্যানেল চেক করুন'));
+            reject(new Error('Zone ID not configured'));
             return;
         }
 
-        // SDK ready হওয়ার পরে চালাবো
-        onMonetagReady(() => {
-            try {
-                // Method 1 (প্রধান): show_{zoneId}() — Mini App Ad API
-                const fn = window[`show_${z}`];
-                if (typeof fn === 'function') {
+        // Poll for the show function — libtl.com SDK may register it
+        // slightly after onload fires
+        let attempts = 0;
+        const maxAttempts = 40; // 40 × 250ms = 10 seconds
+
+        function tryShowAd() {
+            attempts++;
+
+            // Primary: show_{zoneId}() — libtl.com Mini App Ad API
+            const fn = window[`show_${z}`];
+            if (typeof fn === 'function') {
+                try {
                     const ret = fn();
                     if (ret && typeof ret.then === 'function') {
-                        ret.then(resolve).catch(reject);
+                        ret.then(resolve).catch(() => {
+                            // Some SDK versions reject on ad not filled
+                            // Treat as resolved (ad shown/attempted)
+                            resolve();
+                        });
                     } else {
+                        // Function called synchronously — ad popup opened
+                        // Auto-resolve after 30s (user closes ad)
                         const t = setTimeout(resolve, 30000);
-                        if (window.__monetag_on_close) {
-                            window.__monetag_on_close = () => { clearTimeout(t); resolve(); };
+                        if (typeof window.__monetag_on_close === 'function') {
+                            const orig = window.__monetag_on_close;
+                            window.__monetag_on_close = () => { clearTimeout(t); orig(); resolve(); };
                         }
                     }
                     return;
-                }
-
-                // Method 2: __monetag.show()
-                if (window.__monetag && typeof window.__monetag.show === 'function') {
-                    window.__monetag.show().then(resolve).catch(reject);
+                } catch(e) {
+                    reject(e);
                     return;
                 }
-
-                // Method 3: monetag.show()
-                if (window.monetag && typeof window.monetag.show === 'function') {
-                    window.monetag.show().then(resolve).catch(reject);
-                    return;
-                }
-
-                reject(new Error('Ad function not found'));
-
-            } catch(e) {
-                reject(e);
             }
-        });
 
-        // SDK load হতে দেরি হচ্ছে — 8 সেকেন্ড timeout
-        setTimeout(() => {
-            if (!_monetagReady) {
-                reject(new Error('Ad SDK load timeout'));
+            // Fallback: window.__monetag or window.monetag
+            if (window.__monetag && typeof window.__monetag.show === 'function') {
+                window.__monetag.show().then(resolve).catch(resolve);
+                return;
             }
-        }, 8000);
+            if (window.monetag && typeof window.monetag.show === 'function') {
+                window.monetag.show().then(resolve).catch(resolve);
+                return;
+            }
+
+            if (attempts >= maxAttempts) {
+                reject(new Error('Ad SDK not ready'));
+                return;
+            }
+            setTimeout(tryShowAd, 250);
+        }
+
+        // Start polling — don't wait for onMonetagReady since SDK may
+        // have loaded but _monetagReady flag might not be set yet
+        tryShowAd();
     });
 }
 
@@ -1057,18 +1078,14 @@ window._adFlow = {
     start(fileId, req) {
         _adFileId     = fileId;
         _adRequired   = req;
-        _ad1Completed = false;  // প্রতিটি রাউন্ডে reset
+        _ad1Completed = false;
         _ad2Completed = false;
         openOverlay();
         showStage('stage-preload');
 
         const count = parseInt(localStorage.getItem(`adCount_${fileId}`))||0;
-        const el    = document.getElementById('ad1-count-label');
-        if (el) el.textContent = count;
-        const reqEl = document.getElementById('ad1-req-label');
-        if (reqEl) reqEl.textContent = req;
         const remEl = document.getElementById('ad1-remaining-label');
-        if (remEl) remEl.textContent = `${req - count} more round(s) needed`;
+        if (remEl) remEl.textContent = req - count > 1 ? `${req - count} rounds remaining` : '';
 
         document.querySelectorAll('.ad-cancel-btn').forEach(b => {
             b.style.display = adSettings.showCancel ? '' : 'none';
