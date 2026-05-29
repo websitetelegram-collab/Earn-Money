@@ -346,6 +346,17 @@
             <button onclick="window._adFlow.cancel()" class="ad-cancel-btn">Cancel</button>
         </div>
 
+        <!-- STAGE 1b: Play button for second ad (shown only if needed) -->
+        <div id="stage-play-btn" class="text-center hidden">
+            <div style="font-size:48px;margin-bottom:16px;">▶️</div>
+            <p class="ad-title-white">Almost there!</p>
+            <p class="ad-sub-gray">Watch one more short ad</p>
+            <button id="play-ad2-btn" class="ad-play-btn" onclick="window._adFlow._triggerAd2()">
+                <i class="fas fa-play"></i> Continue
+            </button>
+            <button onclick="window._adFlow.cancel()" class="ad-cancel-btn">Cancel</button>
+        </div>
+
         <!-- STAGE 2: Loading Ad spinner -->
         <div id="stage-loading-ad" class="text-center hidden">
             <div class="ad-spinner-wrap">
@@ -570,24 +581,10 @@ function loadMonetagScript(zoneId, customScript) {
         scripts.forEach(s => {
             const ns = document.createElement('script');
             ns.setAttribute('data-cfasync', 'false');
-            // data-zone ও data-sdk attributes copy করো (libtl.com এর জন্য দরকার)
-            for (const attr of s.attributes) {
-                if (attr.name !== 'src') ns.setAttribute(attr.name, attr.value);
-            }
-            // data-zone থেকে zoneId নাও যদি আলাদা set না থাকে
-            if (!_monetagZoneId && s.getAttribute('data-zone')) {
-                _monetagZoneId = s.getAttribute('data-zone');
-            }
             if (s.src) {
                 srcCount++;
                 ns.src = s.src;
-                ns.onload = () => {
-                    loadedCount++;
-                    // Script load হওয়ার পর function define হতে একটু সময় লাগে
-                    setTimeout(() => {
-                        if (loadedCount >= srcCount) _monetagOnLoad();
-                    }, 800);
-                };
+                ns.onload = () => { loadedCount++; if (loadedCount >= srcCount) _monetagOnLoad(); };
                 ns.onerror = () => console.warn('❌ Monetag custom script failed:', s.src);
             } else {
                 ns.textContent = s.textContent;
@@ -779,7 +776,7 @@ function renderFiles() {
                 <h3 class="font-bold text-sm text-gray-800 dark:text-white line-clamp-2 cursor-pointer mb-2 leading-snug" onclick="window.openDetails('${file.id}')">${file.title}</h3>
                 <button onclick="window.openDetails('${file.id}')" class="w-full py-2 mt-auto ${isUnlocked ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-100 dark:border-green-800/50 hover:bg-green-600 hover:text-white dark:hover:bg-green-600' : 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600'} active:scale-95 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 border">
                     <i class="fas ${isUnlocked ? 'fa-download' : 'fa-lock'} text-xs"></i>
-                    ${isUnlocked ? 'Download' : `Unlock (${count}/${req})`}
+                    ${isUnlocked ? 'Download' : 'Unlock'}
                 </button>
             </div>`;
         grid.appendChild(card);
@@ -933,7 +930,7 @@ function updateDetailButtonState(file) {
             <button id="unlock-action-btn" onclick="window.unlockFile('${file.id}',${req})"
                 class="flex-1 py-3.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2">
                 <i class="fas fa-lock"></i>
-                <span>Unlock Video (${count}/${req})</span>
+                <span>Unlock Video</span>
             </button>
             ${shareBtn}`;
     }
@@ -957,7 +954,7 @@ let _ad1Completed  = false;  // Adsgram সফল হলে true
 let _ad2Completed  = false;  // Monetag সফল হলে true
 
 function showStage(id) {
-    ['stage-preload','stage-loading-ad','stage-ad1-btn','stage-processing',
+    ['stage-preload','stage-loading-ad','stage-ad1-btn','stage-play-btn','stage-processing',
      'stage-ad1-done','stage-final','stage-progress'
     ].forEach(s => { const el=document.getElementById(s); if(el) el.classList.add('hidden'); });
     const t = document.getElementById(id);
@@ -1016,7 +1013,8 @@ async function showMonetagAd(zoneId) {
         const z = String(zoneId || _monetagZoneId || '').trim();
 
         if (!z) {
-            reject(new Error('Zone ID নেই'));
+            // Zone ID নেই — silently skip করো (bypass allow করো না, তাই reject)
+            reject(new Error('no_zone'));
             return;
         }
 
@@ -1024,55 +1022,50 @@ async function showMonetagAd(zoneId) {
         const _ok  = () => { if (!_settled) { _settled = true; resolve(); } };
         const _err = (e) => { if (!_settled) { _settled = true; reject(typeof e === 'string' ? new Error(e) : e); } };
 
-        // SDK ready হওয়ার পর চেষ্টা করো
-        const tryShow = () => {
+        onMonetagReady(() => {
             try {
-                // Method 1: window.show_{zoneId}() — libtl.com / tg.click উভয়ই এটা expose করে
+                // ── Method 1: window.show_{zoneId}() — Monetag popup/interstitial
                 const showFn = window[`show_${z}`];
                 if (typeof showFn === 'function') {
-                    console.log('📺 Monetag Ad: show_' + z);
                     const p = showFn();
-                    if (p && typeof p.then === 'function') {
-                        p.then(_ok).catch(() => _ok()); // error হলেও ok — ad দেখানোর চেষ্টা হয়েছে
-                    } else {
-                        // synchronous — 3 সেকেন্ড পর complete ধরো
-                        setTimeout(_ok, 3000);
-                    }
-                    return true;
+                    if (p && typeof p.then === 'function') { p.then(_ok).catch(_ok); }
+                    else { setTimeout(_ok, 1500); }
+                    return;
                 }
 
-                // Method 2: window.__monetag / window.Monetag object
-                if (window.__monetag && typeof window.__monetag.show === 'function') {
-                    window.__monetag.show(z).then(_ok).catch(() => _ok());
-                    return true;
+                // ── Method 2: window.Monetag SDK (newer versions)
+                if (window.Monetag && typeof window.Monetag.show === 'function') {
+                    const p = window.Monetag.show({ zoneId: z });
+                    if (p && typeof p.then === 'function') { p.then(_ok).catch(_ok); }
+                    else { setTimeout(_ok, 1500); }
+                    return;
                 }
 
-                return false;
+                // ── Method 3: window.AdController (some SDK variants)
+                if (window.AdController && typeof window.AdController.show === 'function') {
+                    const p = window.AdController.show();
+                    if (p && typeof p.then === 'function') { p.then(_ok).catch(_ok); }
+                    else { setTimeout(_ok, 1500); }
+                    return;
+                }
+
+                // ── Method 4: SDK load হয়েছে কিন্তু কোনো function নেই
+                // → তবুও reject করবো না, gracefully resolve করি
+                // (Zone ID config-এ আছে মানে SDK চেষ্টা হয়েছে)
+                console.warn('Monetag: No known ad function found. Zone:', z,
+                    '| Available show_* fns:', Object.keys(window).filter(k=>k.startsWith('show_')));
+                // Ad দেখানো সম্ভব হয়নি কিন্তু flow ভেঙে দেবো না — resolve
+                setTimeout(_ok, 800);
+
             } catch(e) {
-                return false;
-            }
-        };
-
-        onMonetagReady(() => {
-            if (!tryShow()) {
-                // show function এখনো নেই — 1 সেকেন্ড retry
-                setTimeout(() => {
-                    if (!tryShow()) {
-                        console.warn('Monetag: show_' + z + ' not found. Available show_ functions:', Object.keys(window).filter(k => k.startsWith('show_')));
-                        // Ad function না থাকলেও bypass করো — ad load হয়েছে ধরা হবে
-                        _ok();
-                    }
-                }, 1000);
+                // Error হলেও flow ভাঙবে না
+                console.warn('Monetag ad error (non-fatal):', e);
+                setTimeout(_ok, 800);
             }
         });
 
-        // SDK load timeout — 15 সেকেন্ড
-        setTimeout(() => {
-            if (!_settled) {
-                console.warn('Monetag SDK timeout — proceeding anyway');
-                _ok(); // timeout এও bypass করো যাতে user আটকে না থাকে
-            }
-        }, 15000);
+        // SDK load timeout — 12s পরেও ready না হলে continue
+        setTimeout(() => { if (!_settled) { console.warn('Monetag SDK timeout — continuing'); _ok(); } }, 12000);
     });
 }
 
@@ -1086,18 +1079,10 @@ window._adFlow = {
     start(fileId, req) {
         _adFileId     = fileId;
         _adRequired   = req;
-        _ad1Completed = false;  // প্রতিটি রাউন্ডে hard reset
+        _ad1Completed = false;
         _ad2Completed = false;
         openOverlay();
         showStage('stage-preload');
-
-        const count = parseInt(localStorage.getItem(`adCount_${fileId}`))||0;
-        const el    = document.getElementById('ad1-count-label');
-        if (el) el.textContent = count;
-        const reqEl = document.getElementById('ad1-req-label');
-        if (reqEl) reqEl.textContent = req;
-        const remEl = document.getElementById('ad1-remaining-label');
-        if (remEl) remEl.textContent = `${req - count} more round(s) needed`;
 
         document.querySelectorAll('.ad-cancel-btn').forEach(b => {
             b.style.display = adSettings.showCancel ? '' : 'none';
@@ -1108,7 +1093,7 @@ window._adFlow = {
         });
     },
 
-    // ── STEP 1: Ad 1 (Adsgram) ───────────────────────────────────────
+    // ── STEP 1: Ad 1 ────────────────────────────────────────────────────
     async watchAd1() {
         const btn = document.getElementById('watch-ad1-btn');
         if (btn) btn.disabled = true;
@@ -1122,13 +1107,12 @@ window._adFlow = {
             await showAdsgramAd(blockId);
             _ad1Completed = true;
 
-            // Ad 1 শেষ → সরাসরি processing তারপর auto Ad 2 — কোনো button নেই
+            // Ad 1 শেষ → processing spinner দেখাও → auto Ad 2 শুরু
             showStage('stage-processing');
             startCountdown('processing-countdown', adSettings.interPause, ()=>{
-                // stage-ad1-done এ যাও, auto Ad 2 শুরু হবে
+                // spinner দিয়ে Ad 2 auto-load করো — কোনো network name বা button নয়
                 showStage('stage-ad1-done');
                 document.getElementById('ad-error-badge2').classList.add('hidden');
-                // Auto-start Ad 2 — ইউজারকে কিছু করতে হবে না
                 window._adFlow._startAd2();
             });
         } catch(e) {
@@ -1142,24 +1126,37 @@ window._adFlow = {
     // ── STEP 2: Ad 2 (Monetag TG) — auto-called after Ad 1 ───────────
     async _startAd2() {
         if (!_ad1Completed) { showStage('stage-ad1-btn'); return; }
-
-        const zoneId = adSettings.monetagZoneId || '';
-
+        // spinner দেখাচ্ছে (stage-ad1-done) — ad চালাও
         try {
-            await showMonetagAd(zoneId);
+            await showMonetagAd(adSettings.monetagZoneId || '');
             _ad2Completed = true;
             setTimeout(()=>{ window._adFlow.finalProcess(); }, 300);
         } catch(e) {
             _ad2Completed = false;
-            // error badge দেখাও, Retry button দিয়ে আবার চেষ্টা করা যাবে
-            document.getElementById('ad-error-badge2').classList.remove('hidden');
+            if (e && e.message === 'no_zone') {
+                // Zone ID নেই — ad2 skip করে directly finalProcess
+                // (Zone ID ছাড়া flow ভাঙবে না, তবে count হবে ad1 দিয়েই)
+                _ad2Completed = true;
+                setTimeout(()=>{ window._adFlow.finalProcess(); }, 300);
+            } else {
+                // Ad load fail → Play button দেখাও (network name ছাড়া)
+                showStage('stage-play-btn');
+            }
         }
     },
 
-    // Retry Ad 2
+    // Play button click করলে আবার Ad 2 try করো
+    _triggerAd2() {
+        const btn = document.getElementById('play-ad2-btn');
+        if (btn) btn.disabled = true;
+        showStage('stage-ad1-done'); // spinner
+        window._adFlow._startAd2();
+    },
+
+    // Retry Ad 2 (error badge থেকে)
     retryAd2() {
         if (!_ad1Completed) { showStage('stage-ad1-btn'); return; }
-        document.getElementById('ad-error-badge2').classList.add('hidden');
+        showStage('stage-ad1-done');
         window._adFlow._startAd2();
     },
 
@@ -1234,8 +1231,8 @@ window._adFlow = {
     _showRoundProgress(doneCount, req, fileId) {
         openOverlay();
         showStage('stage-progress');
-        document.getElementById('progress-stage-title').textContent = `Round ${doneCount} Complete! 🎉`;
-        document.getElementById('progress-stage-msg').textContent   = `Progress: ${doneCount} of ${req} rounds done.`;
+        document.getElementById('progress-stage-title').textContent = `Please wait...`;
+        // count/round info ইউজারকে দেখানো হবে না
 
         const timerDiv = document.getElementById('progress-stage-timer');
         const timerBar = document.getElementById('progress-timer-bar');
@@ -1250,7 +1247,7 @@ window._adFlow = {
 
         const iv = setInterval(()=>{
             cd--;
-            timerTxt.textContent = cd > 0 ? `Next round in ${cd}s...` : 'Ready!';
+            // timer text ইউজারকে দেখাবো না
             if (cd <= 0) {
                 clearInterval(iv);
                 closeBtn.classList.remove('hidden');
