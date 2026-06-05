@@ -550,7 +550,7 @@
             padding: 28px 24px 24px;
             animation: langPopIn 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
             box-shadow: 0 0 0 1px rgba(255,255,255,0.3), 0 24px 60px rgba(99,102,241,0.25), 0 8px 24px rgba(0,0,0,0.15);
-            position: relative; overflow: hidden;
+            position: relative;
         }
         .lang-sheet::before {
             content:''; position:absolute; inset:0; pointer-events:none;
@@ -605,12 +605,9 @@
             background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
             color: white; font-weight: 700; font-size: 14px; cursor: pointer;
             margin-top: 8px; letter-spacing: 0.3px;
-            transition: all 0.2s; position: relative; overflow: hidden;
+            transition: all 0.2s;
             box-shadow: 0 4px 20px rgba(99,102,241,0.4);
-        }
-        .lang-confirm-btn::before {
-            content:''; position:absolute; inset:0;
-            background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 60%);
+            display: block; position: relative; z-index: 1;
         }
         .lang-confirm-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(99,102,241,0.5); }
         .lang-confirm-btn:active { transform: scale(0.98) translateY(0); }
@@ -687,8 +684,8 @@
                 <i id="lang-check-hi" class="fas fa-check-circle text-indigo-500 text-base hidden"></i>
             </div>
         </div>
-        <button class="lang-confirm-btn" id="lang-confirm-btn" onclick="window.confirmLang()">
-            <span style="position:relative;z-index:1;">✓ &nbsp;Confirm</span>
+        <button class="lang-confirm-btn" id="lang-confirm-btn" onclick="window.confirmLang(); return false;">
+            ✓ &nbsp;Confirm
         </button>
     </div>
 </div>
@@ -2921,6 +2918,15 @@ window.confirmLang = function() {
         setTimeout(showOnboarding, 200);
     }
 };
+
+// Confirm button — addEventListener দিয়েও bind করো (inline onclick backup)
+document.addEventListener('DOMContentLoaded', function() {
+    const btn = document.getElementById('lang-confirm-btn');
+    if (btn) btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        window.confirmLang();
+    });
+});
 
 // Profile এর language button গুলো update করো
 function updateLangButtons() {
