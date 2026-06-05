@@ -409,79 +409,234 @@
         }
 
         /* ══ SPLASH SCREEN ══ */
+        /* ══════════════════════════════════════════
+           SPLASH SCREEN — CINEMATIC DARK REMASTER
+        ══════════════════════════════════════════ */
         #splash-screen {
             position: fixed; inset: 0; z-index: 9999;
-            background: linear-gradient(145deg, #4f46e5 0%, #7c3aed 50%, #a855f7 100%);
+            background: #06071a;
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
-            transition: opacity 0.55s ease, transform 0.55s ease;
+            overflow: hidden;
+            transition: opacity 0.7s cubic-bezier(0.4,0,0.2,1), transform 0.7s cubic-bezier(0.4,0,0.2,1);
         }
-        #splash-screen.hide { opacity: 0; transform: scale(1.05); pointer-events: none; }
-        @keyframes splashRingPulse {
-            0%   { transform: scale(1);    opacity: 0.5; }
-            70%  { transform: scale(1.18); opacity: 0; }
-            100% { transform: scale(1);    opacity: 0; }
+        #splash-screen.hide {
+            opacity: 0; transform: scale(1.08);
+            pointer-events: none;
         }
-        .splash-ring {
-            position: absolute; inset: -14px; border-radius: 50%;
-            border: 2px solid rgba(255,255,255,0.35);
-            animation: splashRingPulse 2s ease-in-out infinite;
+
+        /* — BG mesh gradient blobs — */
+        .sp-blob {
+            position: absolute; border-radius: 50%;
+            filter: blur(80px); pointer-events: none;
         }
-        .splash-ring-2 { inset: -28px; animation-delay: 0.45s; }
-        .splash-ring-3 { inset: -44px; animation-delay: 0.9s; }
-        @keyframes splashLogoBounce {
-            0%   { transform: scale(0.3) rotate(-15deg); opacity: 0; }
-            60%  { transform: scale(1.1) rotate(4deg);   opacity: 1; }
-            80%  { transform: scale(0.97) rotate(-2deg); }
-            100% { transform: scale(1)   rotate(0deg);   opacity: 1; }
+        .sp-blob-1 {
+            width: 340px; height: 340px;
+            background: radial-gradient(circle, rgba(99,102,241,0.55) 0%, transparent 70%);
+            top: -80px; left: -60px;
+            animation: spBlobDrift1 8s ease-in-out infinite;
         }
-        .splash-logo-wrap {
-            position: relative; width: 90px; height: 90px;
+        .sp-blob-2 {
+            width: 280px; height: 280px;
+            background: radial-gradient(circle, rgba(168,85,247,0.45) 0%, transparent 70%);
+            bottom: -60px; right: -40px;
+            animation: spBlobDrift2 10s ease-in-out infinite;
+        }
+        .sp-blob-3 {
+            width: 200px; height: 200px;
+            background: radial-gradient(circle, rgba(236,72,153,0.3) 0%, transparent 70%);
+            top: 55%; left: 20%;
+            animation: spBlobDrift3 7s ease-in-out infinite;
+        }
+        @keyframes spBlobDrift1 {
+            0%,100% { transform: translate(0,0) scale(1); }
+            50%      { transform: translate(30px,20px) scale(1.1); }
+        }
+        @keyframes spBlobDrift2 {
+            0%,100% { transform: translate(0,0) scale(1); }
+            50%      { transform: translate(-25px,-15px) scale(1.08); }
+        }
+        @keyframes spBlobDrift3 {
+            0%,100% { transform: translate(0,0) scale(1); opacity: 0.6; }
+            50%      { transform: translate(15px,-20px) scale(1.15); opacity: 1; }
+        }
+
+        /* — Grid overlay — */
+        .sp-grid {
+            position: absolute; inset: 0; pointer-events: none;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+            background-size: 40px 40px;
+            mask-image: radial-gradient(ellipse at center, black 20%, transparent 75%);
+        }
+
+        /* — Glowing orb behind logo — */
+        .sp-orb {
+            position: absolute;
+            width: 200px; height: 200px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(99,102,241,0.35) 0%, transparent 70%);
+            animation: spOrbPulse 2.5s ease-in-out infinite;
+            pointer-events: none;
+        }
+        @keyframes spOrbPulse {
+            0%,100% { transform: scale(1); opacity: 0.8; }
+            50%      { transform: scale(1.25); opacity: 0.4; }
+        }
+
+        /* — Logo container — */
+        .sp-logo-wrap {
+            position: relative; z-index: 2;
+            width: 96px; height: 96px;
             display: flex; align-items: center; justify-content: center;
-            animation: splashLogoBounce 0.7s cubic-bezier(0.34,1.56,0.64,1) 0.2s both;
+            animation: spLogoPop 0.9s cubic-bezier(0.34,1.56,0.64,1) 0.1s both;
         }
-        .splash-logo-bg {
-            position: absolute; inset: 0; border-radius: 26px;
-            background: rgba(255,255,255,0.2); backdrop-filter: blur(10px);
-            border: 1.5px solid rgba(255,255,255,0.3);
+        @keyframes spLogoPop {
+            0%   { opacity:0; transform: scale(0.2) rotate(-20deg); }
+            65%  { transform: scale(1.12) rotate(5deg); opacity:1; }
+            85%  { transform: scale(0.96) rotate(-2deg); }
+            100% { transform: scale(1) rotate(0deg); opacity:1; }
         }
-        .splash-logo-icon { position: relative; z-index: 1; font-size: 38px; color: white; }
-        @keyframes splashUp {
-            from { opacity: 0; transform: translateY(18px); }
-            to   { opacity: 1; transform: translateY(0); }
+
+        /* hexagon shape */
+        .sp-logo-hex {
+            position: absolute; inset: 0;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
+            border-radius: 30px;
+            box-shadow:
+                0 0 0 1px rgba(255,255,255,0.15),
+                0 0 40px rgba(99,102,241,0.6),
+                0 0 80px rgba(99,102,241,0.3),
+                inset 0 1px 0 rgba(255,255,255,0.25);
         }
-        .splash-title {
-            color: white; font-size: 26px; font-weight: 900;
-            letter-spacing: -0.5px; margin-top: 22px;
-            animation: splashUp 0.45s ease 0.7s both;
+        .sp-logo-hex-inner {
+            position: absolute; inset: 3px; border-radius: 27px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 60%);
         }
-        .splash-subtitle {
-            color: rgba(255,255,255,0.62); font-size: 13px; font-weight: 500;
-            margin-top: 5px; animation: splashUp 0.45s ease 0.85s both;
+        .sp-logo-icon {
+            position: relative; z-index: 1;
+            font-size: 40px; color: white;
+            filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4));
         }
-        .splash-bar-wrap {
-            width: 160px; height: 3px; background: rgba(255,255,255,0.2);
-            border-radius: 99px; overflow: hidden;
-            margin-top: 44px; animation: splashUp 0.4s ease 1s both;
+
+        /* rotating border rings */
+        .sp-ring-outer {
+            position: absolute; inset: -16px; border-radius: 50%;
+            border: 1.5px solid transparent;
+            border-top-color: rgba(99,102,241,0.7);
+            border-right-color: rgba(168,85,247,0.4);
+            animation: spRingSpin 2.4s linear infinite;
         }
-        @keyframes splashBarFill { from { width:0% } to { width:100% } }
-        .splash-bar-fill {
-            height: 100%; border-radius: 99px; background: rgba(255,255,255,0.85);
-            animation: splashBarFill 1.8s cubic-bezier(0.4,0,0.2,1) 1.1s both;
+        .sp-ring-inner {
+            position: absolute; inset: -8px; border-radius: 50%;
+            border: 1px solid transparent;
+            border-bottom-color: rgba(236,72,153,0.6);
+            border-left-color: rgba(99,102,241,0.3);
+            animation: spRingSpin 1.6s linear infinite reverse;
         }
-        .splash-loading-text {
-            color: rgba(255,255,255,0.4); font-size: 11px; font-weight: 600;
-            margin-top: 12px; letter-spacing: 0.5px;
-            animation: splashUp 0.4s ease 1s both;
+        @keyframes spRingSpin {
+            from { transform: rotate(0deg); }
+            to   { transform: rotate(360deg); }
         }
-        @keyframes floatDot {
-            0%,100% { transform: translateY(0) rotate(0deg); opacity: 0.25; }
-            50%      { transform: translateY(-18px) rotate(180deg); opacity: 0.55; }
+
+        /* — Title — */
+        .sp-title {
+            position: relative; z-index: 2;
+            color: white; font-size: 28px; font-weight: 900;
+            letter-spacing: -0.8px; margin-top: 28px;
+            background: linear-gradient(135deg, #fff 30%, rgba(168,85,247,0.9) 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: spSlideUp 0.5s cubic-bezier(0.34,1.2,0.64,1) 0.75s both;
         }
-        .splash-dot {
-            position: absolute; width: 7px; height: 7px; border-radius: 50%;
-            background: rgba(255,255,255,0.3);
-            animation: floatDot 3s ease-in-out infinite;
+        .sp-subtitle {
+            position: relative; z-index: 2;
+            color: rgba(255,255,255,0.4); font-size: 12px; font-weight: 500;
+            margin-top: 6px; letter-spacing: 0.8px; text-transform: uppercase;
+            animation: spSlideUp 0.5s cubic-bezier(0.34,1.2,0.64,1) 0.9s both;
+        }
+        @keyframes spSlideUp {
+            from { opacity:0; transform: translateY(22px) scale(0.95); }
+            to   { opacity:1; transform: translateY(0) scale(1); }
+        }
+
+        /* — Loading indicator — */
+        .sp-loader-wrap {
+            position: relative; z-index: 2;
+            margin-top: 52px;
+            display: flex; flex-direction: column; align-items: center; gap: 14px;
+            animation: spSlideUp 0.5s ease 1.1s both;
+        }
+
+        /* segmented arc loader */
+        .sp-arc-track {
+            width: 48px; height: 48px; position: relative;
+        }
+        .sp-arc-svg {
+            width: 48px; height: 48px;
+            animation: spArcSpin 1.4s cubic-bezier(0.4,0,0.2,1) infinite;
+        }
+        @keyframes spArcSpin {
+            0%   { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .sp-arc-bg { fill: none; stroke: rgba(255,255,255,0.07); stroke-width: 3; }
+        .sp-arc-fill {
+            fill: none; stroke-width: 3; stroke-linecap: round;
+            stroke: url(#splashGrad);
+            stroke-dasharray: 90 120;
+            stroke-dashoffset: 0;
+        }
+
+        /* dots row */
+        .sp-dots {
+            display: flex; gap: 6px; align-items: center;
+        }
+        .sp-dot {
+            width: 5px; height: 5px; border-radius: 50%;
+            background: rgba(255,255,255,0.25);
+            animation: spDotBounce 1.2s ease-in-out infinite;
+        }
+        .sp-dot:nth-child(2) { animation-delay: 0.15s; }
+        .sp-dot:nth-child(3) { animation-delay: 0.3s; }
+        .sp-dot:nth-child(4) { animation-delay: 0.45s; }
+        @keyframes spDotBounce {
+            0%,80%,100% { transform: scale(1); background: rgba(255,255,255,0.25); }
+            40%          { transform: scale(1.6); background: rgba(168,85,247,0.9); }
+        }
+
+        /* loading text */
+        .sp-load-text {
+            color: rgba(255,255,255,0.3); font-size: 11px;
+            font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase;
+        }
+
+        /* — corner decorations — */
+        .sp-corner {
+            position: absolute; pointer-events: none;
+            width: 80px; height: 80px;
+        }
+        .sp-corner-tl { top: 24px; left: 20px; }
+        .sp-corner-br { bottom: 24px; right: 20px; transform: rotate(180deg); }
+        .sp-corner line {
+            stroke: rgba(99,102,241,0.35); stroke-width: 1.5; stroke-linecap: round;
+            animation: spCornerFade 3s ease-in-out infinite;
+        }
+        @keyframes spCornerFade {
+            0%,100% { opacity: 0.4; }
+            50%      { opacity: 1; }
+        }
+
+        /* floating particles */
+        .sp-particle {
+            position: absolute; border-radius: 50%; pointer-events: none;
+            background: rgba(168,85,247,0.5);
+            animation: spParticleFloat linear infinite;
+        }
+        @keyframes spParticleFloat {
+            0%   { transform: translateY(0) translateX(0) scale(1); opacity: 0.6; }
+            50%  { transform: translateY(-40px) translateX(10px) scale(1.3); opacity: 0.3; }
+            100% { transform: translateY(-80px) translateX(-5px) scale(0.8); opacity: 0; }
         }
 
         /* ══ ONBOARDING SCREEN ══ */
@@ -543,9 +698,7 @@
             display: flex; align-items: center; justify-content: center;
             padding: 24px;
         }
-        #lang-popup-overlay.hidden {
-            display: none !important;
-        }
+        #lang-popup-overlay.hidden { display: none !important; }
         .lang-sheet {
             background: rgba(255,255,255,0.97);
             border-radius: 28px;
@@ -618,13 +771,84 @@
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 font-sans text-gray-800 dark:text-gray-200 pb-20 transition-colors duration-300">
 
-<!-- ═══════════════ SPLASH SCREEN ═══════════════ -->
+<!-- ═══════════════ SPLASH SCREEN — CINEMATIC ═══════════════ -->
+<div id="splash-screen" style="display:none;">
 
+    <!-- Background blobs -->
+    <div class="sp-blob sp-blob-1"></div>
+    <div class="sp-blob sp-blob-2"></div>
+    <div class="sp-blob sp-blob-3"></div>
+
+    <!-- Grid overlay -->
+    <div class="sp-grid"></div>
+
+    <!-- Floating particles -->
+    <div class="sp-particle" style="width:5px;height:5px;left:18%;top:30%;animation-duration:5s;animation-delay:0s;"></div>
+    <div class="sp-particle" style="width:4px;height:4px;left:75%;top:60%;animation-duration:6s;animation-delay:1.2s;background:rgba(99,102,241,0.6);"></div>
+    <div class="sp-particle" style="width:6px;height:6px;left:40%;top:75%;animation-duration:4.5s;animation-delay:0.6s;background:rgba(236,72,153,0.5);"></div>
+    <div class="sp-particle" style="width:3px;height:3px;left:85%;top:25%;animation-duration:7s;animation-delay:2s;"></div>
+    <div class="sp-particle" style="width:5px;height:5px;left:10%;top:65%;animation-duration:5.5s;animation-delay:1.8s;background:rgba(99,102,241,0.4);"></div>
+
+    <!-- Corner decorations -->
+    <svg class="sp-corner sp-corner-tl" viewBox="0 0 80 80" fill="none">
+        <line x1="4" y1="4" x2="36" y2="4"/>
+        <line x1="4" y1="4" x2="4" y2="36"/>
+        <line x1="10" y1="10" x2="22" y2="10"/>
+        <line x1="10" y1="10" x2="10" y2="22"/>
+    </svg>
+    <svg class="sp-corner sp-corner-br" viewBox="0 0 80 80" fill="none">
+        <line x1="4" y1="4" x2="36" y2="4"/>
+        <line x1="4" y1="4" x2="4" y2="36"/>
+        <line x1="10" y1="10" x2="22" y2="10"/>
+        <line x1="10" y1="10" x2="10" y2="22"/>
+    </svg>
+
+    <!-- Glow orb -->
+    <div class="sp-orb"></div>
+
+    <!-- Logo -->
+    <div class="sp-logo-wrap">
+        <div class="sp-ring-outer"></div>
+        <div class="sp-ring-inner"></div>
+        <div class="sp-logo-hex">
+            <div class="sp-logo-hex-inner"></div>
+        </div>
+        <i class="fas fa-play-circle sp-logo-icon app-splash-icon"></i>
+    </div>
+
+    <!-- Title -->
+    <h1 class="sp-title app-dynamic-title">Video Hub</h1>
+    <p class="sp-subtitle app-dynamic-sub">Watch · Unlock · Download</p>
+
+    <!-- Loader -->
+    <div class="sp-loader-wrap">
+        <div class="sp-arc-track">
+            <svg class="sp-arc-svg" viewBox="0 0 48 48">
+                <defs>
+                    <linearGradient id="splashGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="#6366f1"/>
+                        <stop offset="50%" stop-color="#a855f7"/>
+                        <stop offset="100%" stop-color="#ec4899"/>
+                    </linearGradient>
+                </defs>
+                <circle class="sp-arc-bg" cx="24" cy="24" r="20"/>
+                <circle class="sp-arc-fill" cx="24" cy="24" r="20"/>
+            </svg>
+        </div>
+        <div class="sp-dots">
+            <div class="sp-dot"></div>
+            <div class="sp-dot"></div>
+            <div class="sp-dot"></div>
+            <div class="sp-dot"></div>
+        </div>
+        <span class="sp-load-text splash-loading-text">Loading...</span>
+    </div>
+</div>
 
 
 <!-- ═══════════════ LANGUAGE SELECTOR POPUP ═══════════════ -->
-<div id="lang-popup-overlay" class="hidden" onclick="if(event.target===this && window._langFromProfile) document.getElementById('lang-popup-overlay').classList.add('hidden')">
-    <div class="lang-sheet">
+<div id="lang-popup-overlay" onclick="if(window.selectLang && !event.target.closest('.lang-sheet')) return;">
+    <div class="lang-sheet" onclick="event.stopPropagation()">
         <div class="lang-sheet-glow"></div>
         <!-- Header -->
         <div class="flex items-center gap-3 mb-5 relative">
@@ -638,7 +862,7 @@
         </div>
         <!-- Options -->
         <div id="lang-options" class="relative">
-            <div class="lang-option" data-lang="bn" onclick="window.selectLang('bn',this)">
+            <div class="lang-option" data-lang="bn" onclick="event.stopPropagation(); if(typeof window.selectLang==='function') window.selectLang('bn',this);">
                 <span class="lang-flag">🇧🇩</span>
                 <div class="flex-1">
                     <div class="lang-name">বাংলা</div>
@@ -646,7 +870,7 @@
                 </div>
                 <i id="lang-check-bn" class="fas fa-check-circle text-indigo-500 text-base hidden"></i>
             </div>
-            <div class="lang-option" data-lang="en" onclick="window.selectLang('en',this)">
+            <div class="lang-option" data-lang="en" onclick="event.stopPropagation(); if(typeof window.selectLang==='function') window.selectLang('en',this);">
                 <span class="lang-flag">🇬🇧</span>
                 <div class="flex-1">
                     <div class="lang-name">English</div>
@@ -654,7 +878,7 @@
                 </div>
                 <i id="lang-check-en" class="fas fa-check-circle text-indigo-500 text-base hidden"></i>
             </div>
-            <div class="lang-option" data-lang="hi" onclick="window.selectLang('hi',this)">
+            <div class="lang-option" data-lang="hi" onclick="event.stopPropagation(); if(typeof window.selectLang==='function') window.selectLang('hi',this);">
                 <span class="lang-flag">🇮🇳</span>
                 <div class="flex-1">
                     <div class="lang-name">हिंदी</div>
@@ -663,14 +887,14 @@
                 <i id="lang-check-hi" class="fas fa-check-circle text-indigo-500 text-base hidden"></i>
             </div>
         </div>
-        <button class="lang-confirm-btn" id="lang-confirm-btn" onclick="window.confirmLang(); return false;">
+        <button class="lang-confirm-btn" id="lang-confirm-btn" onclick="event.stopPropagation(); if(typeof window.confirmLang==='function') window.confirmLang(); return false;">
             ✓ &nbsp;Confirm
         </button>
     </div>
 </div>
 
 <!-- ═══════════════ CHANNEL JOIN MODAL ═══════════════ -->
-<div id="channel-join-modal" class="hidden" style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:24px;">
+<div id="channel-join-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:24px;">
     <div id="channel-join-card" style="background:white;border-radius:28px;width:100%;max-width:340px;padding:0;overflow:hidden;animation:cjPopIn 0.45s cubic-bezier(0.34,1.4,0.64,1) both;box-shadow:0 0 0 1px rgba(255,255,255,0.2),0 32px 80px rgba(0,0,0,0.3),0 8px 24px rgba(245,158,11,0.2);" class="dark-card">
         <!-- Top gradient banner -->
         <div style="background:linear-gradient(135deg,#f59e0b 0%,#ef4444 60%,#ec4899 100%);padding:28px 24px 20px;position:relative;overflow:hidden;">
@@ -2484,7 +2708,6 @@ window.showChannelJoinModal = function() {
     if (joinBtn) joinBtn.href = window._channelJoinLink || '#';
     window._cjJoinClicked = false;
     modal.style.display = 'flex';
-    modal.classList.remove('hidden');
 };
 
 window.checkChannelJoin = function() {
@@ -2501,9 +2724,7 @@ window.checkChannelJoin = function() {
     }
     // Mark joined
     localStorage.setItem('channel_joined', '1');
-    const cjModal = document.getElementById('channel-join-modal');
-    cjModal.classList.add('hidden');
-    cjModal.style.display = '';
+    document.getElementById('channel-join-modal').style.display = 'none';
     showToast('✅ Join নিশ্চিত হয়েছে!', 'success');
     // Resume pending action
     if (window._pendingUnlockId) {
@@ -2663,7 +2884,12 @@ function loadNotifHistory() {
 // ══════════════════════════════════════════════════
 //  SPLASH SCREEN LOGIC
 // ══════════════════════════════════════════════════
-function hideSplash() { /* splash removed */ }
+function hideSplash() {
+    const splash = document.getElementById('splash-screen');
+    if (!splash) return;
+    splash.classList.add('hide');
+    setTimeout(() => { splash.style.display = 'none'; }, 600);
+}
 
 // ══════════════════════════════════════════════════
 //  ONBOARDING LOGIC
@@ -2714,10 +2940,28 @@ document.getElementById('searchInput').addEventListener('input', renderFiles);
 loadMonetagScript('11069454', '');
 
 // ── Init ──────────────────────────────────────────────────────────────────
-(async () => {
+
+// Lang popup confirm হওয়ার পর main app loading শুরু হবে
+window._startAppLoading = async function() {
+    // Splash show করো
+    const splash = document.getElementById('splash-screen');
+    if (splash) splash.style.display = '';
+
+    const splashStart = Date.now();
+    const MIN_SPLASH  = 2800;
+    const MAX_SPLASH  = 8000;
+
+    const forceHideTimer = setTimeout(() => {
+        hideSplash();
+        if (!localStorage.getItem(OB_KEY)) {
+            setTimeout(showOnboarding, 300);
+        }
+    }, MAX_SPLASH);
+
     try {
         try { await signInAnonymously(auth); } catch(e) { console.warn("Auth:", e); }
         setupPresenceAndSaveUser();
+
         await Promise.race([
             loadData(),
             new Promise(r => setTimeout(r, 6000))
@@ -2726,15 +2970,43 @@ loadMonetagScript('11069454', '');
         console.warn("Init error:", e);
     }
 
-    // প্রথমবার → ভাষা পপআপ, পরে → সরাসরি Homepage
-    const hasLang = localStorage.getItem('app_language_v1');
-    if (!hasLang) {
-        showLangPopup();
-    } else {
-        updateLangButtons();
-        applyTranslations();
+    clearTimeout(forceHideTimer);
+
+    const elapsed = Date.now() - splashStart;
+    if (elapsed < MIN_SPLASH) {
+        await new Promise(r => setTimeout(r, MIN_SPLASH - elapsed));
     }
-})();
+
+    hideSplash();
+
+    updateLangButtons();
+    if (!localStorage.getItem(OB_KEY)) {
+        setTimeout(showOnboarding, 300);
+    }
+};
+
+// Page load হওয়ার সাথে সাথে চেক করো
+document.addEventListener('DOMContentLoaded', function() {
+    const hasLang = localStorage.getItem('app_language_v1');
+    if (hasLang) {
+        // ভাষা আগেই সেভ আছে — popup লুকাও, splash দেখাও
+        currentLang  = hasLang;
+        selectedLang = hasLang;
+        const overlay = document.getElementById('lang-popup-overlay');
+        if (overlay) overlay.classList.add('hidden');
+        applyTranslations();
+        window._startAppLoading();
+    } else {
+        // First time — lang popup দেখাও, বাংলা pre-select করো
+        selectedLang = 'bn';
+        const cur = document.querySelector('.lang-option[data-lang="bn"]');
+        if (cur) {
+            cur.classList.add('selected');
+            const check = document.getElementById('lang-check-bn');
+            if (check) check.classList.remove('hidden');
+        }
+    }
+});
 
 // ══ LANGUAGE / TRANSLATION SYSTEM ══
 const TRANSLATIONS = {
@@ -2835,42 +3107,7 @@ function t(key) {
     return (TRANSLATIONS[currentLang] || TRANSLATIONS.bn)[key] || (TRANSLATIONS.en[key] || key);
 }
 
-window.selectLang = function(lang, el) {
-    selectedLang = lang;
-    document.querySelectorAll('.lang-option').forEach(o => {
-        o.classList.remove('selected');
-        const check = o.querySelector('[id^="lang-check-"]');
-        if (check) check.classList.add('hidden');
-    });
-    if (el) el.classList.add('selected');
-    const check = document.getElementById('lang-check-' + lang);
-    if (check) check.classList.remove('hidden');
-};
-
-window.confirmLang = function() {
-    // DOM থেকে সরাসরি পড়ো — variable এর উপর নির্ভর না করে
-    const selectedEl = document.querySelector('.lang-option.selected');
-    const langFromDOM = selectedEl ? selectedEl.dataset.lang : null;
-    const finalLang = langFromDOM || selectedLang || currentLang || 'bn';
-    selectedLang = finalLang;
-    currentLang  = finalLang;
-    localStorage.setItem(LANG_KEY, finalLang);
-    document.getElementById('lang-popup-overlay').classList.add('hidden');
-    window._langFromProfile = false;
-    applyTranslations();
-    updateLangButtons();
-};
-
-// Confirm button — addEventListener দিয়েও bind করো (inline onclick backup)
-document.addEventListener('DOMContentLoaded', function() {
-    const btn = document.getElementById('lang-confirm-btn');
-    if (btn) btn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        window.confirmLang();
-    });
-});
-
-// Profile এর language button গুলো update করো
+// selectLang / confirmLang — regular script এ define (নিচে দেখুন)
 function updateLangButtons() {
     const flags = { bn: '🇧🇩', en: '🇬🇧', hi: '🇮🇳' };
     const names = { bn: 'বাংলা', en: 'English', hi: 'हिंदी' };
@@ -2961,12 +3198,101 @@ function _openLangOverlay() {
     }
 }
 
-// Profile থেকে ভাষা পরিবর্তন
-window.openLangPickerFromProfile = function() {
-    window.closeProfileMenu && window.closeProfileMenu();
-    window._langFromProfile = true;
-    _openLangOverlay();
+// Profile থেকে ভাষা পরিবর্তন — regular script এ define (নিচে দেখুন)
+</script>
+
+<!-- ══ LANG FUNCTIONS — regular script (module এর বাইরে, global scope এ) ══ -->
+<script>
+// ── এই script টা page load এর সাথে সাথেই execute হয় ──
+// Shared state
+window._LANG_KEY = 'app_language_v1';
+if (typeof window._currentLang === 'undefined') window._currentLang = localStorage.getItem('app_language_v1') || 'bn';
+if (typeof window._selectedLang === 'undefined') window._selectedLang = window._currentLang;
+
+window.selectLang = function(lang, el) {
+    window._selectedLang = lang;
+    document.querySelectorAll('.lang-option').forEach(function(o) {
+        o.classList.remove('selected');
+        var check = o.querySelector('[id^="lang-check-"]');
+        if (check) check.classList.add('hidden');
+    });
+    if (el) el.classList.add('selected');
+    var check = document.getElementById('lang-check-' + lang);
+    if (check) check.classList.remove('hidden');
 };
+
+window.confirmLang = function() {
+    var selectedEl = document.querySelector('.lang-option.selected');
+    var langFromDOM = selectedEl ? selectedEl.dataset.lang : null;
+    var finalLang = langFromDOM || window._selectedLang || window._currentLang || 'bn';
+    var fromProfile = !!window._langFromProfile;
+
+    window._selectedLang = finalLang;
+    window._currentLang  = finalLang;
+    localStorage.setItem(window._LANG_KEY, finalLang);
+
+    // Module script এর variable sync করো
+    try { if (typeof currentLang !== 'undefined')  currentLang  = finalLang; } catch(e){}
+    try { if (typeof selectedLang !== 'undefined') selectedLang = finalLang; } catch(e){}
+
+    var overlay = document.getElementById('lang-popup-overlay');
+    if (overlay) overlay.classList.add('hidden');
+    window._langFromProfile = false;
+
+    if (typeof applyTranslations === 'function') applyTranslations();
+    if (typeof updateLangButtons === 'function') updateLangButtons();
+
+    if (fromProfile) return;
+
+    if (window._startAppLoading) window._startAppLoading();
+};
+
+window.openLangPickerFromProfile = function() {
+    if (window.closeProfileMenu) window.closeProfileMenu();
+    window._langFromProfile = true;
+    if (typeof _openLangOverlay === 'function') _openLangOverlay();
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Confirm button — addEventListener fallback (onclick এর পাশাপাশি)
+    var btn = document.getElementById('lang-confirm-btn');
+    if (btn) {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            window.confirmLang();
+        });
+    }
+
+    // Lang options — addEventListener fallback
+    document.querySelectorAll('.lang-option').forEach(function(opt) {
+        opt.addEventListener('click', function(e) {
+            e.stopPropagation();
+            window.selectLang(opt.dataset.lang, opt);
+        });
+    });
+
+    // Lang already saved — popup hide করো, loading শুরু করো
+    var hasLang = localStorage.getItem('app_language_v1');
+    if (hasLang) {
+        window._currentLang  = hasLang;
+        window._selectedLang = hasLang;
+        try { if (typeof currentLang !== 'undefined')  currentLang  = hasLang; } catch(e){}
+        try { if (typeof selectedLang !== 'undefined') selectedLang = hasLang; } catch(e){}
+        var overlay = document.getElementById('lang-popup-overlay');
+        if (overlay) overlay.classList.add('hidden');
+        var splash = document.getElementById('splash-screen');
+        if (splash) splash.style.display = '';
+    } else {
+        // First time — বাংলা pre-select
+        window._selectedLang = 'bn';
+        var cur = document.querySelector('.lang-option[data-lang="bn"]');
+        if (cur) {
+            cur.classList.add('selected');
+            var check = document.getElementById('lang-check-bn');
+            if (check) check.classList.remove('hidden');
+        }
+    }
+});
 </script>
 </body>
 </html>
