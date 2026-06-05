@@ -1388,15 +1388,24 @@ async function loadData() {
         allFiles = [];
         snaps.forEach(d => { allFiles.push({ id: d.id, downloads: 0, reviews: [], ...d.data() }); });
         renderFiles(); renderHistory(); renderFavorites(); updateStatsStrip();
-    }).catch(e => console.error("Files error:", e));
+    }).catch(e => {
+        console.error("Files error:", e);
+        // Files load না হলেও empty state দেখাও
+        renderFiles(); 
+    });
 
-    // Settings, ads, sliders — সব parallel-এ
+    // Settings, ads, sliders — সব parallel-এ, timeout সহ
+    const withTimeout = (promise, ms=5000) => Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+    ]);
+
     const [generalSnap, adflowSnap, adsSnap, slidersSnap, broadcastSnap] = await Promise.allSettled([
-        getDoc(doc(db,"settings","general")),
-        getDoc(doc(db,"settings","adflow")),
-        getDoc(doc(db,"settings","ads")),
-        getDocs(query(collection(db,"sliders"), orderBy("createdAt","desc"))),
-        getDoc(doc(db,"settings","broadcast"))
+        withTimeout(getDoc(doc(db,"settings","general"))),
+        withTimeout(getDoc(doc(db,"settings","adflow"))),
+        withTimeout(getDoc(doc(db,"settings","ads"))),
+        withTimeout(getDocs(query(collection(db,"sliders"), orderBy("createdAt","desc")))),
+        withTimeout(getDoc(doc(db,"settings","broadcast")))
     ]);
 
     // 1. General settings
@@ -2551,10 +2560,32 @@ loadMonetagScript('11069454', '');
     // Minimum splash display: 2.8s so animation completes nicely
     const splashStart = Date.now();
     const MIN_SPLASH  = 2800;
+    // Maximum splash time: 8s — তারপর force hide করবে
+    const MAX_SPLASH  = 8000;
 
-    try { await signInAnonymously(auth); } catch(e) { console.warn("Auth:", e); }
-    setupPresenceAndSaveUser();
-    await loadData();
+    // Max time পার হলে force hide splash
+    const forceHideTimer = setTimeout(() => {
+        hideSplash();
+        if (!localStorage.getItem(OB_KEY)) {
+            setTimeout(showOnboarding, 300);
+        }
+    }, MAX_SPLASH);
+
+    try {
+        try { await signInAnonymously(auth); } catch(e) { console.warn("Auth:", e); }
+        setupPresenceAndSaveUser();
+
+        // loadData() কে timeout দিয়ে wrap করো
+        await Promise.race([
+            loadData(),
+            new Promise(r => setTimeout(r, 6000)) // 6s timeout for data
+        ]);
+    } catch(e) {
+        console.warn("Init error:", e);
+    }
+
+    // forceHideTimer cancel করো — আমরা নিজেই hide করবো
+    clearTimeout(forceHideTimer);
 
     // Wait remaining splash time if data loaded fast
     const elapsed = Date.now() - splashStart;
