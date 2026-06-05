@@ -537,50 +537,58 @@
         /* ══ LANGUAGE SELECTOR POPUP ══ */
         #lang-popup-overlay {
             position: fixed; inset: 0; z-index: 10000;
-            background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
-            display: flex; align-items: center; justify-content: center;
-            padding: 20px;
+            background: rgba(0,0,0,0.5); backdrop-filter: blur(6px);
+            display: flex; align-items: flex-end; justify-content: center;
+            padding: 0;
         }
         .lang-sheet {
-            background: white; border-radius: 28px;
-            width: 100%; max-width: 360px;
-            padding: 32px 24px 28px;
-            animation: popIn 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
-            box-shadow: 0 30px 80px rgba(0,0,0,0.25);
+            background: white; border-radius: 24px 24px 0 0;
+            width: 100%; max-width: 480px;
+            padding: 20px 20px 32px;
+            animation: slideUpSheet 0.3s cubic-bezier(0.32,0.72,0,1) both;
+            box-shadow: 0 -8px 40px rgba(0,0,0,0.18);
+        }
+        @keyframes slideUpSheet {
+            from { transform: translateY(100%); opacity: 0.5; }
+            to   { transform: translateY(0);    opacity: 1; }
         }
         .dark .lang-sheet {
             background: #1e2233;
-            box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+            box-shadow: 0 -8px 40px rgba(0,0,0,0.5);
         }
+        .lang-sheet-handle {
+            width: 36px; height: 4px; border-radius: 2px;
+            background: #e2e8f0; margin: 0 auto 16px;
+        }
+        .dark .lang-sheet-handle { background: #334155; }
         .lang-option {
-            display: flex; align-items: center; gap: 14px;
-            padding: 14px 16px; border-radius: 16px;
+            display: flex; align-items: center; gap: 12px;
+            padding: 11px 14px; border-radius: 14px;
             border: 2px solid #e2e8f0; cursor: pointer;
-            transition: all 0.2s; margin-bottom: 10px;
+            transition: all 0.15s; margin-bottom: 8px;
             background: white;
         }
         .dark .lang-option { background: #1e293b; border-color: #334155; }
         .lang-option:hover, .lang-option.selected {
             border-color: #6366f1;
             background: #eef2ff;
-            transform: scale(1.02);
         }
         .dark .lang-option:hover, .dark .lang-option.selected {
             background: rgba(99,102,241,0.15);
         }
-        .lang-flag { font-size: 32px; }
-        .lang-name { font-weight: 800; font-size: 16px; color: #1e293b; }
+        .lang-flag { font-size: 26px; line-height: 1; }
+        .lang-name { font-weight: 700; font-size: 14px; color: #1e293b; }
         .dark .lang-name { color: white; }
-        .lang-native { font-size: 13px; color: #64748b; }
+        .lang-native { font-size: 11px; color: #64748b; margin-top: 1px; }
         .dark .lang-native { color: #94a3b8; }
         .lang-confirm-btn {
-            width: 100%; padding: 15px; border-radius: 16px; border: none;
+            width: 100%; padding: 13px; border-radius: 14px; border: none;
             background: linear-gradient(135deg, #6366f1, #a855f7);
-            color: white; font-weight: 800; font-size: 16px; cursor: pointer;
-            margin-top: 8px;
+            color: white; font-weight: 700; font-size: 14px; cursor: pointer;
+            margin-top: 6px;
             transition: transform 0.15s, opacity 0.15s;
         }
-        .lang-confirm-btn:active { transform: scale(0.97); }
+        .lang-confirm-btn:active { transform: scale(0.98); opacity: 0.9; }
     </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 font-sans text-gray-800 dark:text-gray-200 pb-20 transition-colors duration-300">
@@ -614,41 +622,44 @@
 
 
 <!-- ═══════════════ LANGUAGE SELECTOR POPUP ═══════════════ -->
-<div id="lang-popup-overlay" class="hidden">
+<div id="lang-popup-overlay" class="hidden" onclick="if(event.target===this && window._langFromProfile) this.classList.add('hidden')">
     <div class="lang-sheet">
-        <div class="text-center mb-6">
-            <div style="font-size:42px;margin-bottom:10px;">🌐</div>
-            <h2 style="font-size:20px;font-weight:900;color:#1e293b;" class="dark:text-white">Choose Language</h2>
-            <p style="font-size:13px;color:#64748b;margin-top:4px;" class="dark:text-gray-400">আপনার ভাষা বেছে নিন</p>
+        <div class="lang-sheet-handle"></div>
+        <div class="flex items-center gap-2 mb-4">
+            <span style="font-size:22px;">🌐</span>
+            <div>
+                <h2 style="font-size:16px;font-weight:800;color:#1e293b;" class="dark:text-white">Choose Language</h2>
+                <p style="font-size:11px;color:#94a3b8;margin-top:1px;">আপনার ভাষা বেছে নিন</p>
+            </div>
         </div>
         <div id="lang-options">
             <div class="lang-option" data-lang="bn" onclick="window.selectLang('bn',this)">
                 <span class="lang-flag">🇧🇩</span>
-                <div>
+                <div class="flex-1">
                     <div class="lang-name">বাংলা</div>
                     <div class="lang-native">Bengali</div>
                 </div>
-                <div style="margin-left:auto;font-size:20px;display:none;" id="lang-check-bn">✅</div>
+                <i id="lang-check-bn" class="fas fa-check-circle text-indigo-500 hidden"></i>
             </div>
             <div class="lang-option" data-lang="en" onclick="window.selectLang('en',this)">
                 <span class="lang-flag">🇬🇧</span>
-                <div>
+                <div class="flex-1">
                     <div class="lang-name">English</div>
                     <div class="lang-native">English</div>
                 </div>
-                <div style="margin-left:auto;font-size:20px;display:none;" id="lang-check-en">✅</div>
+                <i id="lang-check-en" class="fas fa-check-circle text-indigo-500 hidden"></i>
             </div>
             <div class="lang-option" data-lang="hi" onclick="window.selectLang('hi',this)">
                 <span class="lang-flag">🇮🇳</span>
-                <div>
+                <div class="flex-1">
                     <div class="lang-name">हिंदी</div>
                     <div class="lang-native">Hindi</div>
                 </div>
-                <div style="margin-left:auto;font-size:20px;display:none;" id="lang-check-hi">✅</div>
+                <i id="lang-check-hi" class="fas fa-check-circle text-indigo-500 hidden"></i>
             </div>
         </div>
         <button class="lang-confirm-btn" onclick="window.confirmLang()">
-            ✓ Confirm / নিশ্চিত করুন
+            ✓ Confirm
         </button>
     </div>
 </div>
@@ -2751,14 +2762,15 @@ window.selectLang = function(lang, el) {
     document.querySelectorAll('.lang-option').forEach(o => {
         o.classList.remove('selected');
         const check = o.querySelector('[id^="lang-check-"]');
-        if (check) check.style.display = 'none';
+        if (check) check.classList.add('hidden');
     });
     if (el) el.classList.add('selected');
     const check = document.getElementById('lang-check-' + lang);
-    if (check) check.style.display = '';
+    if (check) check.classList.remove('hidden');
 };
 
 window.confirmLang = function() {
+    if (!selectedLang) selectedLang = currentLang || 'bn';
     currentLang = selectedLang;
     localStorage.setItem(LANG_KEY, currentLang);
     document.getElementById('lang-popup-overlay').classList.add('hidden');
@@ -2851,19 +2863,20 @@ function _openLangOverlay() {
     document.querySelectorAll('.lang-option').forEach(o => {
         o.classList.remove('selected');
         const check = o.querySelector('[id^="lang-check-"]');
-        if (check) check.style.display = 'none';
+        if (check) check.classList.add('hidden');
     });
     const cur = document.querySelector('.lang-option[data-lang="' + selectedLang + '"]');
     if (cur) {
         cur.classList.add('selected');
         const check = document.getElementById('lang-check-' + selectedLang);
-        if (check) check.style.display = '';
+        if (check) check.classList.remove('hidden');
     }
 }
 
 // Profile থেকে ভাষা পরিবর্তন
 window.openLangPickerFromProfile = function() {
     window.closeProfileMenu && window.closeProfileMenu();
+    window._langFromProfile = true;
     _openLangOverlay();
 };
 </script>
