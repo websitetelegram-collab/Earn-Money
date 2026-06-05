@@ -543,6 +543,9 @@
             display: flex; align-items: center; justify-content: center;
             padding: 24px;
         }
+        #lang-popup-overlay.hidden {
+            display: none !important;
+        }
         .lang-sheet {
             background: rgba(255,255,255,0.97);
             border-radius: 28px;
@@ -616,31 +619,7 @@
 <body class="bg-gray-50 dark:bg-gray-900 font-sans text-gray-800 dark:text-gray-200 pb-20 transition-colors duration-300">
 
 <!-- ═══════════════ SPLASH SCREEN ═══════════════ -->
-<div id="splash-screen">
-    <!-- Floating decorative dots -->
-    <div class="splash-dot" style="top:12%;left:15%;animation-duration:3.2s;animation-delay:0s;"></div>
-    <div class="splash-dot" style="top:18%;right:12%;animation-duration:2.8s;animation-delay:0.7s;width:5px;height:5px;"></div>
-    <div class="splash-dot" style="bottom:22%;left:10%;animation-duration:3.5s;animation-delay:0.3s;width:10px;height:10px;"></div>
-    <div class="splash-dot" style="bottom:28%;right:16%;animation-duration:2.6s;animation-delay:1s;width:5px;height:5px;"></div>
-    <div class="splash-dot" style="top:40%;left:6%;animation-duration:4s;animation-delay:0.5s;width:6px;height:6px;"></div>
-    <div class="splash-dot" style="top:35%;right:8%;animation-duration:3.8s;animation-delay:1.2s;"></div>
-    <!-- Logo -->
-    <div class="splash-logo-wrap">
-        <div class="splash-ring"></div>
-        <div class="splash-ring splash-ring-2"></div>
-        <div class="splash-ring splash-ring-3"></div>
-        <div class="splash-logo-bg"></div>
-        <i class="fas fa-play-circle splash-logo-icon app-splash-icon"></i>
-    </div>
-    <!-- Title -->
-    <h1 class="splash-title app-dynamic-title">Video Hub</h1>
-    <p class="splash-subtitle app-dynamic-sub">Watch Ads · Unlock · Download</p>
-    <!-- Progress bar -->
-    <div class="splash-bar-wrap">
-        <div class="splash-bar-fill"></div>
-    </div>
-    <p class="splash-loading-text">Loading...</p>
-</div>
+
 
 
 <!-- ═══════════════ LANGUAGE SELECTOR POPUP ═══════════════ -->
@@ -691,7 +670,7 @@
 </div>
 
 <!-- ═══════════════ CHANNEL JOIN MODAL ═══════════════ -->
-<div id="channel-join-modal" class="hidden" style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:24px;">
+<div id="channel-join-modal" class="hidden" style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:24px;">
     <div id="channel-join-card" style="background:white;border-radius:28px;width:100%;max-width:340px;padding:0;overflow:hidden;animation:cjPopIn 0.45s cubic-bezier(0.34,1.4,0.64,1) both;box-shadow:0 0 0 1px rgba(255,255,255,0.2),0 32px 80px rgba(0,0,0,0.3),0 8px 24px rgba(245,158,11,0.2);" class="dark-card">
         <!-- Top gradient banner -->
         <div style="background:linear-gradient(135deg,#f59e0b 0%,#ef4444 60%,#ec4899 100%);padding:28px 24px 20px;position:relative;overflow:hidden;">
@@ -2504,6 +2483,7 @@ window.showChannelJoinModal = function() {
     if (nameEl) nameEl.textContent = window._channelJoinName || '@channel';
     if (joinBtn) joinBtn.href = window._channelJoinLink || '#';
     window._cjJoinClicked = false;
+    modal.style.display = 'flex';
     modal.classList.remove('hidden');
 };
 
@@ -2521,7 +2501,9 @@ window.checkChannelJoin = function() {
     }
     // Mark joined
     localStorage.setItem('channel_joined', '1');
-    document.getElementById('channel-join-modal').classList.add('hidden');
+    const cjModal = document.getElementById('channel-join-modal');
+    cjModal.classList.add('hidden');
+    cjModal.style.display = '';
     showToast('✅ Join নিশ্চিত হয়েছে!', 'success');
     // Resume pending action
     if (window._pendingUnlockId) {
@@ -2681,12 +2663,7 @@ function loadNotifHistory() {
 // ══════════════════════════════════════════════════
 //  SPLASH SCREEN LOGIC
 // ══════════════════════════════════════════════════
-function hideSplash() {
-    const splash = document.getElementById('splash-screen');
-    if (!splash) return;
-    splash.classList.add('hide');
-    setTimeout(() => { splash.style.display = 'none'; }, 600);
-}
+function hideSplash() { /* splash removed */ }
 
 // ══════════════════════════════════════════════════
 //  ONBOARDING LOGIC
@@ -2738,55 +2715,24 @@ loadMonetagScript('11069454', '');
 
 // ── Init ──────────────────────────────────────────────────────────────────
 (async () => {
-    // Minimum splash display: 2.8s so animation completes nicely
-    const splashStart = Date.now();
-    const MIN_SPLASH  = 2800;
-    // Maximum splash time: 8s — তারপর force hide করবে
-    const MAX_SPLASH  = 8000;
-
-    // Max time পার হলে force hide splash
-    const forceHideTimer = setTimeout(() => {
-        hideSplash();
-        if (!localStorage.getItem(OB_KEY)) {
-            setTimeout(showOnboarding, 300);
-        }
-    }, MAX_SPLASH);
-
     try {
         try { await signInAnonymously(auth); } catch(e) { console.warn("Auth:", e); }
         setupPresenceAndSaveUser();
-
-        // loadData() কে timeout দিয়ে wrap করো
         await Promise.race([
             loadData(),
-            new Promise(r => setTimeout(r, 6000)) // 6s timeout for data
+            new Promise(r => setTimeout(r, 6000))
         ]);
     } catch(e) {
         console.warn("Init error:", e);
     }
 
-    // forceHideTimer cancel করো — আমরা নিজেই hide করবো
-    clearTimeout(forceHideTimer);
-
-    // Wait remaining splash time if data loaded fast
-    const elapsed = Date.now() - splashStart;
-    if (elapsed < MIN_SPLASH) {
-        await new Promise(r => setTimeout(r, MIN_SPLASH - elapsed));
-    }
-
-    // Hide splash
-    hideSplash();
-
-    // Show language picker first, then onboarding for first-time users
+    // প্রথমবার → ভাষা পপআপ, পরে → সরাসরি Homepage
     const hasLang = localStorage.getItem('app_language_v1');
     if (!hasLang) {
-        setTimeout(showLangPopup, 300);
+        showLangPopup();
     } else {
-        // Saved lang আছে — buttons update করো
         updateLangButtons();
-        if (!localStorage.getItem(OB_KEY)) {
-            setTimeout(showOnboarding, 300);
-        }
+        applyTranslations();
     }
 })();
 
@@ -2913,10 +2859,6 @@ window.confirmLang = function() {
     window._langFromProfile = false;
     applyTranslations();
     updateLangButtons();
-    // Continue to onboarding if first time
-    if (!localStorage.getItem('onboarding_done_v1')) {
-        setTimeout(showOnboarding, 200);
-    }
 };
 
 // Confirm button — addEventListener দিয়েও bind করো (inline onclick backup)
