@@ -1117,7 +1117,7 @@ import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.12.2/fir
 import { getFirestore, collection, getDocs, doc, getDoc, updateDoc, increment, query, orderBy, setDoc, serverTimestamp }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getDatabase, ref, set, get, update, onValue, onDisconnect, serverTimestamp }
+import { getDatabase, ref, set, get, update, onValue, onDisconnect, serverTimestamp as rtdbServerTimestamp }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 // ── Firebase ────────────────────────────────────────────────────────────
@@ -1199,7 +1199,7 @@ function setupPresenceAndSaveUser() {
     const onlineRef = ref(rtdb, 'presence/' + uid);
 
     // Presence node — auto-remove on disconnect
-    set(onlineRef, { name: tgUser.name || 'Guest', id: tgUser.id || uid, t: serverTimestamp() });
+    set(onlineRef, { name: tgUser.name || 'Guest', id: tgUser.id || uid, t: rtdbServerTimestamp() });
     onDisconnect(onlineRef).remove();
 
     // User profile — update (not overwrite)
@@ -1207,20 +1207,20 @@ function setupPresenceAndSaveUser() {
         id:       tgUser.id   || uid,
         name:     tgUser.name || 'Guest User',
         online:   true,
-        lastSeen: serverTimestamp(),
+        lastSeen: rtdbServerTimestamp(),
         platform: window.Telegram && window.Telegram.WebApp ? 'telegram' : 'web',
     }).catch(()=>{});
 
     // Set joinedAt only first time
     get(ref(rtdb, 'users/' + uid + '/joinedAt')).then(snap => {
         if (!snap.exists()) {
-            update(ref(rtdb, 'users/' + uid), { joinedAt: serverTimestamp() }).catch(()=>{});
+            update(ref(rtdb, 'users/' + uid), { joinedAt: rtdbServerTimestamp() }).catch(()=>{});
         }
     }).catch(()=>{});
 
     // Mark offline on disconnect
     onDisconnect(ref(rtdb, 'users/' + uid + '/online')).set(false);
-    onDisconnect(ref(rtdb, 'users/' + uid + '/lastSeen')).set(serverTimestamp());
+    onDisconnect(ref(rtdb, 'users/' + uid + '/lastSeen')).set(rtdbServerTimestamp());
 
     // Listen to online count
     onValue(ref(rtdb, 'presence'), snap => {
