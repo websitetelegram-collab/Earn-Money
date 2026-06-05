@@ -537,58 +537,83 @@
         /* ══ LANGUAGE SELECTOR POPUP ══ */
         #lang-popup-overlay {
             position: fixed; inset: 0; z-index: 10000;
-            background: rgba(0,0,0,0.5); backdrop-filter: blur(6px);
-            display: flex; align-items: flex-end; justify-content: center;
-            padding: 0;
+            background: rgba(0,0,0,0.55);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            display: flex; align-items: center; justify-content: center;
+            padding: 24px;
         }
         .lang-sheet {
-            background: white; border-radius: 24px 24px 0 0;
-            width: 100%; max-width: 480px;
-            padding: 20px 20px 32px;
-            animation: slideUpSheet 0.3s cubic-bezier(0.32,0.72,0,1) both;
-            box-shadow: 0 -8px 40px rgba(0,0,0,0.18);
+            background: rgba(255,255,255,0.97);
+            border-radius: 28px;
+            width: 100%; max-width: 340px;
+            padding: 28px 24px 24px;
+            animation: langPopIn 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.3), 0 24px 60px rgba(99,102,241,0.25), 0 8px 24px rgba(0,0,0,0.15);
+            position: relative; overflow: hidden;
         }
-        @keyframes slideUpSheet {
-            from { transform: translateY(100%); opacity: 0.5; }
-            to   { transform: translateY(0);    opacity: 1; }
+        .lang-sheet::before {
+            content:''; position:absolute; inset:0; pointer-events:none;
+            background: radial-gradient(ellipse at 10% -10%, rgba(99,102,241,0.12) 0%, transparent 60%),
+                        radial-gradient(ellipse at 90% 110%, rgba(168,85,247,0.1) 0%, transparent 60%);
+        }
+        @keyframes langPopIn {
+            0%   { opacity:0; transform: scale(0.82) translateY(20px); }
+            60%  { transform: scale(1.03) translateY(-3px); }
+            100% { opacity:1; transform: scale(1) translateY(0); }
         }
         .dark .lang-sheet {
-            background: #1e2233;
-            box-shadow: 0 -8px 40px rgba(0,0,0,0.5);
+            background: rgba(20,24,40,0.97);
+            box-shadow: 0 0 0 1px rgba(99,102,241,0.2), 0 24px 60px rgba(0,0,0,0.6);
         }
-        .lang-sheet-handle {
-            width: 36px; height: 4px; border-radius: 2px;
-            background: #e2e8f0; margin: 0 auto 16px;
+        .lang-sheet-glow {
+            position:absolute; width:160px; height:160px; border-radius:50%;
+            background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%);
+            top:-40px; right:-30px; pointer-events:none;
         }
-        .dark .lang-sheet-handle { background: #334155; }
         .lang-option {
             display: flex; align-items: center; gap: 12px;
-            padding: 11px 14px; border-radius: 14px;
-            border: 2px solid #e2e8f0; cursor: pointer;
-            transition: all 0.15s; margin-bottom: 8px;
-            background: white;
+            padding: 11px 14px; border-radius: 16px;
+            border: 2px solid #e8eaf0; cursor: pointer;
+            transition: all 0.18s cubic-bezier(0.34,1.1,0.64,1); margin-bottom: 8px;
+            background: rgba(248,249,255,0.8);
+            position: relative; overflow: hidden;
         }
-        .dark .lang-option { background: #1e293b; border-color: #334155; }
-        .lang-option:hover, .lang-option.selected {
+        .dark .lang-option { background: rgba(30,35,60,0.7); border-color: #2a3050; }
+        .lang-option::after {
+            content:''; position:absolute; inset:0; opacity:0;
+            background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(168,85,247,0.08));
+            transition: opacity 0.18s;
+        }
+        .lang-option:hover::after, .lang-option.selected::after { opacity:1; }
+        .lang-option:hover { border-color: #a5b4fc; transform: translateX(3px); }
+        .lang-option.selected {
             border-color: #6366f1;
-            background: #eef2ff;
+            background: rgba(238,242,255,0.95);
+            box-shadow: 0 2px 12px rgba(99,102,241,0.18);
+            transform: translateX(3px);
         }
-        .dark .lang-option:hover, .dark .lang-option.selected {
-            background: rgba(99,102,241,0.15);
-        }
+        .dark .lang-option:hover { border-color: #4f46e5; }
+        .dark .lang-option.selected { background: rgba(99,102,241,0.18); border-color: #6366f1; }
         .lang-flag { font-size: 26px; line-height: 1; }
         .lang-name { font-weight: 700; font-size: 14px; color: #1e293b; }
-        .dark .lang-name { color: white; }
+        .dark .lang-name { color: #f1f5f9; }
         .lang-native { font-size: 11px; color: #64748b; margin-top: 1px; }
         .dark .lang-native { color: #94a3b8; }
         .lang-confirm-btn {
-            width: 100%; padding: 13px; border-radius: 14px; border: none;
-            background: linear-gradient(135deg, #6366f1, #a855f7);
+            width: 100%; padding: 13px; border-radius: 16px; border: none;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
             color: white; font-weight: 700; font-size: 14px; cursor: pointer;
-            margin-top: 6px;
-            transition: transform 0.15s, opacity 0.15s;
+            margin-top: 8px; letter-spacing: 0.3px;
+            transition: all 0.2s; position: relative; overflow: hidden;
+            box-shadow: 0 4px 20px rgba(99,102,241,0.4);
         }
-        .lang-confirm-btn:active { transform: scale(0.98); opacity: 0.9; }
+        .lang-confirm-btn::before {
+            content:''; position:absolute; inset:0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 60%);
+        }
+        .lang-confirm-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(99,102,241,0.5); }
+        .lang-confirm-btn:active { transform: scale(0.98) translateY(0); }
     </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 font-sans text-gray-800 dark:text-gray-200 pb-20 transition-colors duration-300">
@@ -622,24 +647,28 @@
 
 
 <!-- ═══════════════ LANGUAGE SELECTOR POPUP ═══════════════ -->
-<div id="lang-popup-overlay" class="hidden" onclick="if(event.target===this && window._langFromProfile) this.classList.add('hidden')">
+<div id="lang-popup-overlay" class="hidden" onclick="if(event.target===this && window._langFromProfile) document.getElementById('lang-popup-overlay').classList.add('hidden')">
     <div class="lang-sheet">
-        <div class="lang-sheet-handle"></div>
-        <div class="flex items-center gap-2 mb-4">
-            <span style="font-size:22px;">🌐</span>
+        <div class="lang-sheet-glow"></div>
+        <!-- Header -->
+        <div class="flex items-center gap-3 mb-5 relative">
+            <div style="width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,#6366f1,#a855f7);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(99,102,241,0.4);flex-shrink:0;">
+                <span style="font-size:22px;line-height:1;">🌐</span>
+            </div>
             <div>
-                <h2 style="font-size:16px;font-weight:800;color:#1e293b;" class="dark:text-white">Choose Language</h2>
-                <p style="font-size:11px;color:#94a3b8;margin-top:1px;">আপনার ভাষা বেছে নিন</p>
+                <h2 style="font-size:17px;font-weight:800;color:#1e293b;line-height:1.2;" class="dark:text-white">Choose Language</h2>
+                <p style="font-size:11px;color:#94a3b8;margin-top:2px;">আপনার ভাষা বেছে নিন</p>
             </div>
         </div>
-        <div id="lang-options">
+        <!-- Options -->
+        <div id="lang-options" class="relative">
             <div class="lang-option" data-lang="bn" onclick="window.selectLang('bn',this)">
                 <span class="lang-flag">🇧🇩</span>
                 <div class="flex-1">
                     <div class="lang-name">বাংলা</div>
                     <div class="lang-native">Bengali</div>
                 </div>
-                <i id="lang-check-bn" class="fas fa-check-circle text-indigo-500 hidden"></i>
+                <i id="lang-check-bn" class="fas fa-check-circle text-indigo-500 text-base hidden"></i>
             </div>
             <div class="lang-option" data-lang="en" onclick="window.selectLang('en',this)">
                 <span class="lang-flag">🇬🇧</span>
@@ -647,7 +676,7 @@
                     <div class="lang-name">English</div>
                     <div class="lang-native">English</div>
                 </div>
-                <i id="lang-check-en" class="fas fa-check-circle text-indigo-500 hidden"></i>
+                <i id="lang-check-en" class="fas fa-check-circle text-indigo-500 text-base hidden"></i>
             </div>
             <div class="lang-option" data-lang="hi" onclick="window.selectLang('hi',this)">
                 <span class="lang-flag">🇮🇳</span>
@@ -655,14 +684,63 @@
                     <div class="lang-name">हिंदी</div>
                     <div class="lang-native">Hindi</div>
                 </div>
-                <i id="lang-check-hi" class="fas fa-check-circle text-indigo-500 hidden"></i>
+                <i id="lang-check-hi" class="fas fa-check-circle text-indigo-500 text-base hidden"></i>
             </div>
         </div>
-        <button class="lang-confirm-btn" onclick="window.confirmLang()">
-            ✓ Confirm
+        <button class="lang-confirm-btn" id="lang-confirm-btn" onclick="window.confirmLang()">
+            <span style="position:relative;z-index:1;">✓ &nbsp;Confirm</span>
         </button>
     </div>
 </div>
+
+<!-- ═══════════════ CHANNEL JOIN MODAL ═══════════════ -->
+<div id="channel-join-modal" class="hidden" style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:24px;">
+    <div id="channel-join-card" style="background:white;border-radius:28px;width:100%;max-width:340px;padding:0;overflow:hidden;animation:cjPopIn 0.45s cubic-bezier(0.34,1.4,0.64,1) both;box-shadow:0 0 0 1px rgba(255,255,255,0.2),0 32px 80px rgba(0,0,0,0.3),0 8px 24px rgba(245,158,11,0.2);" class="dark-card">
+        <!-- Top gradient banner -->
+        <div style="background:linear-gradient(135deg,#f59e0b 0%,#ef4444 60%,#ec4899 100%);padding:28px 24px 20px;position:relative;overflow:hidden;">
+            <div style="position:absolute;top:-30px;right:-20px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,0.1);"></div>
+            <div style="position:absolute;bottom:-40px;left:-10px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,0.07);"></div>
+            <div style="width:56px;height:56px;border-radius:18px;background:rgba(255,255,255,0.2);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;margin-bottom:14px;box-shadow:0 4px 16px rgba(0,0,0,0.15);">
+                <i class="fab fa-telegram" style="font-size:28px;color:white;"></i>
+            </div>
+            <h2 style="font-size:19px;font-weight:900;color:white;line-height:1.2;margin:0 0 6px;">Join করুন</h2>
+            <p style="font-size:12px;color:rgba(255,255,255,0.8);margin:0;line-height:1.5;">Ads দেখতে ও ভিডিও আনলক করতে আমাদের চ্যানেল/গ্রুপে Join করুন।</p>
+        </div>
+        <!-- Body -->
+        <div style="padding:20px 24px 24px;" class="cj-body">
+            <div id="cj-channel-box" style="background:#fef3c7;border:2px solid #fcd34d;border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+                <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#f59e0b,#ef4444);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <i class="fab fa-telegram" style="color:white;font-size:18px;"></i>
+                </div>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:700;font-size:13px;color:#92400e;" id="cj-channel-name">@channel</div>
+                    <div style="font-size:11px;color:#b45309;margin-top:1px;">Telegram Channel</div>
+                </div>
+                <i class="fas fa-chevron-right" style="color:#d97706;font-size:12px;"></i>
+            </div>
+            <a id="cj-join-btn" href="#" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;border-radius:16px;background:linear-gradient(135deg,#f59e0b,#ef4444);color:white;font-weight:700;font-size:14px;text-decoration:none;box-shadow:0 4px 20px rgba(245,158,11,0.4);margin-bottom:10px;transition:all 0.2s;" onclick="window._cjJoinClicked=true">
+                <i class="fab fa-telegram"></i> Join Channel / Group
+            </a>
+            <button onclick="window.checkChannelJoin()" style="width:100%;padding:12px;border-radius:14px;border:2px solid #e2e8f0;background:white;color:#6366f1;font-weight:700;font-size:13px;cursor:pointer;transition:all 0.2s;" id="cj-verify-btn">
+                <i class="fas fa-check-circle mr-1"></i> Join করেছি — Verify করুন
+            </button>
+            <p style="font-size:10px;color:#94a3b8;text-align:center;margin-top:10px;line-height:1.5;">Join করার পর Verify বাটনে ক্লিক করুন।<br>Admin চাইলে এই requirement বন্ধ করতে পারবেন।</p>
+        </div>
+    </div>
+</div>
+<style>
+@keyframes cjPopIn {
+    0%   { opacity:0; transform:scale(0.8) translateY(24px); }
+    65%  { transform:scale(1.03) translateY(-4px); }
+    100% { opacity:1; transform:scale(1) translateY(0); }
+}
+#channel-join-modal .dark-card { background: white; }
+.dark #channel-join-modal .dark-card { background: #1a1f35 !important; }
+.dark #channel-join-modal .cj-body { background: #1a1f35; }
+.dark #channel-join-modal #cj-channel-box { background:#2a2010;border-color:#7c5500; }
+.dark #channel-join-modal #cj-channel-name { color:#fcd34d; }
+.dark #channel-join-modal #cj-verify-btn { background:#1e293b;border-color:#334155;color:#818cf8; }
+</style>
 
 <!-- ═══════════════ ONBOARDING SCREEN ═══════════════ -->
 <div id="onboarding-screen">
@@ -1483,8 +1561,6 @@ function loadMonetagScript(zoneId, customScript) {
 // ── Load All Data ───────────────────────────────────────────────────────
 // ✅ FIX 3: সব Firebase calls parallel-এ চলবে — sequential নয়
 async function loadData() {
-    showSkeletonLoader();
-
     // ✅ Files সবার আগে load করো — ইউজার সাথে সাথে দেখতে পাবে
     const filesPromise = getDocs(collection(db,"files")).then(snaps => {
         allFiles = [];
@@ -1516,6 +1592,10 @@ async function loadData() {
             const d = generalSnap.value.data();
             timerDuration = d.timerDuration || 10;
             window._appSettings = d;
+            // Channel join settings
+            window._channelJoinRequired = d.channelJoinRequired || false;
+            window._channelJoinLink     = d.channelJoinLink || '';
+            window._channelJoinName     = d.channelJoinName || '@channel';
 
             // App Title
             if (d.appTitle) {
@@ -2322,6 +2402,14 @@ window._adFlow = {
 
 // ── Main unlock entry ────────────────────────────────────────────────────
 window.unlockFile = async (id, req) => {
+    // Channel join check — first time only
+    if (window._channelJoinRequired && !localStorage.getItem('channel_joined')) {
+        window._pendingUnlockId  = id;
+        window._pendingUnlockReq = req;
+        window.showChannelJoinModal();
+        return;
+    }
+
     const btn = document.getElementById('unlock-action-btn');
 
     // localStorage থেকে আগের count নাও
@@ -2401,6 +2489,53 @@ function renderHistory() {
 }
 
 // ── Tab switcher ─────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════
+//  CHANNEL JOIN MODAL
+// ══════════════════════════════════════════════════
+window._cjJoinClicked   = false;
+window._pendingUnlockId  = null;
+window._pendingUnlockReq = null;
+window._channelJoinRequired = false;
+window._channelJoinLink     = '';
+window._channelJoinName     = '@channel';
+
+window.showChannelJoinModal = function() {
+    const modal = document.getElementById('channel-join-modal');
+    if (!modal) return;
+    const nameEl = document.getElementById('cj-channel-name');
+    const joinBtn = document.getElementById('cj-join-btn');
+    if (nameEl) nameEl.textContent = window._channelJoinName || '@channel';
+    if (joinBtn) joinBtn.href = window._channelJoinLink || '#';
+    window._cjJoinClicked = false;
+    modal.classList.remove('hidden');
+};
+
+window.checkChannelJoin = function() {
+    const verifyBtn = document.getElementById('cj-verify-btn');
+    if (!window._cjJoinClicked) {
+        // শুধু shake করো
+        if (verifyBtn) {
+            verifyBtn.style.borderColor = '#ef4444';
+            verifyBtn.style.color = '#ef4444';
+            setTimeout(() => { verifyBtn.style.borderColor = ''; verifyBtn.style.color = ''; }, 1200);
+        }
+        showToast('⚠️ আগে Channel/Group-এ Join করুন!', 'error');
+        return;
+    }
+    // Mark joined
+    localStorage.setItem('channel_joined', '1');
+    document.getElementById('channel-join-modal').classList.add('hidden');
+    showToast('✅ Join নিশ্চিত হয়েছে!', 'success');
+    // Resume pending action
+    if (window._pendingUnlockId) {
+        setTimeout(() => {
+            window.unlockFile(window._pendingUnlockId, window._pendingUnlockReq);
+            window._pendingUnlockId  = null;
+            window._pendingUnlockReq = null;
+        }, 300);
+    }
+};
+
 // ── Profile Menu ─────────────────────────────────────────────────────────
 window.openProfileMenu = () => {
     updateStatsStrip();
@@ -2770,10 +2905,15 @@ window.selectLang = function(lang, el) {
 };
 
 window.confirmLang = function() {
-    if (!selectedLang) selectedLang = currentLang || 'bn';
-    currentLang = selectedLang;
-    localStorage.setItem(LANG_KEY, currentLang);
+    // DOM থেকে সরাসরি পড়ো — variable এর উপর নির্ভর না করে
+    const selectedEl = document.querySelector('.lang-option.selected');
+    const langFromDOM = selectedEl ? selectedEl.dataset.lang : null;
+    const finalLang = langFromDOM || selectedLang || currentLang || 'bn';
+    selectedLang = finalLang;
+    currentLang  = finalLang;
+    localStorage.setItem(LANG_KEY, finalLang);
     document.getElementById('lang-popup-overlay').classList.add('hidden');
+    window._langFromProfile = false;
     applyTranslations();
     updateLangButtons();
     // Continue to onboarding if first time
