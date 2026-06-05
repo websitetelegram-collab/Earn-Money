@@ -1008,105 +1008,37 @@
 <div id="ad-overlay" class="ad-overlay hidden">
     <div class="ad-sheet" id="ad-sheet">
 
-        <!-- STAGE 0: Pre-load countdown -->
-        <div id="stage-preload" class="text-center">
+        <!-- STAGE: Watch Ad Button -->
+        <div id="stage-watch" class="text-center">
+            <div style="font-size:44px;margin-bottom:14px;">🎬</div>
+            <p class="ad-title-white" id="ad-stage-title">Unlock This Video</p>
+            <p class="ad-sub-gray" id="ad-stage-sub">Watch a short ad to unlock</p>
+            <!-- Progress dots (একাধিক ad থাকলে দেখায়) -->
+            <div id="ad-dots" style="display:flex;justify-content:center;gap:8px;margin:14px 0;"></div>
+            <button id="watch-ad-btn" class="ad-watch-btn" onclick="window._adFlow.watchNext()">
+                <i class="fas fa-play"></i> <span id="watch-btn-label">WATCH AD</span>
+            </button>
+            <button id="ad-cancel-btn" onclick="window._adFlow.cancel()" class="ad-cancel-btn">Cancel</button>
+        </div>
+
+        <!-- STAGE: Loading (ad চলছে) -->
+        <div id="stage-loading" class="text-center hidden">
             <div class="ad-spinner-wrap">
                 <div class="ad-spinner-arc2"></div>
                 <div class="ad-spinner-arc"></div>
             </div>
-            <p class="ad-processing-title">Processing...</p>
-            <p class="ad-processing-sub">Please wait <span id="preload-countdown">3</span> seconds ⏳</p>
-            <p style="color:rgba(255,255,255,0.2);font-size:12px;margin-top:6px;">Preparing button...</p>
-        </div>
-
-        <!-- STAGE 1: Watch First Ad button -->
-        <div id="stage-ad1-btn" class="text-center hidden">
-            <p class="ad-title-white">🎬 Watch an ad to unlock this video</p>
-            <p class="ad-sub-gray">Premium Content — Watch Ads to Unlock</p>
-            <button id="watch-ad1-btn" class="ad-watch-btn" onclick="window._adFlow.watchAd1()">
-                <i class="fas fa-video"></i> WATCH FIRST AD
-            </button>
-            <p style="color:rgba(255,255,255,0.25);font-size:12px;margin-top:12px;" id="ad1-remaining-label"></p>
-            <button onclick="window._adFlow.cancel()" class="ad-cancel-btn">Cancel</button>
-        </div>
-
-        <!-- STAGE 2: Loading Ad spinner (Adsgram loading) -->
-        <div id="stage-loading-ad" class="text-center hidden">
-            <div class="ad-spinner-wrap">
-                <div class="ad-spinner-arc2"></div>
-                <div class="ad-spinner-arc"></div>
-            </div>
-            <p class="ad-processing-title" id="loading-ad-title">Loading Ad...</p>
-            <p class="ad-processing-sub">Please watch the full ad</p>
-            <div id="ad-error-badge" class="hidden mt-4 bg-gradient-to-r from-indigo-500 to-pink-500 rounded-xl p-3">
-                <p class="text-white text-sm font-bold">Ad not loaded. Try again.</p>
+            <p class="ad-processing-title" id="loading-label">Ad চলছে...</p>
+            <p class="ad-processing-sub">Please complete the ad</p>
+            <div id="ad-error-box" class="hidden" style="margin-top:16px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:12px;padding:12px;">
+                <p style="color:#f87171;font-size:13px;font-weight:700;" id="ad-error-msg">Ad failed. Please try again.</p>
+                <button onclick="window._adFlow.retryAd()" style="margin-top:8px;background:#6366f1;color:white;border:none;padding:8px 20px;border-radius:8px;font-weight:700;cursor:pointer;">
+                    <i class="fas fa-redo"></i> Retry
+                </button>
             </div>
         </div>
 
-        <!-- STAGE 3: Inter-ad processing countdown -->
-        <div id="stage-processing" class="text-center hidden">
-            <div class="ad-spinner-wrap">
-                <div class="ad-spinner-arc2"></div>
-                <div class="ad-spinner-arc" style="border-bottom-color:#22c55e;border-left-color:#6366f1;"></div>
-            </div>
-            <p class="ad-processing-title">Processing...</p>
-            <p class="ad-processing-sub">Please wait <span id="processing-countdown">3</span> seconds ⏳</p>
-        </div>
-
-        <!-- STAGE 4: First Ad Done → Play Final Ad -->
-        <div id="stage-ad1-done" class="text-center hidden" style="position:relative;">
-            <div class="ad-check-circle">
-                <i class="fas fa-check text-white text-2xl"></i>
-            </div>
-            <p class="ad-first-done-title">First Ad Complete! 🎉</p>
-            <p style="color:rgba(255,255,255,0.5);font-size:14px;margin-bottom:20px;">Now watch the Final Ad<br>to complete this round.</p>
-            <button id="play-video-btn" class="ad-play-btn" onclick="window._adFlow.playVideo()">
-                <i class="fas fa-play"></i> WATCH FINAL AD
-            </button>
-            <button onclick="window._adFlow.cancel()" class="ad-cancel-btn">Cancel Process</button>
-        </div>
-
-        <!-- STAGE 5: Final Ad loading -->
-        <div id="stage-preload2" class="text-center hidden">
-            <div class="ad-spinner-wrap">
-                <div class="ad-spinner-arc2"></div>
-                <div class="ad-spinner-arc" style="border-bottom-color:#a855f7;border-left-color:#ec4899;"></div>
-            </div>
-            <p class="ad-processing-title">Loading Final Ad...</p>
-            <p class="ad-processing-sub">Please wait a moment</p>
-            <div id="ad-error-badge2" class="hidden mt-4 bg-gray-800 border border-red-500/30 rounded-xl p-3">
-                <p class="text-red-400 text-sm font-semibold"><i class="fas fa-exclamation-circle mr-1"></i> <span>Ad not loaded. Going back...</span></p>
-            </div>
-        </div>
-
-        <!-- STAGE 6: Final processing / unlock -->
-        <div id="stage-final" class="text-center hidden">
-            <div class="ad-spinner-wrap">
-                <div class="ad-spinner-arc2"></div>
-                <div class="ad-spinner-arc" style="border-bottom-color:#ec4899;border-left-color:#a855f7;"></div>
-            </div>
-            <p class="ad-processing-title">Final Processing...</p>
-            <p class="ad-processing-sub">Please wait <span id="final-countdown">5</span> seconds ⏳</p>
-            <p style="color:rgba(255,255,255,0.2);font-size:12px;margin-top:6px;">Unlocking your video...</p>
-        </div>
-
-        <!-- STAGE 7: Multi-ad progress (>2 ads) -->
-        <div id="stage-progress" class="text-center hidden">
-            <div class="ad-check-circle" style="background:#6366f1;">
-                <i class="fas fa-check text-white text-2xl"></i>
-            </div>
-            <p class="ad-first-done-title" style="color:#818cf8;" id="progress-stage-title">Ad Completed!</p>
-            <p style="color:rgba(255,255,255,0.5);font-size:14px;margin-bottom:16px;" id="progress-stage-msg"></p>
-            <div id="progress-stage-timer" class="hidden">
-                <div style="height:3px;background:rgba(255,255,255,0.1);border-radius:4px;overflow:hidden;">
-                    <div id="progress-timer-bar" style="height:100%;background:linear-gradient(90deg,#6366f1,#a855f7);width:100%;transition:width 1s linear;border-radius:4px;"></div>
-                </div>
-                <p id="progress-timer-text" style="color:rgba(255,255,255,0.25);font-size:12px;margin-top:8px;"></p>
-            </div>
-            <button id="progress-close-btn" onclick="window._adFlow.close()" class="hidden ad-play-btn mt-4">
-                <i class="fas fa-check mr-1"></i> Done
-            </button>
-        </div>
+        <!-- STAGE: placeholder (used by showStage, never actually shown) -->
+        <div id="stage-done" class="hidden"></div>
 
     </div>
 </div>
@@ -1477,6 +1409,8 @@ async function loadData() {
                 adSettings.showCancel = d.ui.showCancel !== false;
                 adSettings.confetti   = d.ui.confetti   !== false;
             }
+            // Extra ad slots support
+            if (d.extraSlots && Array.isArray(d.extraSlots)) { adSettings.extraSlots = d.extraSlots; }
         }
     } catch(e) { console.error("AdFlow settings error:", e); }
 
@@ -1929,423 +1863,278 @@ window.shareFile = (fileId) => {
 };
 
 // ═══════════════════════════════════════════════════════════
-//  AD FLOW ENGINE — Fixed Adsgram (Ad1) + Monetag (Ad2)
-//  Security: দুটো Ad সফলভাবে না দেখলে count হবে না
+//  AD FLOW ENGINE v3
+//  - প্রতি round = সব ad slots একে একে চলবে
+//  - সব ad শেষে → count +1, overlay বন্ধ, পোস্ট পেজে ফেরা
+//  - round শেষে পোস্ট পেজে ফিরে আসবে (আর loading নয়)
+//  - আবার unlock ক্লিক করলে পরের round শুরু হবে
+//  - অতিরিক্ত timer নেই
 // ═══════════════════════════════════════════════════════════
-let _adFileId      = null;
-let _adRequired    = 0;
-let _ad1Completed  = false;  // Adsgram সফল হলে true
-let _ad2Completed  = false;  // Monetag সফল হলে true
+let _adFileId   = null;
+let _adRequired = 0;
+let _adSlots    = [];
+let _adIndex    = 0;
+let _adsDone    = 0;
 
 function showStage(id) {
-    ['stage-preload','stage-loading-ad','stage-ad1-btn','stage-processing',
-     'stage-ad1-done','stage-preload2','stage-final','stage-progress'
-    ].forEach(s => { const el=document.getElementById(s); if(el) el.classList.add('hidden'); });
+    ['stage-watch','stage-loading','stage-done']
+        .forEach(s => { const el=document.getElementById(s); if(el) el.classList.add('hidden'); });
     const t = document.getElementById(id);
     if (t) t.classList.remove('hidden');
 }
 function openOverlay()  { document.getElementById('ad-overlay').classList.remove('hidden'); }
 function closeOverlay() { document.getElementById('ad-overlay').classList.add('hidden'); }
 
-function startCountdown(spanId, seconds, onDone) {
-    const el = document.getElementById(spanId);
-    let cd = seconds;
-    if (el) el.textContent = cd;
-    const iv = setInterval(()=>{
-        cd--;
-        if (el) el.textContent = Math.max(0,cd);
-        if (cd<=0) { clearInterval(iv); if(onDone) onDone(); }
-    }, 1000);
-    return iv;
-}
-
-function spawnConfetti() {
-    if (!adSettings.confetti) return;
-    const container = document.getElementById('stage-ad1-done');
-    if (!container) return;
-    const colors = ['#6366f1','#a855f7','#ec4899','#22c55e','#f59e0b'];
-    for (let i=0; i<10; i++) {
-        const dot = document.createElement('div');
-        dot.className = 'confetti-dot';
-        dot.style.cssText = `left:${Math.random()*100}%;top:0;background:${colors[i%colors.length]};animation-delay:${Math.random()*0.5}s;`;
-        container.appendChild(dot);
-        setTimeout(()=>dot.remove(), 1500);
+// Admin settings থেকে ad slot list তৈরি
+function buildAdSlots() {
+    const slots = [];
+    if (adSettings.adsgramEnabled && adSettings.adsgramBlockId) {
+        slots.push({ type: 'adsgram', blockId: adSettings.adsgramBlockId });
     }
+    if (adSettings.monetagEnabled && (adSettings.monetagZoneId || adSettings.monetagCustomScript)) {
+        slots.push({ type: 'monetag', zoneId: adSettings.monetagZoneId });
+    }
+    if (adSettings.extraSlots && Array.isArray(adSettings.extraSlots)) {
+        adSettings.extraSlots.forEach(s => slots.push(s));
+    }
+    if (!slots.length) slots.push({ type: 'monetag', zoneId: _monetagZoneId });
+    return slots;
 }
 
-// ── Adsgram show — FIXED: always init with correct blockId ──────────────
+// Dot indicator update
+function updateAdDots() {
+    const wrap = document.getElementById('ad-dots');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    _adSlots.forEach((_, i) => {
+        const d = document.createElement('div');
+        d.style.cssText = `width:8px;height:8px;border-radius:50%;transition:all 0.3s;background:${
+            i < _adsDone ? '#22c55e' : i === _adIndex ? 'white' : 'rgba(255,255,255,0.25)'
+        };transform:${i === _adIndex ? 'scale(1.3)' : 'scale(1)'};`;
+        wrap.appendChild(d);
+    });
+}
+
+// Adsgram ad
 async function showAdsgramAd(blockId) {
     if (!window.Adsgram) throw new Error("Adsgram not loaded");
     return new Promise((resolve, reject) => {
         try {
-            const AdController = window.Adsgram.init({ blockId: String(blockId) });
-            AdController.show().then(resolve).catch(reject);
+            const ctrl = window.Adsgram.init({ blockId: String(blockId) });
+            ctrl.show().then(resolve).catch(reject);
         } catch(e) { reject(e); }
     });
 }
 
-// ── Final Ad show ─────────────────────────────────────────────────────────
+// Monetag ad
 async function showMonetagAd(zoneId) {
     return new Promise((resolve, reject) => {
-        // Use admin-set zone or fallback to hardcoded
         const z = zoneId || _monetagZoneId || '11069454';
-
         let settled = false;
         function done(ok, err) {
-            if (settled) return;
-            settled = true;
-            if (ok) resolve(); else reject(err || new Error('Ad failed'));
+            if (settled) return; settled = true;
+            ok ? resolve() : reject(err || new Error('Ad failed'));
         }
-
-        // Poll until show_{z} is available (max 15s)
         let attempts = 0;
         function tryCall() {
             attempts++;
             const fn = window[`show_${z}`];
-
             if (typeof fn === 'function') {
                 try {
                     const ret = fn();
                     if (ret && typeof ret.then === 'function') {
-                        ret.then(() => done(true))
-                           .catch(e => done(false, e));
+                        ret.then(() => done(true)).catch(e => done(false, e));
                     } else {
-                        // Sync call — ad window opened, wait for close (max 60s)
-                        const t = setTimeout(() => done(true), 60000);
-                        const origClose = window.__monetag_on_close;
-                        window.__monetag_on_close = () => {
-                            clearTimeout(t);
-                            if (typeof origClose === 'function') origClose();
-                            done(true);
-                        };
+                        setTimeout(() => done(true), 2000);
                     }
-                    return;
-                } catch(e) {
-                    done(false, e);
-                    return;
-                }
-            }
-
-            if (window.__monetag && typeof window.__monetag.show === 'function') {
-                window.__monetag.show().then(() => done(true)).catch(e => done(false, e));
+                } catch(e) { done(false, e); }
                 return;
             }
-            if (window.monetag && typeof window.monetag.show === 'function') {
-                window.monetag.show().then(() => done(true)).catch(e => done(false, e));
-                return;
-            }
-
-            // Keep polling — SDK in head but may take a moment
-            if (attempts < 60) { // 60 × 250ms = 15s
-                setTimeout(tryCall, 250);
-            } else {
-                done(false, new Error('Ad not available. Please try again.'));
-            }
+            if (attempts < 40) setTimeout(tryCall, 300);
+            else done(false, new Error('Ad SDK not ready'));
         }
-
         tryCall();
     });
 }
 
+// পোস্ট পেজে ফিরে গিয়ে UI আপডেট করা
+function _returnToPostPage(newCount) {
+    closeOverlay();
+    const file = allFiles.find(f => f.id === _adFileId);
+    if (!file) return;
+    renderFiles();
+    renderHistory();
+    if (newCount >= _adRequired) {
+        // সম্পূর্ণ unlock
+        saveToHistory(_adFileId);
+        updateDetailButtonState(file);
+        document.getElementById('detail-downloads').textContent = formatNumber(file.downloads||0);
+        showToast('🎉 Unlocked! You can now download.');
+    } else {
+        // আরো round বাকী — পোস্ট পেজে count আপডেট দেখাবে
+        updateDetailButtonState(file);
+        const remaining = _adRequired - newCount;
+        showToast(`✅ Round ${newCount} done! ${remaining} more round${remaining>1?'s':''} needed.`);
+    }
+}
+
 window._adFlow = {
 
-    // ── Entry: start round-based flow ──────────────────────────────────
-    // 1 round = Adsgram (সফল) + Monetag Mini App Ad (সফল) = 1 count
-    // দুটো Ad-ই সফল না হলে count হবে না — bypass সম্ভব না
+    // Entry: Unlock বাটন চাপলে এটা call হবে
     start(fileId, req) {
-        _adFileId     = fileId;
-        _adRequired   = req;
-        _ad1Completed = false;
-        _ad2Completed = false;
+        _adFileId   = fileId;
+        _adRequired = req;
+        _adSlots    = buildAdSlots();
+        _adIndex    = 0;
+        _adsDone    = 0;
         openOverlay();
-        showStage('stage-preload');
-
-        const count = parseInt(localStorage.getItem(`adCount_${fileId}`))||0;
-        const remEl = document.getElementById('ad1-remaining-label');
-        if (remEl) remEl.textContent = req - count > 1 ? `${req - count} rounds remaining` : '';
-
-        document.querySelectorAll('.ad-cancel-btn').forEach(b => {
-            b.style.display = adSettings.showCancel ? '' : 'none';
-        });
-
-        startCountdown('preload-countdown', adSettings.preloadDuration, ()=>{
-            showStage('stage-ad1-btn');
-        });
+        this._showWatchStage();
     },
 
-    // ── STEP 1: Adsgram Ad ────────────────────────────────────────────
-    async watchAd1() {
-        const btn = document.getElementById('watch-ad1-btn');
+    // Watch stage
+    _showWatchStage() {
+        showStage('stage-watch');
+        const count = parseInt(localStorage.getItem(`adCount_${_adFileId}`))||0;
+        document.getElementById('ad-stage-title').textContent = '🎬 Watch Ads to Unlock';
+        document.getElementById('ad-stage-sub').textContent =
+            `Ad ${_adIndex + 1} of ${_adSlots.length} · Round ${count + 1} of ${_adRequired}`;
+        document.getElementById('watch-btn-label').textContent =
+            _adSlots.length > 1 ? `WATCH AD ${_adIndex + 1} of ${_adSlots.length}` : 'WATCH AD';
+        const cancelBtn = document.getElementById('ad-cancel-btn');
+        if (cancelBtn) cancelBtn.style.display = adSettings.showCancel ? '' : 'none';
+        updateAdDots();
+        const btn = document.getElementById('watch-ad-btn');
+        if (btn) btn.disabled = false;
+    },
+
+    // প্রতিটা ad চালানো
+    async watchNext() {
+        const btn = document.getElementById('watch-ad-btn');
         if (btn) btn.disabled = true;
 
-        showStage('stage-loading-ad');
-        document.getElementById('loading-ad-title').textContent = 'Loading Ad... (1/2)';
-        document.getElementById('ad-error-badge').classList.add('hidden');
+        showStage('stage-loading');
+        const errBox = document.getElementById('ad-error-box');
+        if (errBox) errBox.classList.add('hidden');
+        document.getElementById('loading-label').textContent =
+            _adSlots.length > 1
+                ? `Ad ${_adIndex + 1} of ${_adSlots.length} চলছে...`
+                : 'Ad চলছে...';
 
-        const blockId = adSettings.adsgramBlockId || '20214';
-        console.log("📺 Showing Adsgram Ad, blockId:", blockId);
-
+        const slot = _adSlots[_adIndex];
         try {
-            await showAdsgramAd(blockId);
-            console.log("✅ Adsgram Ad completed");
-            _ad1Completed = true;  // ✅ সত্যিকারের Ad দেখা হয়েছে
-            // Inter-ad processing pause → then show Monetag button
-            showStage('stage-processing');
-            startCountdown('processing-countdown', adSettings.interPause, ()=>{
-                showStage('stage-ad1-done');
-                spawnConfetti();
-            });
+            if (slot.type === 'adsgram') {
+                await showAdsgramAd(slot.blockId);
+            } else {
+                await showMonetagAd(slot.zoneId);
+            }
+
+            _adsDone++;
+            _adIndex++;
+            updateAdDots();
+
+            if (_adIndex < _adSlots.length) {
+                // আরো ad বাকী — পরের ad দেখাও
+                this._showWatchStage();
+            } else {
+                // এই round-এর সব ad শেষ — count সেভ + পোস্ট পেজে ফেরা
+                await this._saveCountAndReturn();
+            }
         } catch(e) {
-            console.error("❌ Adsgram Ad failed:", e);
-            _ad1Completed = false;  // ❌ fail হলে flag reset
-            // Adsgram fail → Monetag শো হবে না, count হবে না
-            document.getElementById('ad-error-badge').classList.remove('hidden');
-            document.getElementById('loading-ad-title').textContent = 'Ad failed. Try again.';
+            console.error('Ad error:', e);
+            const errBox = document.getElementById('ad-error-box');
+            const errMsg = document.getElementById('ad-error-msg');
+            if (errMsg) errMsg.textContent = 'Ad failed. Please try again.';
+            if (errBox) errBox.classList.remove('hidden');
             if (btn) btn.disabled = false;
-            setTimeout(()=>{
-                showStage('stage-ad1-btn');
-                if (btn) btn.disabled = false;
-            }, 2500);
         }
     },
 
-    // ── STEP 2: Final Ad (only after First Ad success) ────────────────
-    async playVideo() {
-        if (!_ad1Completed) {
-            showToast("⚠️ Please watch the First Ad first!");
-            showStage('stage-ad1-btn');
-            return;
-        }
-
-        const btn = document.getElementById('play-video-btn');
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = `<div style="width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin-smooth 0.8s linear infinite;margin-right:8px;display:inline-block;vertical-align:middle;"></div> Loading...`;
-        }
-
-        showStage('stage-preload2');
-        const errBadge = document.getElementById('ad-error-badge2');
-        errBadge.classList.add('hidden');
-
-        const zoneId = adSettings.monetagZoneId || '';
-
-        try {
-            await showMonetagAd(zoneId);
-            _ad2Completed = true;
-            setTimeout(() => { window._adFlow.finalProcess(); }, 500);
-        } catch(e) {
-            _ad2Completed = false;
-            // Show retry UI — go back to stage-ad1-done with retry button
-            const errEl = errBadge.querySelector('p');
-            if (errEl) errEl.textContent = e.message || 'Ad not loaded. Try again.';
-            errBadge.classList.remove('hidden');
-            // Re-enable play button
-            if (btn) {
-                btn.disabled = false;
-                btn.innerHTML = `<i class="fas fa-redo"></i> Retry Final Ad`;
-            }
-            setTimeout(() => {
-                showStage('stage-ad1-done');
-            }, 2500);
-        }
+    // Retry
+    retryAd() {
+        const errBox = document.getElementById('ad-error-box');
+        if (errBox) errBox.classList.add('hidden');
+        this._showWatchStage();
     },
 
-    // ── STEP 3: Both ads done → save count immediately ───────────────────
-    async finalProcess() {
-        if (!_ad1Completed || !_ad2Completed) {
-            showToast("⚠️ Please watch both ads completely!");
-            _ad1Completed = false;
-            _ad2Completed = false;
-            showStage('stage-ad1-btn');
-            return;
-        }
+    // Count সেভ + পোস্ট পেজে ফেরা (overlay বন্ধ)
+    async _saveCountAndReturn() {
+        // Loading দেখাও (brief — শুধু save করার সময়)
+        document.getElementById('loading-label').textContent = 'Saving...';
+        const errBox = document.getElementById('ad-error-box');
+        if (errBox) errBox.classList.add('hidden');
 
-        // Show final stage immediately
-        showStage('stage-final');
+        const safeUserId = tgUser.id.replace(/[.#$\/\[\]]/g, '_');
+        let newCount = 1;
 
-        // Save count RIGHT AWAY — don't wait for countdown
         try {
-            // Get current Firebase count first
-            const fileDoc = await getDoc(doc(db, "files", _adFileId));
-            if (!fileDoc.exists()) {
-                showToast("❌ File not found!");
-                closeOverlay();
-                return;
-            }
+            const fileDoc = await getDoc(doc(db, 'files', _adFileId));
+            const firebaseCount = fileDoc.exists()
+                ? ((fileDoc.data().adUnlockCount || {})[safeUserId] || 0) : 0;
+            const localCount = parseInt(localStorage.getItem(`adCount_${_adFileId}`)) || 0;
+            newCount = Math.max(localCount, firebaseCount) + 1;
 
-            const data = fileDoc.data();
-            // Use safe key (replace dots/special chars in userId)
-            const safeUserId = tgUser.id.replace(/[.#$/\[\]]/g, '_');
-            const firebaseCount = (data.adUnlockCount && data.adUnlockCount[safeUserId]) || 0;
-            const newCount = firebaseCount + 1;
-
-            // Save to Firebase using set with merge to avoid permission issues
-            await updateDoc(doc(db, "files", _adFileId), {
+            await updateDoc(doc(db, 'files', _adFileId), {
                 [`adUnlockCount.${safeUserId}`]: newCount
             });
-
-            // Always save to localStorage as backup
-            localStorage.setItem(`adCount_${_adFileId}`, newCount);
-            localStorage.setItem(`adCount_safe_${_adFileId}`, safeUserId);
-
-            // Reset flags
-            _ad1Completed = false;
-            _ad2Completed = false;
-
-            // Short visual delay then process result
-            await new Promise(r => setTimeout(r, 1500));
-
-            if (newCount >= _adRequired) {
-                // All rounds done → Unlock!
-                closeOverlay();
-                const file = allFiles.find(f => f.id === _adFileId);
-                if (file) {
-                    saveToHistory(_adFileId);
-                    try {
-                        await updateDoc(doc(db, "files", _adFileId), { downloads: increment(1) });
-                        file.downloads++;
-                    } catch(e) {}
-                    updateDetailButtonState(file);
-                    document.getElementById('detail-downloads').textContent = formatNumber(file.downloads);
-                    renderFiles();
-                    renderHistory();
-                }
-                showToast("✅ Unlocked Successfully!");
-            } else {
-                // More rounds needed
-                closeOverlay();
-                window._adFlow._showRoundProgress(newCount, _adRequired, _adFileId);
-            }
-
         } catch(e) {
-            console.error("Count save failed:", e);
-            // Fallback: save to localStorage only and still give credit
-            const localCount = (parseInt(localStorage.getItem(`adCount_${_adFileId}`)) || 0) + 1;
-            localStorage.setItem(`adCount_${_adFileId}`, localCount);
-            _ad1Completed = false;
-            _ad2Completed = false;
+            const localCount = parseInt(localStorage.getItem(`adCount_${_adFileId}`)) || 0;
+            newCount = localCount + 1;
+        }
 
-            await new Promise(r => setTimeout(r, 1000));
+        localStorage.setItem(`adCount_${_adFileId}`, newCount);
 
-            if (localCount >= _adRequired) {
-                closeOverlay();
+        // Unlock হলে download count বাড়াও
+        if (newCount >= _adRequired) {
+            try {
                 const file = allFiles.find(f => f.id === _adFileId);
                 if (file) {
-                    saveToHistory(_adFileId);
-                    updateDetailButtonState(file);
-                    renderFiles();
-                    renderHistory();
+                    await updateDoc(doc(db, 'files', _adFileId), { downloads: increment(1) });
+                    file.downloads = (file.downloads||0) + 1;
                 }
-                showToast("✅ Unlocked!");
-            } else {
-                closeOverlay();
-                window._adFlow._showRoundProgress(localCount, _adRequired, _adFileId);
-            }
+            } catch(e) {}
         }
+
+        // সরাসরি পোস্ট পেজে ফেরা — আর কোনো loading বা done screen নেই
+        _returnToPostPage(newCount);
     },
 
-    // ── Inter-round progress screen ────────────────────────────────────
-    _showRoundProgress(doneCount, req, fileId) {
-        openOverlay();
-        showStage('stage-progress');
-        document.getElementById('progress-stage-title').textContent = `Round ${doneCount} Complete! 🎉`;
-        document.getElementById('progress-stage-msg').textContent   = `Progress: ${doneCount} of ${req} rounds done.`;
-
-        const timerDiv = document.getElementById('progress-stage-timer');
-        const timerBar = document.getElementById('progress-timer-bar');
-        const timerTxt = document.getElementById('progress-timer-text');
-        const closeBtn = document.getElementById('progress-close-btn');
-        timerDiv.classList.remove('hidden'); closeBtn.classList.add('hidden');
-
-        let cd = timerDuration;
-        timerTxt.textContent = `Next round in ${cd}s...`;
-        timerBar.style.transition = 'none'; timerBar.style.width = '100%';
-        setTimeout(()=>{ timerBar.style.transition = `width ${timerDuration}s linear`; timerBar.style.width = '0%'; }, 50);
-
-        const iv = setInterval(()=>{
-            cd--;
-            timerTxt.textContent = cd > 0 ? `Next round in ${cd}s...` : 'Ready!';
-            if (cd <= 0) {
-                clearInterval(iv);
-                closeBtn.classList.remove('hidden');
-                timerDiv.classList.add('hidden');
-                // progress-close-btn click করলে পরের রাউন্ড শুরু
-                closeBtn.onclick = () => {
-                    closeOverlay();
-                    window._adFlow.start(fileId, req);
-                };
-            }
-        }, 1000);
-    },
-
-    cancel() { closeOverlay(); },
-    close()  { closeOverlay(); }
+    cancel() { closeOverlay(); }
 };
 
 // ── Main unlock entry ────────────────────────────────────────────────────
 window.unlockFile = async (id, req) => {
     const btn = document.getElementById('unlock-action-btn');
 
-    // ✅ FIX 1: localStorage-এ আগের count আছে কিনা আগে চেক করো
+    // localStorage থেকে আগের count নাও
     const localCount = parseInt(localStorage.getItem(`adCount_${id}`)) || 0;
-    if (localCount > 0) {
-        // আগের count আছে — ads দেখাবে না, শুধু detail page-এ count দেখাবে
-        if (localCount >= req) {
-            // পুরো unlocked — button update করো
-            const file = allFiles.find(f => f.id === id);
-            if (file) { saveToHistory(id); updateDetailButtonState(file); renderFiles(); }
-            return;
-        } else {
-            // আংশিক count আছে — button-এ count দেখিয়ে পরের round শুরু করো
-            if (btn) { btn.disabled = true; btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> <span>Loading...</span>`; }
-            const safeUserId = tgUser.id.replace(/[.#$/\[\]]/g, '_');
-            try {
-                const fileDoc = await getDoc(doc(db, "files", id));
-                const firebaseCount = fileDoc.exists()
-                    ? ((fileDoc.data().adUnlockCount || {})[safeUserId] || 0)
-                    : localCount;
-                // Firebase count বেশি হলে sync করো
-                const syncedCount = Math.max(localCount, firebaseCount);
-                localStorage.setItem(`adCount_${id}`, syncedCount);
-                if (syncedCount >= req) {
-                    const file = allFiles.find(f => f.id === id);
-                    if (file) { saveToHistory(id); updateDetailButtonState(file); renderFiles(); }
-                } else {
-                    // count সেভ আছে, পরের round এর জন্য ad flow শুরু করো
-                    window._adFlow.start(id, req);
-                }
-            } catch(e) {
-                window._adFlow.start(id, req);
-            }
-            return;
-        }
+
+    // আগেই unlocked?
+    if (localCount >= req) {
+        const file = allFiles.find(f => f.id === id);
+        if (file) { saveToHistory(id); updateDetailButtonState(file); renderFiles(); }
+        return;
     }
 
-    // count নেই — প্রথমবার, Firebase থেকে চেক করো
-    if (btn) { btn.disabled = true; btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> <span>Loading...</span>`; }
-    const safeUserId = tgUser.id.replace(/[.#$/\[\]]/g, '_');
-
+    // Firebase থেকে sync করো
+    if (btn) { btn.disabled = true; btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Loading...`; }
     try {
-        const fileDoc = await getDoc(doc(db, "files", id));
+        const safeUserId = tgUser.id.replace(/[.#$\/\[\]]/g, '_');
+        const fileDoc = await getDoc(doc(db, 'files', id));
         const firebaseCount = fileDoc.exists()
-            ? ((fileDoc.data().adUnlockCount || {})[safeUserId] || 0)
-            : 0;
+            ? ((fileDoc.data().adUnlockCount || {})[safeUserId] || 0) : 0;
+        const syncedCount = Math.max(localCount, firebaseCount);
+        if (syncedCount !== localCount) localStorage.setItem(`adCount_${id}`, syncedCount);
 
-        // Firebase count localStorage-এ sync করো
-        if (firebaseCount > 0) {
-            localStorage.setItem(`adCount_${id}`, firebaseCount);
-        }
-
-        if (firebaseCount < req) {
-            window._adFlow.start(id, req);
-        } else {
+        if (syncedCount >= req) {
             const file = allFiles.find(f => f.id === id);
             if (file) { saveToHistory(id); updateDetailButtonState(file); renderFiles(); }
+        } else {
+            window._adFlow.start(id, req);
         }
     } catch(e) {
-        console.error("Unlock check failed:", e);
         window._adFlow.start(id, req);
     }
+    if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fas fa-lock text-lg"></i> <span>Unlock Video</span>`; }
 };
 
 // ── History ──────────────────────────────────────────────────────────────
