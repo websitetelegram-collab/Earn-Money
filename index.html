@@ -970,23 +970,23 @@
 <nav class="fixed bottom-0 w-full bg-white dark:bg-gray-900 border-t dark:border-gray-800 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.07)] z-40">
     <div class="flex justify-around items-center h-16 max-w-md mx-auto">
         <button onclick="window.switchTab('home')" id="nav-home" class="nav-btn-enhanced text-indigo-600 dark:text-indigo-400">
-            <i class="fas fa-home text-xl mb-0.5"></i>
+            <i class="fas fa-home text-2xl mb-0.5"></i>
             <span class="text-[10px] font-bold">Home</span>
             <div class="nav-active-indicator" id="nav-home-dot"></div>
         </button>
         <button onclick="window.switchTab('favorites')" id="nav-favorites" class="nav-btn-enhanced text-gray-400 dark:text-gray-500 hover:text-rose-500 transition-colors">
-            <i class="fas fa-bookmark text-xl mb-0.5"></i>
+            <i class="fas fa-bookmark text-2xl mb-0.5"></i>
             <span class="text-[10px] font-bold">Favorites</span>
             <div class="nav-active-indicator hidden" id="nav-favorites-dot"></div>
         </button>
         <button onclick="window.switchTab('history')" id="nav-history" class="nav-btn-enhanced text-gray-400 dark:text-gray-500 hover:text-indigo-500 transition-colors">
-            <i class="fas fa-download text-xl mb-0.5"></i>
+            <i class="fas fa-download text-2xl mb-0.5"></i>
             <span class="text-[10px] font-bold">History</span>
             <div class="nav-active-indicator hidden" id="nav-history-dot"></div>
         </button>
         <button onclick="window.switchTab('profile')" id="nav-profile" class="nav-btn-enhanced text-gray-400 dark:text-gray-500 hover:text-indigo-500 transition-colors" style="position:relative;">
             <div style="position:relative;display:inline-block;">
-                <i class="fas fa-user-circle text-xl mb-0.5"></i>
+                <i class="fas fa-user-circle text-2xl mb-0.5"></i>
                 <!-- Online count badge -->
                 <div id="nav-online-badge" class="hidden" style="position:absolute;top:-4px;right:-8px;background:#22c55e;color:white;font-size:8px;font-weight:900;padding:1px 4px;border-radius:99px;line-height:14px;min-width:14px;text-align:center;border:1.5px solid white;"></div>
             </div>
@@ -1574,6 +1574,7 @@ function toggleFavorite(fileId, e) {
     localStorage.setItem('favorites', JSON.stringify(favs));
     renderFiles(); renderFavorites();
 }
+window.toggleFavorite = toggleFavorite;
 function renderFavorites() {
     const list  = document.getElementById('favorites-list');
     const empty = document.getElementById('empty-favorites');
