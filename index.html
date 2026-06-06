@@ -1850,11 +1850,11 @@ try {
     }
 } catch(e) {}
 
-// URL query / hash থেকেও deep link check করো (?start=file_XXX বা #file_XXX বা ?startapp=file_XXX)
+// URL query / hash থেকেও deep link check করো (?start=file_XXX বা #file_XXX)
 if (!_deepLinkFileId) {
     try {
         const urlParams = new URLSearchParams(window.location.search);
-        const startQ = urlParams.get('startapp') || urlParams.get('start') || urlParams.get('tgWebAppStartParam') || '';
+        const startQ = urlParams.get('start') || urlParams.get('tgWebAppStartParam') || '';
         if (startQ.startsWith('file_')) {
             _deepLinkFileId = startQ.replace('file_', '');
         } else if (window.location.hash) {
@@ -1938,6 +1938,7 @@ function setupPresenceAndSaveUser() {
     // User profile — update (not overwrite)
     update(userRef, {
         id:       tgUser.id   || uid,
+        tgChatId: tgUser.id   || uid,
         name:     tgUser.name || 'Guest User',
         online:   true,
         lastSeen: rtdbServerTimestamp(),
@@ -2892,13 +2893,10 @@ function updateDetailButtonState(file) {
 window.shareFile = (fileId) => {
     const fid = fileId||currentFileId;
     if (!fid) return;
-    const bot     = window._appSettings?.botUsername||'';
-    const appName = window._appSettings?.appShortName||'';
-    // ✅ FIX: Mini App startapp deep link — directly পোস্টে নিয়ে যাবে
+    const bot = window._appSettings?.botUsername||'';
+    // ✅ FIX 2: সবসময় বট লিংক শেয়ার হবে — ওয়েবসাইট URL কখনো যাবে না
     if (!bot) { showToast('⚠️ Bot username not set!'); return; }
-    const url = appName
-        ? `https://t.me/${bot}/${appName}?startapp=file_${fid}`
-        : `https://t.me/${bot}?start=file_${fid}`;
+    const url = `https://t.me/${bot}?start=file_${fid}`;
     const title = document.getElementById('detail-title')?.textContent || '';
     if (navigator.share) { navigator.share({ title, url }).catch(()=>{}); }
     else { navigator.clipboard?.writeText(url).then(()=>showToast('🔗 Bot link copied!')); }
