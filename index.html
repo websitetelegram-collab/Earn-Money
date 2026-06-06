@@ -1950,37 +1950,54 @@ async function loadData() {
     }
 
     // 3. Banner ads
-    // ✅ injectAdCode: <ins> এর ভেতরে nested <script> সহ সব ধরনের ad code handle করে
+    // ✅ Adsterra + সব ad network support করে
     function injectAdCode(containerId, htmlCode) {
         const container = document.getElementById(containerId);
         if (!container || !htmlCode) return;
         container.innerHTML = '';
 
-        const temp = document.createElement('div');
-        temp.innerHTML = htmlCode;
+        // Adsterra detect করো: atOptions pattern আছে কিনা
+        const isAdsterra = htmlCode.includes('atOptions') || htmlCode.includes('invoke.js');
 
-        // সব elements (top-level + nested) থেকে script গুলো বের করে execute করো
-        function processNode(node, target) {
-            if (node.nodeName === 'SCRIPT') {
-                const script = document.createElement('script');
-                Array.from(node.attributes).forEach(attr => script.setAttribute(attr.name, attr.value));
-                if (node.src) {
-                    script.src = node.src;
-                    script.async = true;
+        if (isAdsterra) {
+            // Adsterra এর জন্য: iframe এ চালাও — সবচেয়ে নির্ভরযোগ্য
+            const blob = new Blob([`<!DOCTYPE html><html><head><meta charset="utf-8">
+                <style>*{margin:0;padding:0;overflow:hidden;}</style></head>
+                <body>${htmlCode}</body></html>`], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const iframe = document.createElement('iframe');
+            iframe.src = url;
+            iframe.style.cssText = 'border:none;width:100%;overflow:hidden;';
+            iframe.setAttribute('scrolling', 'no');
+            iframe.setAttribute('frameborder', '0');
+            // atOptions থেকে width/height বের করো
+            const wMatch = htmlCode.match(/'width'\s*:\s*(\d+)/);
+            const hMatch = htmlCode.match(/'height'\s*:\s*(\d+)/);
+            const adW = wMatch ? wMatch[1] : '320';
+            const adH = hMatch ? hMatch[1] : '50';
+            iframe.style.width  = adW + 'px';
+            iframe.style.height = adH + 'px';
+            iframe.onload = () => URL.revokeObjectURL(url);
+            container.appendChild(iframe);
+        } else {
+            // অন্য ad network: recursive script injection
+            const temp = document.createElement('div');
+            temp.innerHTML = htmlCode;
+            function processNode(node, target) {
+                if (node.nodeName === 'SCRIPT') {
+                    const script = document.createElement('script');
+                    Array.from(node.attributes).forEach(attr => script.setAttribute(attr.name, attr.value));
+                    if (node.src) { script.src = node.src; script.async = true; }
+                    else { script.textContent = node.textContent; }
+                    target.appendChild(script);
                 } else {
-                    script.textContent = node.textContent;
+                    const clone = node.cloneNode(false);
+                    target.appendChild(clone);
+                    Array.from(node.childNodes).forEach(child => processNode(child, clone));
                 }
-                target.appendChild(script);
-            } else {
-                // <ins>, <div> ইত্যাদি — clone করে append, তারপর nested script গুলো handle করো
-                const clone = node.cloneNode(false); // shallow clone
-                target.appendChild(clone);
-                // ভেতরের child গুলো recursively process করো
-                Array.from(node.childNodes).forEach(child => processNode(child, clone));
             }
+            Array.from(temp.childNodes).forEach(node => processNode(node, container));
         }
-
-        Array.from(temp.childNodes).forEach(node => processNode(node, container));
     }
     try {
         if (adsSnap.status === 'fulfilled' && adsSnap.value.exists()) {
