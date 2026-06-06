@@ -839,8 +839,8 @@
     </div>
 
     <!-- Title -->
-    <h1 class="sp-title app-dynamic-title">Video Hub</h1>
-    <p class="sp-subtitle app-dynamic-sub">Watch · Unlock · Download</p>
+    <h1 class="sp-title app-dynamic-title" style="opacity:0;transition:opacity 0.3s ease;"></h1>
+    <p class="sp-subtitle app-dynamic-sub" style="opacity:0;transition:opacity 0.3s ease;"></p>
 
     <!-- Loader -->
     <div class="sp-loader-wrap">
@@ -1870,10 +1870,15 @@ async function loadData() {
 
             // App Title
             if (d.appTitle) {
+                localStorage.setItem('app_title', d.appTitle);
                 document.title = d.appTitle;
-                document.querySelectorAll('.app-dynamic-title').forEach(el => el.textContent = d.appTitle);
+                document.querySelectorAll('.app-dynamic-title').forEach(el => {
+                    el.textContent = d.appTitle;
+                    el.style.opacity = '1';
+                });
                 document.querySelectorAll('.app-dynamic-sub').forEach(el => {
-                    if (el.classList.contains('splash-subtitle')) el.textContent = 'Watch Ads · Unlock · Download';
+                    el.textContent = 'Watch · Unlock · Download';
+                    el.style.opacity = '1';
                 });
             }
 
@@ -3097,8 +3102,19 @@ window._startAppLoading = async function() {
     const splash = document.getElementById('splash-screen');
     if (splash) splash.style.display = '';
 
-    // ✅ Splash দেখানোর সাথে সাথেই cached logo দেখাও (Firebase আসার আগে)
-    const cachedLogo = localStorage.getItem('app_logo_url');
+    // ✅ Splash দেখানোর সাথে সাথেই cached logo ও title দেখাও (Firebase আসার আগে)
+    const cachedLogo  = localStorage.getItem('app_logo_url');
+    const cachedTitle = localStorage.getItem('app_title');
+    // Title
+    document.querySelectorAll('.app-dynamic-title').forEach(el => {
+        el.textContent = cachedTitle || '';
+        el.style.opacity = cachedTitle ? '1' : '0';
+    });
+    document.querySelectorAll('.app-dynamic-sub').forEach(el => {
+        el.textContent = cachedTitle ? 'Watch · Unlock · Download' : '';
+        el.style.opacity = cachedTitle ? '1' : '0';
+    });
+    // Logo
     if (cachedLogo) {
         const botImgEl  = document.getElementById('sp-bot-logo');
         const botIconEl = document.getElementById('sp-default-icon');
