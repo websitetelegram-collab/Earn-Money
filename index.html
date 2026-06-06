@@ -1390,7 +1390,12 @@
             <h3 class="font-bold text-gray-700 dark:text-gray-300 text-sm flex items-center gap-2">
                 <i class="fas fa-bell text-indigo-500"></i> Notifications
             </h3>
-            <span id="notif-unread-badge" class="hidden bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full"></span>
+            <div class="flex items-center gap-2">
+                <span id="notif-unread-badge" class="hidden bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full"></span>
+                <button onclick="loadNotifHistory()" class="text-[10px] text-gray-400 hover:text-indigo-500 transition-colors p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700" title="Refresh">
+                    <i class="fas fa-sync-alt text-xs"></i>
+                </button>
+            </div>
         </div>
         <div id="notif-history-list" class="divide-y dark:divide-gray-700">
             <div class="px-4 py-6 text-center text-gray-400 text-sm">
@@ -2904,42 +2909,68 @@ function updateProfileView() {
     loadNotifHistory();
 }
 
-function loadNotifHistory() {
+async function loadNotifHistory() {
     const list = document.getElementById('notif-history-list');
     const badge = document.getElementById('notif-unread-badge');
     if (!list) return;
-    const notifHistory = JSON.parse(localStorage.getItem('notif_history') || '[]');
-    if (!notifHistory.length) {
-        list.innerHTML = '<div class="px-4 py-6 text-center text-gray-400 dark:text-gray-500 text-sm"><i class="fas fa-bell-slash text-2xl mb-2 block opacity-40"></i>কোনো notification নেই।</div>';
-        if (badge) badge.classList.add('hidden');
-        return;
-    }
-    // Unread count (last seen time)
-    const lastSeen = parseInt(localStorage.getItem('notif_last_seen') || '0');
-    const unread = notifHistory.filter(n => n.time > lastSeen).length;
-    if (badge) {
-        if (unread > 0) { badge.textContent = unread; badge.classList.remove('hidden'); }
-        else badge.classList.add('hidden');
-    }
-    // Mark all as read
-    localStorage.setItem('notif_last_seen', Date.now().toString());
-    if (badge) badge.classList.add('hidden');
 
-    list.innerHTML = notifHistory.map(n => {
-        const timeStr = n.time ? new Date(n.time).toLocaleString('bn-BD', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
-        return `<div class="px-4 py-3 flex items-start gap-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${n.link ? 'cursor-pointer' : ''}" ${n.link ? `onclick="window.open('${n.link}','_blank')"` : ''}>
-            <div class="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <i class="fas fa-bell text-indigo-500 text-xs"></i>
-            </div>
-            <div class="flex-1 min-w-0">
-                <p class="text-sm text-gray-800 dark:text-white font-medium leading-snug">${n.message}</p>
-                <div class="flex items-center gap-2 mt-1">
-                    <span class="text-[10px] text-gray-400">${timeStr}</span>
-                    ${n.link ? `<span class="text-[10px] text-indigo-500 flex items-center gap-0.5"><i class="fas fa-external-link-alt"></i> লিংক দেখুন</span>` : ''}
-                </div>
-            </div>
-        </div>`;
-    }).join('');
+    list.innerHTML = '<div class="px-4 py-6 text-center text-gray-400 dark:text-gray-500 text-sm"><i class="fas fa-spinner fa-spin text-2xl mb-2 block opacity-60"></i>Loading...</div>';
+
+    try {
+        const q = query(collection(db, 'settings'), orderBy('sentAt', 'desc'));
+        const snap = await getDocs(q);
+        const items = [];
+        snap.forEach(d => {
+            if (d.id.startsWith('inapp_history_')) items.push({ id: d.id, ...d.data() });
+        });
+
+        if (!items.length) {
+            list.innerHTML = '<div class="px-4 py-6 text-center text-gray-400 dark:text-gray-500 text-sm"><i class="fas fa-bell-slash text-2xl mb-2 block opacity-40"></i>\uE000\u200Bকোনো notification নেই।</div>';
+            if (badge) badge.classList.add('hidden');
+            return;
+        }
+
+        const lastSeen = parseInt(localStorage.getItem('notif_last_seen') || '0');
+        let unread = 0;
+        items.forEach(n => {
+            const t = n.sentAt?.toDate ? n.sentAt.toDate().getTime() : 0;
+            if (t > lastSeen) unread++;
+        });
+        if (badge) {
+            if (unread > 0) { badge.textContent = unread; badge.classList.remove('hidden'); }
+            else badge.classList.add('hidden');
+        }
+        localStorage.setItem('notif_last_seen', Date.now().toString());
+        if (badge) badge.classList.add('hidden');
+
+        list.innerHTML = '';
+        items.forEach(n => {
+            const timeMs = n.sentAt?.toDate ? n.sentAt.toDate().getTime() : 0;
+            const timeStr = timeMs ? new Date(timeMs).toLocaleString('bn-BD', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
+            const isNew = timeMs > lastSeen;
+            const el = document.createElement('div');
+            el.className = 'px-4 py-3 flex items-start gap-3 transition-colors border-b border-gray-100 dark:border-gray-700/50 last:border-0' + (isNew ? ' bg-indigo-50/60 dark:bg-indigo-900/10' : '');
+            if (n.link) { el.classList.add('cursor-pointer'); el.onclick = () => window.open(n.link, '_blank'); }
+            el.innerHTML =
+                '<div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ' + (isNew ? 'bg-indigo-500' : 'bg-indigo-100 dark:bg-indigo-900/40') + '">' +
+                    '<i class="fas fa-bell text-xs ' + (isNew ? 'text-white' : 'text-indigo-500') + '"></i>' +
+                '</div>' +
+                '<div class="flex-1 min-w-0">' +
+                    '<p class="text-sm text-gray-800 dark:text-white font-medium leading-snug">' + n.message + '</p>' +
+                    '<div class="flex items-center gap-2 mt-1 flex-wrap">' +
+                        '<span class="text-[10px] text-gray-400">' + timeStr + '</span>' +
+                        (isNew ? '<span class="text-[9px] bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 font-bold px-1.5 py-0.5 rounded-full">নতুন</span>' : '') +
+                        (n.link ? '<span class="text-[10px] text-indigo-500"><i class="fas fa-external-link-alt text-[8px] mr-0.5"></i>লিংক দেখুন</span>' : '') +
+                    '</div>' +
+                '</div>';
+            list.appendChild(el);
+        });
+
+    } catch(e) {
+        console.error('Notif load error:', e);
+        list.innerHTML = '<div class="px-4 py-5 text-center text-red-400 text-xs"><i class="fas fa-exclamation-circle mr-1"></i>লোড করতে পারেনি।</div>';
+        if (badge) badge.classList.add('hidden');
+    }
 }
 
 // ══════════════════════════════════════════════════
