@@ -829,7 +829,7 @@
         <div class="sp-orbit"><div class="sp-orbit-dot"></div></div>
         <div class="sp-orbit-2"><div class="sp-orbit-dot-2"></div></div>
         <div class="sp-hex"><div class="sp-hex-shine"></div></div>
-        <img id="sp-bot-logo" src="" alt="" style="display:none;position:relative;z-index:2;width:72px;height:72px;border-radius:50%;object-fit:cover;filter:drop-shadow(0 2px 12px rgba(0,0,0,0.4));">
+        <img id="sp-bot-logo" src="" alt="" style="display:none;position:relative;z-index:2;width:80px;height:80px;border-radius:22px;object-fit:cover;filter:drop-shadow(0 4px 16px rgba(0,0,0,0.45));">
         <i id="sp-default-icon" class="fas fa-play-circle sp-logo-icon app-splash-icon"></i>
     </div>
 
@@ -1839,24 +1839,19 @@ async function loadData() {
             window._channelJoinLink     = d.channelJoinLink || '';
             window._channelJoinName     = d.channelJoinName || '@channel';
 
-            // ✅ Bot Logo — Telegram CDN দিয়ে bot এর ছবি splash screen এ দেখাও
-            if (d.botUsername) {
-                const botUser = d.botUsername.replace(/^@/, '');
-                const botImgEl  = document.getElementById('sp-bot-logo');
-                const botIconEl = document.getElementById('sp-default-icon');
-                if (botImgEl && botUser) {
-                    // Telegram CDN: t.me/i/userpic/320/{username}.jpg
-                    const photoUrl = `https://t.me/i/userpic/320/${botUser}.jpg`;
-                    botImgEl.src = photoUrl;
-                    botImgEl.onload = function() {
-                        botImgEl.style.display = '';
-                        if (botIconEl) botIconEl.style.display = 'none';
-                    };
-                    botImgEl.onerror = function() {
-                        botImgEl.style.display = 'none';
-                        if (botIconEl) botIconEl.style.display = '';
-                    };
-                }
+            // ✅ App Logo — Admin থেকে দেওয়া logo splash screen এ দেখাও
+            const botImgEl  = document.getElementById('sp-bot-logo');
+            const botIconEl = document.getElementById('sp-default-icon');
+            if (botImgEl && d.appLogoUrl) {
+                botImgEl.src = d.appLogoUrl;
+                botImgEl.onload = function() {
+                    botImgEl.style.display = '';
+                    if (botIconEl) botIconEl.style.display = 'none';
+                };
+                botImgEl.onerror = function() {
+                    botImgEl.style.display = 'none';
+                    if (botIconEl) botIconEl.style.display = '';
+                };
             }
 
             // App Title
