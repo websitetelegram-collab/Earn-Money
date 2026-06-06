@@ -1133,7 +1133,7 @@
 <div id="history-view" class="container mx-auto p-4 max-w-7xl hidden">
     <header class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-transparent dark:border-gray-700 mb-6 text-center">
         <h1 class="text-2xl font-bold text-gray-800 dark:text-white">
-            <i class="fas fa-history text-indigo-500 mr-2"></i> Watch History
+            <i class="fas fa-history text-indigo-500 mr-2"></i> Download History
         </h1>
         <p class="text-gray-500 dark:text-gray-400 mt-1 text-sm">Videos you have unlocked</p>
     </header>
@@ -1341,7 +1341,7 @@
                 <i class="fas fa-download text-orange-500 text-sm"></i>
             </div>
             <div class="flex-1 text-left">
-                <div class="font-semibold text-gray-800 dark:text-white text-sm">Watch History</div>
+                <div class="font-semibold text-gray-800 dark:text-white text-sm">Download History</div>
             </div>
             <i class="fas fa-chevron-right text-gray-300 text-xs"></i>
         </button>
@@ -1350,7 +1350,7 @@
     <!-- App Info -->
     <div class="text-center text-xs text-gray-400 dark:text-gray-600 py-2">
         <p class="app-dynamic-title font-bold text-gray-500 dark:text-gray-500">Video Hub</p>
-        <p class="mt-1">Watch Ads · Unlock · Watch</p>
+        <p class="mt-1">Watch Ads · Unlock · Download</p>
     </div>
 
     <!-- Notifications History -->
@@ -1767,9 +1767,6 @@ function loadMonetagScript(zoneId, customScript) {
 // ── Load All Data ───────────────────────────────────────────────────────
 // ✅ FIX 3: সব Firebase calls parallel-এ চলবে — sequential নয়
 async function loadData() {
-    // Load categories first so pills render correctly
-    await loadDbCategories().catch(()=>{});
-
     // ✅ Files সবার আগে load করো — ইউজার সাথে সাথে দেখতে পাবে
     const filesPromise = getDocs(collection(db,"files")).then(snaps => {
         allFiles = [];
@@ -1811,7 +1808,7 @@ async function loadData() {
                 document.title = d.appTitle;
                 document.querySelectorAll('.app-dynamic-title').forEach(el => el.textContent = d.appTitle);
                 document.querySelectorAll('.app-dynamic-sub').forEach(el => {
-                    if (el.classList.contains('splash-subtitle')) el.textContent = 'Watch Ads · Unlock · Watch';
+                    if (el.classList.contains('splash-subtitle')) el.textContent = 'Watch Ads · Unlock · Download';
                 });
             }
 
@@ -2074,54 +2071,22 @@ window.filterByCategory = (cat, btn) => {
     renderFiles();
 };
 
-let _dbCategories = []; // loaded from Firestore
-
-async function loadDbCategories() {
-    try {
-        const snap = await getDocs(query(collection(db, 'categories'), orderBy('createdAt', 'asc')));
-        _dbCategories = [];
-        snap.forEach(d => _dbCategories.push({ id: d.id, ...d.data() }));
-    } catch(e) {
-        _dbCategories = [];
-    }
-}
-
 function buildCategoryPills() {
     const wrap = document.getElementById('category-filter-wrap');
     if (!wrap) return;
-    // Remove old pills except "all"
+    const categories = new Set();
+    allFiles.forEach(f => { if (f.category) categories.add(f.category); });
+    // keep existing 'all' pill, remove others
     wrap.querySelectorAll('[data-cat]:not([data-cat="all"])').forEach(el => el.remove());
-
-    // Collect which categories actually have videos
-    const usedCats = new Set();
-    allFiles.forEach(f => { if (f.category) usedCats.add(f.category); });
-
-    // Build pills: prefer Firestore categories order, then fallback to used ones
-    const rendered = new Set();
-
-    // First: Firestore categories that have videos
-    _dbCategories.forEach(cat => {
-        if (!usedCats.has(cat.name)) return;
-        rendered.add(cat.name);
-        const btn = document.createElement('button');
-        btn.className = 'cat-pill' + (activeCategory === cat.name ? ' active' : '');
-        btn.dataset.cat = cat.name;
-        btn.onclick = function() { window.filterByCategory(cat.name, this); };
-        btn.style.cssText = activeCategory === cat.name
-            ? `background:${cat.color||'#6366f1'};border-color:${cat.color||'#6366f1'};color:white;`
-            : '';
-        btn.innerHTML = `<span style="font-size:10px;">${cat.icon||'🎬'}</span> ${cat.name}`;
-        wrap.appendChild(btn);
-    });
-
-    // Fallback: any category in videos but not in Firestore
-    usedCats.forEach(cat => {
-        if (rendered.has(cat)) return;
+    categories.forEach(cat => {
         const btn = document.createElement('button');
         btn.className = 'cat-pill' + (activeCategory === cat ? ' active' : '');
         btn.dataset.cat = cat;
         btn.onclick = function() { window.filterByCategory(cat, this); };
-        btn.innerHTML = `<i class="fas fa-tag text-[9px]"></i> ${cat}`;
+        const icons = { Action:'fa-bolt', Drama:'fa-theater-masks', Comedy:'fa-laugh', Romance:'fa-heart', Thriller:'fa-skull', Horror:'fa-ghost', Documentary:'fa-film', Sci_Fi:'fa-rocket', Animation:'fa-magic', Sports:'fa-futbol' };
+        const iconKey = cat.replace(/\s/g,'_');
+        const icon = icons[iconKey] || 'fa-tag';
+        btn.innerHTML = `<i class="fas ${icon} text-[9px]"></i> ${cat}`;
         wrap.appendChild(btn);
     });
 }
@@ -2184,8 +2149,8 @@ function renderFiles() {
             <div class="p-3 flex flex-col flex-1">
                 <h3 class="font-bold text-sm text-gray-800 dark:text-white line-clamp-2 cursor-pointer mb-2 leading-snug" onclick="window.openDetails('${file.id}')">${file.title}</h3>
                 <button onclick="window.openDetails('${file.id}')" class="w-full py-2 mt-auto ${isUnlocked ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-100 dark:border-green-800/50 hover:bg-green-600 hover:text-white dark:hover:bg-green-600' : 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600'} active:scale-95 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 border">
-                    <i class="fas ${isUnlocked ? 'fa-play-circle' : 'fa-play-circle'} text-xs"></i>
-                    ${isUnlocked ? '▶️ Watch Now' : `🔓 Watch Ad (${count}/${req})`}
+                    <i class="fas ${isUnlocked ? 'fa-download' : 'fa-play-circle'} text-xs"></i>
+                    ${isUnlocked ? '⬇️ Download Now' : `🔓 Watch Ad (${count}/${req})`}
                 </button>
             </div>`;
         grid.appendChild(card);
@@ -2368,7 +2333,7 @@ function updateDetailButtonState(file) {
         saveToHistory(file.id);
         container.innerHTML = `
             <a href="${file.downloadUrl}" target="_blank" class="big-action-btn flex-1 py-4 bg-green-600 hover:bg-green-700 active:scale-95 text-white text-center rounded-2xl font-extrabold shadow-lg flex items-center justify-center gap-2 transition-all">
-                <i class="fas fa-play text-lg"></i> ${file.btnName1||'Watch Now'}
+                <i class="fas fa-download text-lg"></i> ${file.btnName1||'Download'}
             </a>
             ${file.downloadUrl2?`<a href="${file.downloadUrl2}" target="_blank" class="big-action-btn flex-1 py-4 bg-teal-600 hover:bg-teal-700 active:scale-95 text-white text-center rounded-2xl font-extrabold shadow-lg flex items-center justify-center gap-2 transition-all"><i class="fas fa-link text-lg"></i> ${file.btnName2||'Mirror'}</a>`:''}
             ${shareBtn}`;
@@ -2421,22 +2386,47 @@ function closeOverlay() { document.getElementById('ad-overlay').classList.add('h
 // Admin settings থেকে ad slot list তৈরি (global + per-post)
 function buildAdSlots(fileId) {
     const slots = [];
+
+    // ── Global slots ────────────────────────────────────────────────────
     if (adSettings.adsgramEnabled && adSettings.adsgramBlockId) {
-        slots.push({ type: 'adsgram', blockId: adSettings.adsgramBlockId });
+        slots.push({ type: 'adsgram', blockId: adSettings.adsgramBlockId, _src: 'global' });
     }
     if (adSettings.monetagEnabled && (adSettings.monetagZoneId || adSettings.monetagCustomScript)) {
-        slots.push({ type: 'monetag', zoneId: adSettings.monetagZoneId });
+        slots.push({ type: 'monetag', zoneId: adSettings.monetagZoneId, _src: 'global' });
     }
     if (adSettings.extraSlots && Array.isArray(adSettings.extraSlots)) {
         adSettings.extraSlots.forEach(s => slots.push(s));
     }
-    // Per-post slots
+
+    // ── Per-post slots ──────────────────────────────────────────────────
     if (fileId) {
         const file = allFiles.find(f => f.id === fileId);
         if (file && Array.isArray(file.postAdSlots) && file.postAdSlots.length) {
-            file.postAdSlots.forEach(s => slots.push(s));
+            file.postAdSlots.forEach(s => {
+                // Skip inactive slots
+                if (s.active === false) return;
+
+                if (s.type === 'adsgram') {
+                    // ID দেওয়া থাকলে সেটা ব্যবহার করো, না থাকলে global blockId
+                    const blockId = (s.blockId && s.blockId.trim())
+                        ? s.blockId.trim()
+                        : adSettings.adsgramBlockId;
+                    if (blockId && adSettings.adsgramEnabled) {
+                        slots.push({ type: 'adsgram', blockId, _src: 'post' });
+                    }
+                } else if (s.type === 'monetag') {
+                    // ID দেওয়া থাকলে সেটা ব্যবহার করো, না থাকলে global zoneId
+                    const zoneId = (s.zoneId && s.zoneId.trim())
+                        ? s.zoneId.trim()
+                        : (adSettings.monetagZoneId || _monetagZoneId);
+                    if (zoneId && adSettings.monetagEnabled) {
+                        slots.push({ type: 'monetag', zoneId, _src: 'post' });
+                    }
+                }
+            });
         }
     }
+
     if (!slots.length) slots.push({ type: 'monetag', zoneId: _monetagZoneId });
     return slots;
 }
@@ -2509,7 +2499,7 @@ function _returnToPostPage(newCount) {
         saveToHistory(_adFileId);
         updateDetailButtonState(file);
         document.getElementById('detail-downloads').textContent = formatNumber(file.downloads||0);
-        showToast('🎉 🎉 Unlocked! Watch now.');
+        showToast('🎉 Unlocked! You can now download.');
     } else {
         // আরো round বাকী — পোস্ট পেজে count আপডেট দেখাবে
         updateDetailButtonState(file);
@@ -2687,13 +2677,13 @@ window.unlockFile = async (id, req) => {
 
 // ── History ──────────────────────────────────────────────────────────────
 function saveToHistory(fileId) {
-    let h = JSON.parse(localStorage.getItem('watchHistory')||'[]');
-    if (!h.includes(fileId)) { h.push(fileId); localStorage.setItem('watchHistory', JSON.stringify(h)); }
+    let h = JSON.parse(localStorage.getItem('downloadHistory')||'[]');
+    if (!h.includes(fileId)) { h.push(fileId); localStorage.setItem('downloadHistory', JSON.stringify(h)); }
 }
 function renderHistory() {
     const list  = document.getElementById('history-list');
     const empty = document.getElementById('empty-history');
-    const ids   = JSON.parse(localStorage.getItem('watchHistory')||'[]')
+    const ids   = JSON.parse(localStorage.getItem('downloadHistory')||'[]')
         .filter(id => {
             const f = allFiles.find(x=>x.id===id);
             // Firebase count localStorage-এ sync হয়েছে, সেটাই ব্যবহার করো
@@ -2863,7 +2853,7 @@ function updateProfileView() {
     if (el1) el1.textContent = unlockedCount;
     const el2 = document.getElementById('pv-favorites-count');
     if (el2) el2.textContent = getFavorites().length;
-    const histIds = JSON.parse(localStorage.getItem('watchHistory')||'[]').filter(id => {
+    const histIds = JSON.parse(localStorage.getItem('downloadHistory')||'[]').filter(id => {
         const f = allFiles.find(x=>x.id===id);
         const count = parseInt(localStorage.getItem('adCount_' + id))||0;
         return f && count >= (parseInt(f.requiredAds)||2);
@@ -3060,7 +3050,7 @@ const TRANSLATIONS = {
     bn: {
         searchPlaceholder: 'ভিডিও খুঁজুন...',
         availableVideos: '🔥 উপলব্ধ ভিডিও',
-        watchHistory: 'দেখার ইতিহাস',
+        downloadHistory: 'ডাউনলোড ইতিহাস',
         historySubtitle: 'আপনার আনলক করা ভিডিও',
         favorites: 'পছন্দের তালিকা',
         favSubtitle: 'আপনার সংরক্ষিত ভিডিও',
@@ -3068,12 +3058,12 @@ const TRANSLATIONS = {
         noHistory: 'এখনো কোনো ডাউনলোড নেই।',
         noFavs: 'এখনো কোনো পছন্দ নেই।',
         unlockBtn: 'আনলক করুন',
-        watchBtn: 'দেখুন',
+        downloadBtn: 'ডাউনলোড',
         watchAd: 'বিজ্ঞাপন দেখুন',
         unlocked: '🎉 আনলক হয়েছে! এখন ডাউনলোড করুন।',
         home: 'হোম', history: 'ইতিহাস', profile: 'প্রোফাইল',
         darkMode: 'ডার্ক মোড', lightMode: 'লাইট মোড',
-        onlineNow: 'অনলাইন আছেন', videos: 'ভিডিও', downloads: 'দেখুন', online: 'অনলাইন',
+        onlineNow: 'অনলাইন আছেন', videos: 'ভিডিও', downloads: 'ডাউনলোড', online: 'অনলাইন',
         loading: 'লোড হচ্ছে...',
         adRunning: 'বিজ্ঞাপন চলছে...',
         saving: 'সংরক্ষণ হচ্ছে...',
@@ -3088,12 +3078,12 @@ const TRANSLATIONS = {
         obSkip: 'এড়িয়ে যান', obNext: 'পরবর্তী', obStart: 'শুরু করুন 🚀',
         obTitle0: 'অসাধারণ ভিডিও আবিষ্কার করুন', obDesc0: 'আপনার জন্য অপেক্ষা করছে শত শত এক্সক্লুসিভ ভিডিও। ক্যাটাগরি অনুযায়ী ব্রাউজ করুন, শিরোনাম দিয়ে খুঁজুন।',
         obTitle1: 'বিজ্ঞাপন দেখুন, কন্টেন্ট আনলক করুন', obDesc1: 'ছোট বিজ্ঞাপন দেখে বিনামূল্যে প্রিয় ভিডিও আনলক করুন। কোনো সাবস্ক্রিপশন লাগবে না!',
-        obTitle2: 'আনলক করুন ও দেখুন!', obDesc2: 'আনলক হলে সঙ্গে সঙ্গে ডাউনলোড করুন এবং অফলাইনেও দেখুন — চিরকালের জন্য।',
+        obTitle2: 'ডাউনলোড করুন ও উপভোগ করুন!', obDesc2: 'আনলক হলে সঙ্গে সঙ্গে ডাউনলোড করুন এবং অফলাইনেও দেখুন — চিরকালের জন্য।',
     },
     en: {
         searchPlaceholder: 'Search videos...',
         availableVideos: '🔥 Available Videos',
-        watchHistory: 'Watch History',
+        downloadHistory: 'Download History',
         historySubtitle: 'Videos you have unlocked',
         favorites: 'Favorites',
         favSubtitle: 'Your bookmarked videos',
@@ -3101,9 +3091,9 @@ const TRANSLATIONS = {
         noHistory: 'No downloads yet.',
         noFavs: 'No favorites yet.',
         unlockBtn: 'Unlock',
-        watchBtn: 'Watch',
+        downloadBtn: 'Download',
         watchAd: 'WATCH AD',
-        unlocked: '🎉 🎉 Unlocked! Watch now.',
+        unlocked: '🎉 Unlocked! You can now download.',
         home: 'Home', history: 'History', profile: 'Profile',
         darkMode: 'Dark Mode', lightMode: 'Light Mode',
         onlineNow: 'online now', videos: 'Videos', downloads: 'Downloads', online: 'Online',
@@ -3121,12 +3111,12 @@ const TRANSLATIONS = {
         obSkip: 'Skip', obNext: 'Next', obStart: "Let's Go 🚀",
         obTitle0: 'Discover Amazing Videos', obDesc0: 'Hundreds of exclusive videos waiting for you. Browse by category, search by title, and find what you love.',
         obTitle1: 'Watch Ads, Unlock Content', obDesc1: 'Watch short ads to unlock your favourite videos for free. Each ad brings you one step closer — no subscriptions needed!',
-        obTitle2: 'Watch Now!', obDesc2: 'Once unlocked, download instantly and enjoy offline — forever. Your unlocked videos are saved and always accessible.',
+        obTitle2: 'Download & Enjoy!', obDesc2: 'Once unlocked, download instantly and enjoy offline — forever. Your unlocked videos are saved and always accessible.',
     },
     hi: {
         searchPlaceholder: 'वीडियो खोजें...',
         availableVideos: '🔥 उपलब्ध वीडियो',
-        watchHistory: 'देखने का इतिहास',
+        downloadHistory: 'डाउनलोड इतिहास',
         historySubtitle: 'आपके अनलॉक किए वीडियो',
         favorites: 'पसंदीदा',
         favSubtitle: 'आपके सहेजे गए वीडियो',
@@ -3134,12 +3124,12 @@ const TRANSLATIONS = {
         noHistory: 'अभी तक कोई डाउनलोड नहीं।',
         noFavs: 'अभी तक कोई पसंदीदा नहीं।',
         unlockBtn: 'अनलॉक करें',
-        watchBtn: 'देखें',
+        downloadBtn: 'डाउनलोड',
         watchAd: 'विज्ञापन देखें',
         unlocked: '🎉 अनलॉक! अब डाउनलोड करें।',
         home: 'होम', history: 'इतिहास', profile: 'प्रोफ़ाइल',
         darkMode: 'डार्क मोड', lightMode: 'लाइट मोड',
-        onlineNow: 'ऑनलाइन अभी', videos: 'वीडियो', downloads: 'देखें', online: 'ऑनलाइन',
+        onlineNow: 'ऑनलाइन अभी', videos: 'वीडियो', downloads: 'डाउनलोड', online: 'ऑनलाइन',
         loading: 'लोड हो रहा है...',
         adRunning: 'विज्ञापन चल रहा है...',
         saving: 'सहेजा जा रहा है...',
@@ -3202,7 +3192,7 @@ function applyTranslations() {
     if (videoHeading) videoHeading.innerHTML = `<i class="fas fa-fire text-orange-500 text-base"></i> ${tr.availableVideos.replace('🔥 ','') }`;
     // History header
     const histHeader = document.querySelector('#history-view h1');
-    if (histHeader) histHeader.innerHTML = `<i class="fas fa-history text-indigo-500 mr-2"></i> ${tr.watchHistory}`;
+    if (histHeader) histHeader.innerHTML = `<i class="fas fa-history text-indigo-500 mr-2"></i> ${tr.downloadHistory}`;
     const histSub = document.querySelector('#history-view p.text-gray-500');
     if (histSub) histSub.textContent = tr.historySubtitle;
     // Favs header
