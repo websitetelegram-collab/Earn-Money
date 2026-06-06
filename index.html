@@ -1716,11 +1716,11 @@ function loadAdsgramScript(url) {
     });
 }
 
-// ── Ad SDK (libtl.com) — loaded statically in <head> ─────────────────────
-// Zone ID is hardcoded in head script tag.
-// This just waits for show_{zoneId} to become available.
+// ── Ad SDK (libtl.com) — Admin থেকে Zone ID নেওয়া হয় ──────────────────────
+// SDK head এ load হয় (static), কিন্তু Zone ID Admin settings থেকে আসে।
+// আলাদা Zone ID হলে dynamically নতুন script load করা হবে।
 let _monetagReady    = false;
-let _monetagZoneId   = '11069454'; // hardcoded — matches head script
+let _monetagZoneId   = ''; // Admin থেকে set হবে
 let _monetagReadyCbs = [];
 let _monetagLoading  = false;
 
@@ -1739,14 +1739,14 @@ function _monetagOnLoad() {
 }
 
 function loadMonetagScript(zoneId, customScript) {
-    // Zone ID from admin — update the hardcoded value at runtime
+    // Admin থেকে দেওয়া Zone ID সেট করো
     if (zoneId) _monetagZoneId = zoneId;
+    if (!_monetagZoneId) return;
 
-    // SDK is already in <head> — just check if show_ function is ready
-    // Poll every 300ms up to 15s for the function to appear
     if (_monetagLoading || _monetagReady) return;
     _monetagLoading = true;
 
+    // প্রথমে check — head এর SDK থেকে show_ function ready কিনা
     let checks = 0;
     function checkReady() {
         const fn = window[`show_${_monetagZoneId}`];
@@ -1755,7 +1755,22 @@ function loadMonetagScript(zoneId, customScript) {
             return;
         }
         checks++;
-        if (checks < 50) { // 50 × 300ms = 15s
+        if (checks < 10) {
+            // প্রথম 3s poll করো — head script ready হওয়ার সুযোগ দাও
+            setTimeout(checkReady, 300);
+        } else if (checks === 10) {
+            // show_ function নেই — zone ID আলাদা, dynamically load করো
+            const existing = document.querySelector(`script[data-zone="${_monetagZoneId}"]`);
+            if (!existing) {
+                const s = document.createElement('script');
+                s.setAttribute('data-cfasync', 'false');
+                s.src = '//libtl.com/sdk.js';
+                s.setAttribute('data-zone', _monetagZoneId);
+                s.setAttribute('data-sdk', `show_${_monetagZoneId}`);
+                document.head.appendChild(s);
+            }
+            setTimeout(checkReady, 300);
+        } else if (checks < 50) {
             setTimeout(checkReady, 300);
         } else {
             _monetagLoading = false;
@@ -1847,7 +1862,7 @@ async function loadData() {
             const d = adflowSnap.value.data();
             if (d.adsgram) {
                 adSettings.adsgramEnabled   = d.adsgram.enabled !== false;
-                adSettings.adsgramBlockId   = d.adsgram.blockId   || '20214';
+                adSettings.adsgramBlockId   = d.adsgram.blockId   || '';
                 adSettings.adsgramScriptUrl = d.adsgram.scriptUrl || 'https://sad.adsgram.ai/js/sad.min.js';
             }
             if (d.monetag) {
@@ -2203,6 +2218,33 @@ window.openDetails = (id) => {
     window.cancelEditReview();
     renderReviews(file);
     updateDetailButtonState(file);
+
+    // ── Per-post ad SDK preload ──────────────────────────────────────────
+    // পোস্ট open হলেই সব ad slot এর SDK ready করে রাখো
+    if (Array.isArray(file.postAdSlots)) {
+        file.postAdSlots.forEach(s => {
+            if (s.active === false) return;
+            if (s.type === 'monetag' && s.zoneId && s.zoneId.trim()) {
+                const z = s.zoneId.trim();
+                // এই zone ID এর SDK এখনো load না হলে load করো
+                if (!window[`show_${z}`]) {
+                    const existing = document.querySelector(`script[data-zone="${z}"]`);
+                    if (!existing) {
+                        const sc = document.createElement('script');
+                        sc.setAttribute('data-cfasync', 'false');
+                        sc.src = '//libtl.com/sdk.js';
+                        sc.setAttribute('data-zone', z);
+                        sc.setAttribute('data-sdk', `show_${z}`);
+                        document.head.appendChild(sc);
+                    }
+                }
+            }
+            if (s.type === 'adsgram' && s.blockId && s.blockId.trim()) {
+                // Adsgram script আগেই load হয়ে থাকে, blockId runtime এ দেওয়া হয়
+            }
+        });
+    }
+
     const dv = document.getElementById('details-view');
     dv.classList.remove('hidden'); dv.classList.add('flex');
     dv.querySelector('.flex-1').scrollTop = 0;
@@ -2459,12 +2501,15 @@ async function showAdsgramAd(blockId) {
 // Monetag ad
 async function showMonetagAd(zoneId) {
     return new Promise((resolve, reject) => {
-        const z = zoneId || _monetagZoneId || '11069454';
+        const z = zoneId || _monetagZoneId;
+        if (!z) { reject(new Error('No Monetag Zone ID set')); return; }
         let settled = false;
         function done(ok, err) {
             if (settled) return; settled = true;
             ok ? resolve() : reject(err || new Error('Ad failed'));
         }
+        // Zone ID এর জন্য SDK load হয়নি হলে dynamically load করো
+        let sdkLoaded = false;
         let attempts = 0;
         function tryCall() {
             attempts++;
@@ -2479,6 +2524,19 @@ async function showMonetagAd(zoneId) {
                     }
                 } catch(e) { done(false, e); }
                 return;
+            }
+            // প্রথম চেষ্টায় SDK না পেলে এই zone ID এর জন্য load করো
+            if (!sdkLoaded && attempts >= 3) {
+                const existing = document.querySelector(`script[data-zone="${z}"]`);
+                if (!existing) {
+                    const s = document.createElement('script');
+                    s.setAttribute('data-cfasync', 'false');
+                    s.src = '//libtl.com/sdk.js';
+                    s.setAttribute('data-zone', z);
+                    s.setAttribute('data-sdk', `show_${z}`);
+                    document.head.appendChild(s);
+                }
+                sdkLoaded = true;
             }
             if (attempts < 40) setTimeout(tryCall, 300);
             else done(false, new Error('Ad SDK not ready'));
