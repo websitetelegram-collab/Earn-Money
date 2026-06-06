@@ -1931,9 +1931,9 @@ function setupPresenceAndSaveUser() {
     const userRef   = ref(rtdb, 'users/' + uid);
     const onlineRef = ref(rtdb, 'presence/' + uid);
 
-    // Presence node — auto-remove on disconnect
-    set(onlineRef, { name: tgUser.name || 'Guest', id: tgUser.id || uid, t: rtdbServerTimestamp() });
-    onDisconnect(onlineRef).remove();
+    // ✅ FIX: error catch সহ
+    set(onlineRef, { name: tgUser.name || 'Guest', id: tgUser.id || uid, t: rtdbServerTimestamp() }).catch(e => console.warn("Presence set:", e.code));
+    onDisconnect(onlineRef).remove().catch(()=>{});
 
     // User profile — update (not overwrite)
     update(userRef, {
@@ -1942,7 +1942,7 @@ function setupPresenceAndSaveUser() {
         online:   true,
         lastSeen: rtdbServerTimestamp(),
         platform: window.Telegram && window.Telegram.WebApp ? 'telegram' : 'web',
-    }).catch(()=>{});
+    }).catch(e => console.warn("User update:", e.code));
 
     // Set joinedAt only first time
     get(ref(rtdb, 'users/' + uid + '/joinedAt')).then(snap => {
@@ -1952,8 +1952,8 @@ function setupPresenceAndSaveUser() {
     }).catch(()=>{});
 
     // Mark offline on disconnect
-    onDisconnect(ref(rtdb, 'users/' + uid + '/online')).set(false);
-    onDisconnect(ref(rtdb, 'users/' + uid + '/lastSeen')).set(rtdbServerTimestamp());
+    onDisconnect(ref(rtdb, 'users/' + uid + '/online')).set(false).catch(()=>{});
+    onDisconnect(ref(rtdb, 'users/' + uid + '/lastSeen')).set(rtdbServerTimestamp()).catch(()=>{});
 
     // Listen to online count
     onValue(ref(rtdb, 'presence'), snap => {
@@ -2154,17 +2154,22 @@ function loadMonetagScript(zoneId, customScript) {
 // ── Load All Data ───────────────────────────────────────────────────────
 // ✅ FIX 3: সব Firebase calls parallel-এ চলবে — sequential নয়
 async function loadData() {
-    // Timeout helper
-    const withTimeout = (promise, ms=10000) => Promise.race([
+    // ✅ FIX: Timeout 20 seconds
+    const withTimeout = (promise, ms=20000) => Promise.race([
         promise,
         new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
     ]);
 
-    // ✅ FIX: Auth নিশ্চিত করে তারপর files load করো
+    // ✅ FIX: Auth নিশ্চিত করে তারপর files load করো — 3s পর্যন্ত wait
     async function fetchFiles() {
-        // Auth না থাকলে এক সেকেন্ড wait করো
         if (!auth.currentUser) {
-            await new Promise(r => setTimeout(r, 1000));
+            for (let i = 0; i < 6; i++) {
+                await new Promise(r => setTimeout(r, 500));
+                if (auth.currentUser) break;
+            }
+        }
+        if (!auth.currentUser) {
+            try { await signInAnonymously(auth); } catch(e) { console.warn("Auth retry:", e.code); }
         }
         return getDocs(collection(db, "files"));
     }
@@ -3588,7 +3593,7 @@ window._startAppLoading = async function() {
 
         await Promise.race([
             loadData(),
-            new Promise(r => setTimeout(r, 8000)) // ✅ FIX: 6s → 8s — slow connections এর জন্য
+            new Promise(r => setTimeout(r, 20000)) // ✅ FIX: 20s timeout
         ]);
     } catch(e) {
         console.warn("Init error:", e);
