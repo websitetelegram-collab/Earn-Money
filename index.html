@@ -10,7 +10,7 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
     <!-- Ad SDK — static head load required for Telegram Mini App -->
-    <script data-cfasync="false" src='//libtl.com/sdk.js' data-zone='11069454' data-sdk='show_11069454'></script>
+    <!-- Monetag SDK — Zone ID admin থেকে dynamically load হবে, নিচের JS দেখুন -->
 
     <style>
         .hide-scrollbar::-webkit-scrollbar { display: none; }
@@ -1931,9 +1931,9 @@ function setupPresenceAndSaveUser() {
     const userRef   = ref(rtdb, 'users/' + uid);
     const onlineRef = ref(rtdb, 'presence/' + uid);
 
-    // Presence node — auto-remove on disconnect
-    set(onlineRef, { name: tgUser.name || 'Guest', id: tgUser.id || uid, t: rtdbServerTimestamp() });
-    onDisconnect(onlineRef).remove();
+    // ✅ FIX: error catch সহ
+    set(onlineRef, { name: tgUser.name || 'Guest', id: tgUser.id || uid, t: rtdbServerTimestamp() }).catch(e => console.warn("Presence set:", e.code));
+    onDisconnect(onlineRef).remove().catch(()=>{});
 
     // User profile — update (not overwrite)
     update(userRef, {
@@ -1942,7 +1942,7 @@ function setupPresenceAndSaveUser() {
         online:   true,
         lastSeen: rtdbServerTimestamp(),
         platform: window.Telegram && window.Telegram.WebApp ? 'telegram' : 'web',
-    }).catch(()=>{});
+    }).catch(e => console.warn("User update:", e.code));
 
     // Set joinedAt only first time
     get(ref(rtdb, 'users/' + uid + '/joinedAt')).then(snap => {
@@ -1952,8 +1952,8 @@ function setupPresenceAndSaveUser() {
     }).catch(()=>{});
 
     // Mark offline on disconnect
-    onDisconnect(ref(rtdb, 'users/' + uid + '/online')).set(false);
-    onDisconnect(ref(rtdb, 'users/' + uid + '/lastSeen')).set(rtdbServerTimestamp());
+    onDisconnect(ref(rtdb, 'users/' + uid + '/online')).set(false).catch(()=>{});
+    onDisconnect(ref(rtdb, 'users/' + uid + '/lastSeen')).set(rtdbServerTimestamp()).catch(()=>{});
 
     // Listen to online count
     onValue(ref(rtdb, 'presence'), snap => {
@@ -2070,11 +2070,10 @@ function loadAdsgramScript(url) {
     });
 }
 
-// ── Ad SDK (libtl.com) — loaded statically in <head> ─────────────────────
-// Zone ID is hardcoded in head script tag.
-// This just waits for show_{zoneId} to become available.
+// ── Ad SDK (libtl.com) — Zone ID Admin থেকে dynamic load ─────────────────
+// ✅ FIX: আগে head-এ hardcoded ছিল, এখন Admin এর zone ID দিয়ে dynamic load হবে
 let _monetagReady    = false;
-let _monetagZoneId   = '11069454'; // hardcoded — matches head script
+let _monetagZoneId   = ''; // ✅ FIX: Admin থেকে আসবে
 let _monetagReadyCbs = [];
 let _monetagLoading  = false;
 
@@ -2093,26 +2092,60 @@ function _monetagOnLoad() {
 }
 
 function loadMonetagScript(zoneId, customScript) {
-    // Zone ID from admin — update the hardcoded value at runtime
-    if (zoneId) _monetagZoneId = zoneId;
+    // ✅ FIX: Admin থেকে zone ID নাও — hardcoded value নয়
+    if (zoneId && zoneId.trim()) _monetagZoneId = zoneId.trim();
+    if (!_monetagZoneId && !customScript) {
+        console.warn("Monetag: No zone ID configured in admin panel");
+        return;
+    }
 
-    // SDK is already in <head> — just check if show_ function is ready
-    // Poll every 300ms up to 15s for the function to appear
-    if (_monetagLoading || _monetagReady) return;
+    if (_monetagLoading) return;
+    if (_monetagReady) {
+        if (!zoneId || zoneId === _monetagZoneId) return;
+        _monetagReady = false; // zone ID বদলেছে — reload
+    }
     _monetagLoading = true;
 
+    // ✅ FIX: custom script থাকলে সেটা inject করো
+    if (customScript && customScript.trim() && customScript.includes('<script')) {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = customScript;
+        Array.from(tmp.querySelectorAll('script')).forEach(s => {
+            const ns = document.createElement('script');
+            if (s.src) ns.src = s.src;
+            ns.textContent = s.textContent;
+            Array.from(s.attributes).forEach(a => { try { ns.setAttribute(a.name, a.value); } catch(e){} });
+            document.head.appendChild(ns);
+        });
+    } else if (_monetagZoneId) {
+        // ✅ FIX: Zone ID দিয়ে dynamically SDK load করো
+        const existing = document.querySelector(`script[data-zone="${_monetagZoneId}"]`);
+        if (!existing) {
+            const s = document.createElement('script');
+            s.setAttribute('data-cfasync', 'false');
+            s.src = '//libtl.com/sdk.js';
+            s.setAttribute('data-zone', _monetagZoneId);
+            s.setAttribute('data-sdk', `show_${_monetagZoneId}`);
+            s.async = true;
+            document.head.appendChild(s);
+        }
+    }
+
+    // Poll every 300ms up to 20s for the function to appear
     let checks = 0;
     function checkReady() {
-        const fn = window[`show_${_monetagZoneId}`];
+        const z = _monetagZoneId;
+        const fn = window[`show_${z}`];
         if (typeof fn === 'function') {
             _monetagOnLoad();
             return;
         }
         checks++;
-        if (checks < 50) { // 50 × 300ms = 15s
+        if (checks < 66) { // 66 × 300ms = ~20s
             setTimeout(checkReady, 300);
         } else {
             _monetagLoading = false;
+            console.warn('Monetag: show_' + z + ' not found after 20s');
         }
     }
     checkReady();
@@ -2121,21 +2154,50 @@ function loadMonetagScript(zoneId, customScript) {
 // ── Load All Data ───────────────────────────────────────────────────────
 // ✅ FIX 3: সব Firebase calls parallel-এ চলবে — sequential নয়
 async function loadData() {
-    // Timeout helper
-    const withTimeout = (promise, ms=8000) => Promise.race([
+    // ✅ FIX: Timeout 20 seconds
+    const withTimeout = (promise, ms=20000) => Promise.race([
         promise,
         new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
     ]);
 
+    // ✅ FIX: Auth নিশ্চিত করে তারপর files load করো — 3s পর্যন্ত wait
+    async function fetchFiles() {
+        if (!auth.currentUser) {
+            for (let i = 0; i < 6; i++) {
+                await new Promise(r => setTimeout(r, 500));
+                if (auth.currentUser) break;
+            }
+        }
+        if (!auth.currentUser) {
+            try { await signInAnonymously(auth); } catch(e) { console.warn("Auth retry:", e.code); }
+        }
+        return getDocs(collection(db, "files"));
+    }
+
     // ✅ Files সবার আগে load করো — ইউজার সাথে সাথে দেখতে পাবে
-    const filesPromise = withTimeout(getDocs(collection(db,"files"))).then(snaps => {
+    const filesPromise = withTimeout(fetchFiles()).then(snaps => {
         allFiles = [];
         snaps.forEach(d => { allFiles.push({ id: d.id, downloads: 0, reviews: [], ...d.data() }); });
         renderFiles(); renderHistory(); renderFavorites(); updateStatsStrip();
         // ✅ Deep link — files load হওয়ার সাথে সাথে direct post এ যাও
         handleDeepLink();
-    }).catch(e => {
+    }).catch(async e => {
         console.error("Files error:", e.code || '', e.message);
+        // ✅ FIX: permission-denied হলে আরেকবার auth করে retry করো
+        if (e.code === 'permission-denied' || e.message?.includes('permission')) {
+            console.warn("🔒 Permission denied — retrying after fresh auth...");
+            try {
+                await signInAnonymously(auth);
+                const snaps2 = await withTimeout(getDocs(collection(db, "files")));
+                allFiles = [];
+                snaps2.forEach(d => { allFiles.push({ id: d.id, downloads: 0, reviews: [], ...d.data() }); });
+                renderFiles(); renderHistory(); renderFavorites(); updateStatsStrip();
+                handleDeepLink();
+                return;
+            } catch(e2) {
+                console.error("Retry also failed:", e2.code, e2.message);
+            }
+        }
         // Files load না হলেও empty state দেখাও
         renderFiles();
     });
@@ -3233,7 +3295,13 @@ window.closeProfileMenu = () => {
 window.pullRefresh = async () => {
     const icon = document.getElementById('refresh-icon');
     if (icon) { icon.classList.add('refresh-spinner'); }
-    try { await loadData(); } catch(e){}
+    try {
+        // ✅ FIX: Auth নিশ্চিত করে তারপর reload
+        if (!auth.currentUser) {
+            try { await signInAnonymously(auth); } catch(e) { console.warn("Refresh auth:", e.code); }
+        }
+        await loadData();
+    } catch(e){ console.warn("Refresh error:", e); }
     setTimeout(() => { if (icon) icon.classList.remove('refresh-spinner'); }, 800);
 };
 
@@ -3441,9 +3509,8 @@ window.obNext = function() {
 // ── Search ────────────────────────────────────────────────────────────────
 document.getElementById('searchInput').addEventListener('input', renderFiles);
 
-// ── Start SDK polling immediately — SDK already in <head> ─────────────────
-// Don't wait for Firebase — start detecting show_11069454 right away
-loadMonetagScript('11069454', '');
+// ── Monetag SDK — Firebase থেকে zone ID আসার পরে loadMonetagScript() call হবে ──────────
+// ✅ FIX: আর hardcoded zone ID দিয়ে আগাম call করা হচ্ছে না
 
 // ── Init ──────────────────────────────────────────────────────────────────
 
@@ -3508,12 +3575,25 @@ window._startAppLoading = async function() {
     }, MAX_SPLASH);
 
     try {
-        try { await signInAnonymously(auth); } catch(e) { console.warn("Auth:", e); }
+        // ✅ FIX: Auth retry — 3 বার চেষ্টা করো
+        let authOk = false;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                await signInAnonymously(auth);
+                authOk = true;
+                break;
+            } catch(e) {
+                console.warn(`Auth attempt ${attempt} failed:`, e.code || e.message);
+                if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt));
+            }
+        }
+        if (!authOk) console.warn("⚠️ Anonymous auth failed after 3 attempts — data may not load if Firestore rules require auth.");
+
         setupPresenceAndSaveUser();
 
         await Promise.race([
             loadData(),
-            new Promise(r => setTimeout(r, 6000))
+            new Promise(r => setTimeout(r, 20000)) // ✅ FIX: 20s timeout
         ]);
     } catch(e) {
         console.warn("Init error:", e);
