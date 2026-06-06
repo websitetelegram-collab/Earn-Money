@@ -1009,15 +1009,46 @@
     </div>
 </div>
 
-<!-- ═══════════════ IN-APP NOTIFICATION BANNER ═══════════════ -->
-<div id="inapp-banner" class="inapp-banner" style="cursor:pointer;" onclick="window._inappBannerClick()">
-    <i class="fas fa-bell text-sm flex-shrink-0"></i>
-    <span id="inapp-banner-msg" class="text-sm font-semibold flex-1 leading-snug"></span>
-    <i id="inapp-banner-link-icon" class="fas fa-external-link-alt text-xs opacity-70 hidden flex-shrink-0"></i>
-    <button class="inapp-banner-close" onclick="event.stopPropagation();document.getElementById('inapp-banner').classList.remove('show')">
-        <i class="fas fa-times"></i>
-    </button>
+
+<!-- ═══════════════ IN-APP NOTIFICATION POPUP ═══════════════ -->
+<div id="inapp-banner" style="
+    display:none; position:fixed; inset:0; z-index:9500;
+    background:rgba(0,0,0,0.55); backdrop-filter:blur(4px);
+    align-items:center; justify-content:center; padding:20px;">
+    <div style="
+        background:white; border-radius:20px; width:100%; max-width:340px;
+        padding:24px 20px 20px; box-shadow:0 20px 60px rgba(0,0,0,0.3);
+        animation:popIn 0.3s cubic-bezier(0.34,1.56,0.64,1) both;
+        position:relative; overflow:hidden;">
+        <!-- gradient top bar -->
+        <div style="position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,#6366f1,#a855f7,#ec4899);border-radius:20px 20px 0 0;"></div>
+        <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;">
+            <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#6366f1,#a855f7);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="fas fa-bell" style="color:white;font-size:16px;"></i>
+            </div>
+            <div style="flex:1;">
+                <p style="font-size:11px;font-weight:800;color:#6366f1;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">📢 নোটিশ</p>
+                <p id="inapp-banner-msg" style="font-size:14px;font-weight:600;color:#1e293b;line-height:1.5;"></p>
+            </div>
+        </div>
+        <div id="inapp-banner-btn-wrap" style="display:none;margin-bottom:12px;">
+            <button onclick="window._inappBannerClick()" style="
+                width:100%;padding:11px;border:none;border-radius:12px;cursor:pointer;
+                background:linear-gradient(135deg,#6366f1,#a855f7);
+                color:white;font-weight:700;font-size:13px;
+                display:flex;align-items:center;justify-content:center;gap:8px;">
+                <i class="fas fa-external-link-alt" style="font-size:11px;"></i>
+                <span id="inapp-banner-link-label">দেখুন</span>
+            </button>
+        </div>
+        <button onclick="document.getElementById('inapp-banner').style.display='none'" style="
+            width:100%;padding:9px;border:1px solid #e2e8f0;border-radius:10px;cursor:pointer;
+            background:white;color:#94a3b8;font-weight:600;font-size:12px;">
+            বন্ধ করুন
+        </button>
+    </div>
 </div>
+
 
 <!-- ═══════════════ HOME VIEW ═══════════════ -->
 <div id="home-view" class="container mx-auto p-4 max-w-7xl">
@@ -1465,7 +1496,7 @@
 
 <script type="module">
 import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, getDocs, doc, getDoc, updateDoc, increment, query, orderBy, setDoc, serverTimestamp }
+import { getFirestore, collection, getDocs, doc, getDoc, updateDoc, increment, query, orderBy, setDoc, serverTimestamp, onSnapshot }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getDatabase, ref, set, get, update, onValue, onDisconnect, serverTimestamp as rtdbServerTimestamp }
@@ -1716,11 +1747,11 @@ function loadAdsgramScript(url) {
     });
 }
 
-// ── Ad SDK (libtl.com) — Admin থেকে Zone ID নেওয়া হয় ──────────────────────
-// SDK head এ load হয় (static), কিন্তু Zone ID Admin settings থেকে আসে।
-// আলাদা Zone ID হলে dynamically নতুন script load করা হবে।
+// ── Ad SDK (libtl.com) — loaded statically in <head> ─────────────────────
+// Zone ID is hardcoded in head script tag.
+// This just waits for show_{zoneId} to become available.
 let _monetagReady    = false;
-let _monetagZoneId   = ''; // Admin থেকে set হবে
+let _monetagZoneId   = '11069454'; // hardcoded — matches head script
 let _monetagReadyCbs = [];
 let _monetagLoading  = false;
 
@@ -1739,14 +1770,14 @@ function _monetagOnLoad() {
 }
 
 function loadMonetagScript(zoneId, customScript) {
-    // Admin থেকে দেওয়া Zone ID সেট করো
+    // Zone ID from admin — update the hardcoded value at runtime
     if (zoneId) _monetagZoneId = zoneId;
-    if (!_monetagZoneId) return;
 
+    // SDK is already in <head> — just check if show_ function is ready
+    // Poll every 300ms up to 15s for the function to appear
     if (_monetagLoading || _monetagReady) return;
     _monetagLoading = true;
 
-    // প্রথমে check — head এর SDK থেকে show_ function ready কিনা
     let checks = 0;
     function checkReady() {
         const fn = window[`show_${_monetagZoneId}`];
@@ -1755,22 +1786,7 @@ function loadMonetagScript(zoneId, customScript) {
             return;
         }
         checks++;
-        if (checks < 10) {
-            // প্রথম 3s poll করো — head script ready হওয়ার সুযোগ দাও
-            setTimeout(checkReady, 300);
-        } else if (checks === 10) {
-            // show_ function নেই — zone ID আলাদা, dynamically load করো
-            const existing = document.querySelector(`script[data-zone="${_monetagZoneId}"]`);
-            if (!existing) {
-                const s = document.createElement('script');
-                s.setAttribute('data-cfasync', 'false');
-                s.src = '//libtl.com/sdk.js';
-                s.setAttribute('data-zone', _monetagZoneId);
-                s.setAttribute('data-sdk', `show_${_monetagZoneId}`);
-                document.head.appendChild(s);
-            }
-            setTimeout(checkReady, 300);
-        } else if (checks < 50) {
+        if (checks < 50) { // 50 × 300ms = 15s
             setTimeout(checkReady, 300);
         } else {
             _monetagLoading = false;
@@ -1799,12 +1815,11 @@ async function loadData() {
         new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
     ]);
 
-    const [generalSnap, adflowSnap, adsSnap, slidersSnap, broadcastSnap] = await Promise.allSettled([
+    const [generalSnap, adflowSnap, adsSnap, slidersSnap] = await Promise.allSettled([
         withTimeout(getDoc(doc(db,"settings","general"))),
         withTimeout(getDoc(doc(db,"settings","adflow"))),
         withTimeout(getDoc(doc(db,"settings","ads"))),
-        withTimeout(getDocs(query(collection(db,"sliders"), orderBy("createdAt","desc")))),
-        withTimeout(getDoc(doc(db,"settings","broadcast")))
+        withTimeout(getDocs(query(collection(db,"sliders"), orderBy("createdAt","desc"))))
     ]);
 
     // 1. General settings
@@ -1862,7 +1877,7 @@ async function loadData() {
             const d = adflowSnap.value.data();
             if (d.adsgram) {
                 adSettings.adsgramEnabled   = d.adsgram.enabled !== false;
-                adSettings.adsgramBlockId   = d.adsgram.blockId   || '';
+                adSettings.adsgramBlockId   = d.adsgram.blockId   || '20214';
                 adSettings.adsgramScriptUrl = d.adsgram.scriptUrl || 'https://sad.adsgram.ai/js/sad.min.js';
             }
             if (d.monetag) {
@@ -1948,48 +1963,48 @@ async function loadData() {
     // 5. Files await করো (আগেই শুরু হয়েছে)
     await filesPromise;
 
-    // 6. Broadcast message
+    // 6. Broadcast — real-time onSnapshot listener
     try {
-        if (broadcastSnap.status === 'fulfilled' && broadcastSnap.value.exists()) {
-            const d = broadcastSnap.value.data();
+        onSnapshot(doc(db,"settings","broadcast"), (snap) => {
+            if (!snap.exists()) return;
+            const d = snap.data();
             const msgId   = d.messageId || '';
             const seenKey = 'broadcast_seen_' + msgId;
-            // FIX 1: active check + autoDismiss fix + msgId ছাড়াও কাজ করবে
             const shouldShow = d.active !== false && d.message && (
                 (msgId && !localStorage.getItem(seenKey)) ||
                 (!msgId && !localStorage.getItem('broadcast_seen_nokey'))
             );
-            if (shouldShow) {
-                const banner = document.getElementById('inapp-banner');
-                const msgEl  = document.getElementById('inapp-banner-msg');
-                const linkIcon = document.getElementById('inapp-banner-link-icon');
-                if (banner && msgEl) {
-                    msgEl.textContent = d.message;
-                    // Store link for click handler
-                    window._inappBannerLink = d.link || '';
-                    if (d.link) {
-                        if (linkIcon) linkIcon.classList.remove('hidden');
-                        banner.title = 'ক্লিক করুন: ' + d.link;
-                    } else {
-                        if (linkIcon) linkIcon.classList.add('hidden');
-                        banner.title = '';
-                    }
-                    setTimeout(() => banner.classList.add('show'), 1200);
-                    if (msgId) localStorage.setItem(seenKey, '1');
-                    else localStorage.setItem('broadcast_seen_nokey', '1');
-                    // Save to local notification history
-                    const notifHistory = JSON.parse(localStorage.getItem('notif_history') || '[]');
-                    const alreadySaved = notifHistory.find(n => n.id === (msgId || d.message));
-                    if (!alreadySaved) {
-                        notifHistory.unshift({ id: msgId || d.message, message: d.message, link: d.link || '', time: Date.now() });
-                        if (notifHistory.length > 50) notifHistory.length = 50;
-                        localStorage.setItem('notif_history', JSON.stringify(notifHistory));
-                    }
-                    if (d.autoDismiss !== false) setTimeout(() => banner.classList.remove('show'), 6000);
-                }
+            if (!shouldShow) return;
+
+            const popup  = document.getElementById('inapp-banner');
+            const msgEl  = document.getElementById('inapp-banner-msg');
+            const btnWrap = document.getElementById('inapp-banner-btn-wrap');
+            const btnLabel = document.getElementById('inapp-banner-link-label');
+            if (!popup || !msgEl) return;
+
+            msgEl.textContent = d.message;
+            window._inappBannerLink = d.link || '';
+
+            if (d.link) {
+                btnWrap.style.display = 'block';
+                if (btnLabel) btnLabel.textContent = 'দেখুন →';
+            } else {
+                btnWrap.style.display = 'none';
             }
-        }
-    } catch(e) { console.error("Broadcast error:", e); }
+
+            // Mark seen
+            if (msgId) localStorage.setItem(seenKey, '1');
+            else localStorage.setItem('broadcast_seen_nokey', '1');
+
+            // Show popup
+            popup.style.display = 'flex';
+
+            // Auto dismiss
+            if (d.autoDismiss !== false) {
+                setTimeout(() => { popup.style.display = 'none'; }, 6000);
+            }
+        });
+    } catch(e) { console.error("Broadcast listener error:", e); }
 }
 
 // ── Favorites (localStorage) ─────────────────────────────────────────────
@@ -2218,33 +2233,6 @@ window.openDetails = (id) => {
     window.cancelEditReview();
     renderReviews(file);
     updateDetailButtonState(file);
-
-    // ── Per-post ad SDK preload ──────────────────────────────────────────
-    // পোস্ট open হলেই সব ad slot এর SDK ready করে রাখো
-    if (Array.isArray(file.postAdSlots)) {
-        file.postAdSlots.forEach(s => {
-            if (s.active === false) return;
-            if (s.type === 'monetag' && s.zoneId && s.zoneId.trim()) {
-                const z = s.zoneId.trim();
-                // এই zone ID এর SDK এখনো load না হলে load করো
-                if (!window[`show_${z}`]) {
-                    const existing = document.querySelector(`script[data-zone="${z}"]`);
-                    if (!existing) {
-                        const sc = document.createElement('script');
-                        sc.setAttribute('data-cfasync', 'false');
-                        sc.src = '//libtl.com/sdk.js';
-                        sc.setAttribute('data-zone', z);
-                        sc.setAttribute('data-sdk', `show_${z}`);
-                        document.head.appendChild(sc);
-                    }
-                }
-            }
-            if (s.type === 'adsgram' && s.blockId && s.blockId.trim()) {
-                // Adsgram script আগেই load হয়ে থাকে, blockId runtime এ দেওয়া হয়
-            }
-        });
-    }
-
     const dv = document.getElementById('details-view');
     dv.classList.remove('hidden'); dv.classList.add('flex');
     dv.querySelector('.flex-1').scrollTop = 0;
@@ -2501,15 +2489,12 @@ async function showAdsgramAd(blockId) {
 // Monetag ad
 async function showMonetagAd(zoneId) {
     return new Promise((resolve, reject) => {
-        const z = zoneId || _monetagZoneId;
-        if (!z) { reject(new Error('No Monetag Zone ID set')); return; }
+        const z = zoneId || _monetagZoneId || '11069454';
         let settled = false;
         function done(ok, err) {
             if (settled) return; settled = true;
             ok ? resolve() : reject(err || new Error('Ad failed'));
         }
-        // Zone ID এর জন্য SDK load হয়নি হলে dynamically load করো
-        let sdkLoaded = false;
         let attempts = 0;
         function tryCall() {
             attempts++;
@@ -2524,19 +2509,6 @@ async function showMonetagAd(zoneId) {
                     }
                 } catch(e) { done(false, e); }
                 return;
-            }
-            // প্রথম চেষ্টায় SDK না পেলে এই zone ID এর জন্য load করো
-            if (!sdkLoaded && attempts >= 3) {
-                const existing = document.querySelector(`script[data-zone="${z}"]`);
-                if (!existing) {
-                    const s = document.createElement('script');
-                    s.setAttribute('data-cfasync', 'false');
-                    s.src = '//libtl.com/sdk.js';
-                    s.setAttribute('data-zone', z);
-                    s.setAttribute('data-sdk', `show_${z}`);
-                    document.head.appendChild(s);
-                }
-                sdkLoaded = true;
             }
             if (attempts < 40) setTimeout(tryCall, 300);
             else done(false, new Error('Ad SDK not ready'));
