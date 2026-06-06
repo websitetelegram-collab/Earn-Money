@@ -1839,28 +1839,13 @@ async function loadData() {
             window._channelJoinLink     = d.channelJoinLink || '';
             window._channelJoinName     = d.channelJoinName || '@channel';
 
-            // ✅ Bot Logo — Telegram bot এর ছবি splash screen এ দেখাও
+            // ✅ Bot Logo — Telegram CDN দিয়ে bot এর ছবি splash screen এ দেখাও
             if (d.botUsername) {
                 const botUser = d.botUsername.replace(/^@/, '');
-                fetch(`https://api.telegram.org/bot${botUser}/getMe`)
-                    .catch(() => null); // bot token নেই তাই getMe কাজ করবে না
-                // t.me/botusername থেকে avatar নেওয়ার চেষ্টা — Telegram public API দিয়ে
-                const proxyUrl = `https://avatars.githubusercontent.com/u/0?v=4`; // fallback
-                // Telegram bot এর photo পেতে হলে Bot Token লাগে, তাই আমরা
-                // t.me/{username} এর og:image ব্যবহার করব
-                try {
-                    const tgPageRes = await fetch(`https://t.me/${botUser}`, { mode: 'no-cors' });
-                    // no-cors এ body পড়া যাবে না, তাই সরাসরি
-                    // Telegram CDN pattern ব্যবহার করি
-                } catch(_) {}
-                // ✅ সবচেয়ে নির্ভরযোগ্য পদ্ধতি: telegram photo CDN
                 const botImgEl  = document.getElementById('sp-bot-logo');
                 const botIconEl = document.getElementById('sp-default-icon');
-                if (botImgEl) {
-                    // Telegram WebApp থেকে যদি bot photo পাওয়া যায়
-                    const tgApp = window.Telegram?.WebApp;
-                    // tg://resolve?domain= দিয়ে সরাসরি ছবি পাওয়া যায় না।
-                    // তাই: https://t.me/i/userpic/320/{username}.jpg (Telegram CDN)
+                if (botImgEl && botUser) {
+                    // Telegram CDN: t.me/i/userpic/320/{username}.jpg
                     const photoUrl = `https://t.me/i/userpic/320/${botUser}.jpg`;
                     botImgEl.src = photoUrl;
                     botImgEl.onload = function() {
@@ -1868,12 +1853,14 @@ async function loadData() {
                         if (botIconEl) botIconEl.style.display = 'none';
                     };
                     botImgEl.onerror = function() {
-                        // fallback: default icon রাখো
                         botImgEl.style.display = 'none';
                         if (botIconEl) botIconEl.style.display = '';
                     };
                 }
             }
+
+            // App Title
+            if (d.appTitle) {
                 document.title = d.appTitle;
                 document.querySelectorAll('.app-dynamic-title').forEach(el => el.textContent = d.appTitle);
                 document.querySelectorAll('.app-dynamic-sub').forEach(el => {
