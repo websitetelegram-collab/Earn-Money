@@ -958,7 +958,7 @@
             <div class="onboard-dot" id="ob-dot-1"></div>
             <div class="onboard-dot" id="ob-dot-2"></div>
         </div>
-        <button class="onboard-skip" onclick="window.finishOnboarding()">Skip</button>
+        <button class="onboard-skip" id="ob-skip-btn" onclick="window.finishOnboarding()">Skip</button>
     </div>
 
     <!-- Pages container -->
@@ -968,24 +968,24 @@
             <div class="onboard-icon-wrap" style="background: linear-gradient(135deg,#eef2ff,#ddd6fe);">
                 🎬
             </div>
-            <h2 class="onboard-title">Discover Amazing Videos</h2>
-            <p class="onboard-desc">Hundreds of exclusive videos waiting for you. Browse by category, search by title, and find what you love.</p>
+            <h2 class="onboard-title" id="ob-title-0">Discover Amazing Videos</h2>
+            <p class="onboard-desc" id="ob-desc-0">Hundreds of exclusive videos waiting for you. Browse by category, search by title, and find what you love.</p>
         </div>
         <!-- Page 1 -->
         <div id="ob-page-1" class="onboard-page absolute inset-0 flex flex-col items-center justify-center px-7 pb-4" style="display:none;">
             <div class="onboard-icon-wrap" style="background: linear-gradient(135deg,#fdf4ff,#fce7f3);">
                 🔓
             </div>
-            <h2 class="onboard-title">Watch Ads, Unlock Content</h2>
-            <p class="onboard-desc">Watch short ads to unlock your favourite videos for free. Each ad brings you one step closer — no subscriptions needed!</p>
+            <h2 class="onboard-title" id="ob-title-1">Watch Ads, Unlock Content</h2>
+            <p class="onboard-desc" id="ob-desc-1">Watch short ads to unlock your favourite videos for free. Each ad brings you one step closer — no subscriptions needed!</p>
         </div>
         <!-- Page 2 -->
         <div id="ob-page-2" class="onboard-page absolute inset-0 flex flex-col items-center justify-center px-7 pb-4" style="display:none;">
             <div class="onboard-icon-wrap" style="background: linear-gradient(135deg,#f0fdf4,#dcfce7);">
                 ⬇️
             </div>
-            <h2 class="onboard-title">Download &amp; Enjoy!</h2>
-            <p class="onboard-desc">Once unlocked, download instantly and enjoy offline — forever. Your unlocked videos are saved and always accessible.</p>
+            <h2 class="onboard-title" id="ob-title-2">Download &amp; Enjoy!</h2>
+            <p class="onboard-desc" id="ob-desc-2">Once unlocked, download instantly and enjoy offline — forever. Your unlocked videos are saved and always accessible.</p>
         </div>
     </div>
 
@@ -1086,15 +1086,15 @@
         <div class="stats-strip" id="stats-strip">
             <div class="stats-strip-item">
                 <i class="fas fa-film"></i>
-                <span><span id="stats-total-videos">0</span> Videos</span>
+                <span><span id="stats-total-videos">0</span><span id="stats-label-videos"> Videos</span></span>
             </div>
             <div class="stats-strip-item">
                 <i class="fas fa-download"></i>
-                <span><span id="stats-total-downloads">0</span> Downloads</span>
+                <span><span id="stats-total-downloads">0</span><span id="stats-label-downloads"> Downloads</span></span>
             </div>
             <div class="stats-strip-item">
                 <i class="fas fa-circle" style="color:#4ade80;font-size:8px;"></i>
-                <span><span id="stats-online-count">0</span> Online</span>
+                <span><span id="stats-online-count">0</span><span id="stats-label-online"> Online</span></span>
             </div>
         </div>
         <!-- Search bar -->
@@ -2933,8 +2933,11 @@ window.obNext = function() {
     const label = document.getElementById('ob-btn-label');
     const icon  = document.getElementById('ob-btn-icon');
     if (_obPage === 2) {
-        if (label) label.textContent = "Let's Go!";
+        if (label) label.textContent = (typeof t === 'function' ? t('obStart') : null) || "Let's Go!";
         if (icon)  icon.className = 'fas fa-rocket';
+    } else {
+        if (label) label.textContent = (typeof t === 'function' ? t('obNext') : null) || 'Next';
+        if (icon)  icon.className = 'fas fa-arrow-right';
     }
 };
 
@@ -2948,7 +2951,10 @@ loadMonetagScript('11069454', '');
 // ── Init ──────────────────────────────────────────────────────────────────
 
 // Lang popup confirm হওয়ার পর main app loading শুরু হবে
+let _appLoadingStarted = false;
 window._startAppLoading = async function() {
+    if (_appLoadingStarted) return;
+    _appLoadingStarted = true;
     // Splash show করো
     const splash = document.getElementById('splash-screen');
     if (splash) splash.style.display = '';
@@ -3044,6 +3050,10 @@ const TRANSLATIONS = {
         submitReview: 'রিভিউ জমা দিন',
         noReviews: 'কোনো রিভিউ নেই। প্রথম হন!',
         shareFile: '🔗 লিংক কপি হয়েছে!',
+        obSkip: 'এড়িয়ে যান', obNext: 'পরবর্তী', obStart: 'শুরু করুন 🚀',
+        obTitle0: 'অসাধারণ ভিডিও আবিষ্কার করুন', obDesc0: 'আপনার জন্য অপেক্ষা করছে শত শত এক্সক্লুসিভ ভিডিও। ক্যাটাগরি অনুযায়ী ব্রাউজ করুন, শিরোনাম দিয়ে খুঁজুন।',
+        obTitle1: 'বিজ্ঞাপন দেখুন, কন্টেন্ট আনলক করুন', obDesc1: 'ছোট বিজ্ঞাপন দেখে বিনামূল্যে প্রিয় ভিডিও আনলক করুন। কোনো সাবস্ক্রিপশন লাগবে না!',
+        obTitle2: 'ডাউনলোড করুন ও উপভোগ করুন!', obDesc2: 'আনলক হলে সঙ্গে সঙ্গে ডাউনলোড করুন এবং অফলাইনেও দেখুন — চিরকালের জন্য।',
     },
     en: {
         searchPlaceholder: 'Search videos...',
@@ -3073,6 +3083,10 @@ const TRANSLATIONS = {
         submitReview: 'Submit Review',
         noReviews: 'No reviews yet. Be the first!',
         shareFile: '🔗 Bot link copied!',
+        obSkip: 'Skip', obNext: 'Next', obStart: "Let's Go 🚀",
+        obTitle0: 'Discover Amazing Videos', obDesc0: 'Hundreds of exclusive videos waiting for you. Browse by category, search by title, and find what you love.',
+        obTitle1: 'Watch Ads, Unlock Content', obDesc1: 'Watch short ads to unlock your favourite videos for free. Each ad brings you one step closer — no subscriptions needed!',
+        obTitle2: 'Download & Enjoy!', obDesc2: 'Once unlocked, download instantly and enjoy offline — forever. Your unlocked videos are saved and always accessible.',
     },
     hi: {
         searchPlaceholder: 'वीडियो खोजें...',
@@ -3102,17 +3116,26 @@ const TRANSLATIONS = {
         submitReview: 'समीक्षा सबमिट करें',
         noReviews: 'अभी कोई समीक्षा नहीं। पहले बनें!',
         shareFile: '🔗 लिंक कॉपी किया!',
+        obSkip: 'छोड़ें', obNext: 'अगला', obStart: 'शुरू करें 🚀',
+        obTitle0: 'अद्भुत वीडियो खोजें', obDesc0: 'आपके लिए सैकड़ों एक्सक्लूसिव वीडियो इंतजार कर रहे हैं। कैटेगरी से ब्राउज़ करें, शीर्षक से खोजें।',
+        obTitle1: 'विज्ञापन देखें, कंटेंट अनलॉक करें', obDesc1: 'मुफ्त में अपने पसंदीदा वीडियो अनलॉक करने के लिए छोटे विज्ञापन देखें। कोई सब्सक्रिप्शन नहीं!',
+        obTitle2: 'डाउनलोड करें और आनंद लें!', obDesc2: 'अनलॉक होने के बाद तुरंत डाउनलोड करें और ऑफलाइन देखें — हमेशा के लिए।',
     }
 };
 
 const LANG_KEY = 'app_language_v1';
-let currentLang = 'bn';
-let selectedLang = 'bn';
+let currentLang = localStorage.getItem(LANG_KEY) || 'bn';
+let selectedLang = currentLang;
 
 function t(key) {
     return (TRANSLATIONS[currentLang] || TRANSLATIONS.bn)[key] || (TRANSLATIONS.en[key] || key);
 }
 
+// Expose language setter to window — regular scripts cannot write module variables directly
+window._setCurrentLang = function(lang) {
+    currentLang  = lang;
+    selectedLang = lang;
+};
 // selectLang / confirmLang — regular script এ define (নিচে দেখুন)
 function updateLangButtons() {
     const flags = { bn: '🇧🇩', en: '🇬🇧', hi: '🇮🇳' };
@@ -3152,11 +3175,13 @@ function applyTranslations() {
     if (favHeader) favHeader.innerHTML = `<i class="fas fa-bookmark text-rose-500 mr-2"></i> ${tr.favorites}`;
     const favSub = document.querySelector('#favorites-view p.text-gray-500');
     if (favSub) favSub.textContent = tr.favSubtitle;
-    // Stats strip
-    const tvEl = document.getElementById('stats-total-videos');
-    const tdEl = document.getElementById('stats-total-downloads');
-    const toEl = document.getElementById('stats-online-count');
-    if (tvEl?.parentElement) tvEl.parentElement.querySelector('span:last-child').textContent = ` ${tr.videos}`;
+    // Stats strip labels
+    const slv = document.getElementById('stats-label-videos');
+    const sld = document.getElementById('stats-label-downloads');
+    const slo = document.getElementById('stats-label-online');
+    if (slv) slv.textContent = ' ' + tr.videos;
+    if (sld) sld.textContent = ' ' + tr.downloads;
+    if (slo) slo.textContent = ' ' + tr.online;
     // Bottom nav labels
     const navLabels = {home:'nav-home',history:'nav-history',favorites:'nav-favorites',profile:'nav-profile'};
     const navTexts = {home:tr.home, history:tr.history, favorites:tr.favorites, profile:tr.profile};
@@ -3167,6 +3192,17 @@ function applyTranslations() {
     // Watch ad button label
     const wbl = document.getElementById('watch-btn-label');
     if (wbl) wbl.textContent = tr.watchAd;
+    // Onboarding translations
+    const obSkipBtn = document.getElementById('ob-skip-btn');
+    if (obSkipBtn) obSkipBtn.textContent = tr.obSkip || 'Skip';
+    const obBtnLabel = document.getElementById('ob-btn-label');
+    if (obBtnLabel) obBtnLabel.textContent = tr.obNext || 'Next';
+    [0,1,2].forEach(i => {
+        const titleEl = document.getElementById('ob-title-' + i);
+        const descEl  = document.getElementById('ob-desc-' + i);
+        if (titleEl) titleEl.textContent = tr['obTitle' + i] || titleEl.textContent;
+        if (descEl)  descEl.textContent  = tr['obDesc'  + i] || descEl.textContent;
+    });
     // Re-render to apply translated button texts
     renderFiles();
     renderHistory();
@@ -3187,7 +3223,9 @@ function showLangPopup() {
 function _openLangOverlay() {
     const overlay = document.getElementById('lang-popup-overlay');
     if (!overlay) return;
-    // Current lang pre-select
+    // Current lang pre-select — sync from localStorage too
+    const saved = localStorage.getItem(LANG_KEY);
+    if (saved) currentLang = saved;
     selectedLang = currentLang || 'bn';
     overlay.classList.remove('hidden');
     // Highlight the current selection
@@ -3203,6 +3241,10 @@ function _openLangOverlay() {
         if (check) check.classList.remove('hidden');
     }
 }
+// Expose to global scope so regular scripts and inline handlers can access
+window._openLangOverlay = _openLangOverlay;
+window._applyTranslations = () => applyTranslations();
+window._updateLangButtons = () => updateLangButtons();
 
 // Profile থেকে ভাষা পরিবর্তন — regular script এ define (নিচে দেখুন)
 </script>
@@ -3237,16 +3279,16 @@ window.confirmLang = function() {
     window._currentLang  = finalLang;
     localStorage.setItem(window._LANG_KEY, finalLang);
 
-    // Module script এর variable sync করো
-    try { if (typeof currentLang !== 'undefined')  currentLang  = finalLang; } catch(e){}
-    try { if (typeof selectedLang !== 'undefined') selectedLang = finalLang; } catch(e){}
+    // Update module's currentLang via the exposed setter
+    if (typeof window._setCurrentLang === 'function') window._setCurrentLang(finalLang);
 
     var overlay = document.getElementById('lang-popup-overlay');
     if (overlay) overlay.classList.add('hidden');
     window._langFromProfile = false;
 
-    if (typeof applyTranslations === 'function') applyTranslations();
-    if (typeof updateLangButtons === 'function') updateLangButtons();
+    // Apply translations using module-exposed functions
+    if (typeof window._applyTranslations === 'function') window._applyTranslations();
+    if (typeof window._updateLangButtons === 'function') window._updateLangButtons();
 
     if (fromProfile) return;
 
@@ -3256,7 +3298,9 @@ window.confirmLang = function() {
 window.openLangPickerFromProfile = function() {
     if (window.closeProfileMenu) window.closeProfileMenu();
     window._langFromProfile = true;
-    if (typeof _openLangOverlay === 'function') _openLangOverlay();
+    // Use window-exposed version first (works from regular script scope)
+    if (typeof window._openLangOverlay === 'function') window._openLangOverlay();
+    else if (typeof _openLangOverlay === 'function') _openLangOverlay();
 };
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -3282,8 +3326,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (hasLang) {
         window._currentLang  = hasLang;
         window._selectedLang = hasLang;
-        try { if (typeof currentLang !== 'undefined')  currentLang  = hasLang; } catch(e){}
-        try { if (typeof selectedLang !== 'undefined') selectedLang = hasLang; } catch(e){}
+        // Use the exposed setter to update module variable
+        if (typeof window._setCurrentLang === 'function') window._setCurrentLang(hasLang);
         var overlay = document.getElementById('lang-popup-overlay');
         if (overlay) overlay.classList.add('hidden');
         var splash = document.getElementById('splash-screen');
