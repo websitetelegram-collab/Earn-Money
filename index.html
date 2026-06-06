@@ -2205,8 +2205,9 @@ async function loadData() {
     const [generalSnap, adflowSnap, slidersSnap, sponsorSnap] = await Promise.allSettled([
         withTimeout(getDoc(doc(db,"settings","general"))),
         withTimeout(getDoc(doc(db,"settings","adflow"))),
-        withTimeout(getDocs(query(collection(db,"sliders"), orderBy("createdAt","desc")))),
-        withTimeout(getDocs(query(collection(db,"sponsorPosts"), orderBy("order","asc"))))
+        // ✅ FIX: orderBy index না থাকলে query hang করে — index-free করে JS sort
+        withTimeout(getDocs(collection(db,"sliders"))),
+        withTimeout(getDocs(collection(db,"sponsorPosts")))
     ]);
 
     // 1. General settings
@@ -2335,6 +2336,12 @@ async function loadData() {
             const sDots  = document.getElementById('slider-dots');
             let slides   = [];
             slidersSnap.value.forEach(d => slides.push(d.data()));
+            // ✅ FIX: orderBy সরানো হয়েছে index সমস্যার কারণে — JS sort
+            slides.sort((a,b) => {
+                const at = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+                const bt = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+                return bt - at;
+            });
             if (slides.length > 0) {
                 sw.classList.remove('hidden');
                 sTrack.innerHTML = ''; sDots.innerHTML = '';
@@ -2380,6 +2387,8 @@ async function loadData() {
                     _sponsorPosts.push({ id: d.id, ...sp });
                 }
             });
+            // ✅ FIX: orderBy সরানো হয়েছে — JS sort by order
+            _sponsorPosts.sort((a,b) => (a.order||0) - (b.order||0));
             if (_sponsorPosts.length > 0) renderFiles(); // re-render with sponsors
         }
     } catch(e) { console.error("Sponsor posts error:", e); }
@@ -3396,11 +3405,23 @@ async function loadNotifHistory() {
     list.innerHTML = '<div class="px-4 py-6 text-center text-gray-400 dark:text-gray-500 text-sm"><i class="fas fa-spinner fa-spin text-2xl mb-2 block opacity-60"></i>Loading...</div>';
 
     try {
-        const q = query(collection(db, 'settings'), orderBy('sentAt', 'desc'));
-        const snap = await getDocs(q);
+        // ✅ FIX: orderBy("sentAt","desc") এর Composite Index না থাকলে query চিরকাল hang করে।
+        // auth.currentUser check ও যোগ করা হয়েছে।
+        if (!auth.currentUser) {
+            list.innerHTML = '<div class="px-4 py-6 text-center text-gray-400 dark:text-gray-500 text-sm">Sign in required.</div>';
+            return;
+        }
+        // index-free getDocs, JS sort
+        const snap = await getDocs(collection(db, 'settings'));
         const items = [];
         snap.forEach(d => {
             if (d.id.startsWith('inapp_history_')) items.push({ id: d.id, ...d.data() });
+        });
+        // JS sort by sentAt desc
+        items.sort((a,b) => {
+            const at = a.sentAt?.toMillis ? a.sentAt.toMillis() : 0;
+            const bt = b.sentAt?.toMillis ? b.sentAt.toMillis() : 0;
+            return bt - at;
         });
 
         if (!items.length) {
