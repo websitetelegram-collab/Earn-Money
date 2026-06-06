@@ -69,211 +69,6 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* ══════════════════════════════════════════
-           LIGHTING & GLOW ANIMATION SYSTEM
-        ══════════════════════════════════════════ */
-
-        /* — Core keyframes — */
-        @keyframes lightSweep {
-            0%   { transform: translateX(-130%) skewX(-18deg); opacity: 0; }
-            35%  { opacity: 0.55; }
-            65%  { opacity: 0.55; }
-            100% { transform: translateX(230%) skewX(-18deg); opacity: 0; }
-        }
-        @keyframes lightSweepSlow {
-            0%   { transform: translateX(-130%) skewX(-18deg); opacity: 0; }
-            35%  { opacity: 0.35; }
-            65%  { opacity: 0.35; }
-            100% { transform: translateX(230%) skewX(-18deg); opacity: 0; }
-        }
-        @keyframes glowPulse {
-            0%,100% { box-shadow: 0 0 8px rgba(99,102,241,0.3), 0 2px 12px rgba(99,102,241,0.15); }
-            50%      { box-shadow: 0 0 20px rgba(168,85,247,0.5), 0 2px 22px rgba(99,102,241,0.3); }
-        }
-        @keyframes headerGlow {
-            0%,100% { box-shadow: 0 8px 32px rgba(99,102,241,0.28), 0 2px 8px rgba(99,102,241,0.1); }
-            50%      { box-shadow: 0 8px 44px rgba(168,85,247,0.42), 0 2px 18px rgba(236,72,153,0.22); }
-        }
-        @keyframes ambientFloat {
-            0%,100% { transform: translateX(-60%) translateY(0) scale(1); opacity: 0.55; }
-            33%      { transform: translateX(10%) translateY(-10px) scale(1.1); opacity: 0.75; }
-            66%      { transform: translateX(-25%) translateY(7px) scale(0.93); opacity: 0.45; }
-        }
-        @keyframes ambientFloat2 {
-            0%,100% { transform: translateX(60%) translateY(0) scale(1); opacity: 0.38; }
-            40%      { transform: translateX(-8%) translateY(12px) scale(1.12); opacity: 0.62; }
-            70%      { transform: translateX(28%) translateY(-7px) scale(0.9); opacity: 0.35; }
-        }
-        @keyframes navGlow {
-            0%,100% { box-shadow: 0 -2px 18px rgba(99,102,241,0.13); }
-            50%      { box-shadow: 0 -2px 28px rgba(168,85,247,0.25); }
-        }
-        @keyframes statsPulse {
-            0%,100% { background: rgba(255,255,255,0.13); }
-            50%      { background: rgba(255,255,255,0.23); }
-        }
-        @keyframes catPillGlow {
-            0%,100% { box-shadow: 0 4px 12px rgba(99,102,241,0.35); }
-            50%      { box-shadow: 0 4px 22px rgba(168,85,247,0.58), 0 0 10px rgba(99,102,241,0.28); }
-        }
-        @keyframes cardGlow {
-            0%,100% { box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
-            50%      { box-shadow: 0 4px 18px rgba(99,102,241,0.14), 0 2px 8px rgba(0,0,0,0.06); }
-        }
-        @keyframes navIconPulse {
-            0%,100% { filter: drop-shadow(0 0 0px transparent); }
-            50%      { filter: drop-shadow(0 0 6px rgba(99,102,241,0.6)); }
-        }
-        @keyframes avatarGlow {
-            0%,100% { box-shadow: 0 0 0 2px rgba(255,255,255,0.4); }
-            50%      { box-shadow: 0 0 0 3px rgba(255,255,255,0.7), 0 0 14px rgba(255,255,255,0.25); }
-        }
-        @keyframes borderRainbow {
-            0%   { border-color: rgba(99,102,241,0.5); }
-            33%  { border-color: rgba(168,85,247,0.5); }
-            66%  { border-color: rgba(236,72,153,0.5); }
-            100% { border-color: rgba(99,102,241,0.5); }
-        }
-        @keyframes searchGlow {
-            0%,100% { box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-            50%      { box-shadow: 0 4px 24px rgba(99,102,241,0.18); }
-        }
-        @keyframes detailCardGlow {
-            0%,100% { box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
-            50%      { box-shadow: 0 4px 20px rgba(99,102,241,0.12); }
-        }
-        @keyframes adSheetGlow {
-            0%,100% { border-color: rgba(255,255,255,0.07); }
-            50%      { border-color: rgba(99,102,241,0.25); box-shadow: 0 30px 80px rgba(0,0,0,0.8), 0 0 40px rgba(99,102,241,0.15); }
-        }
-        @keyframes sliderGlow {
-            0%,100% { box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
-            50%      { box-shadow: 0 6px 28px rgba(99,102,241,0.18); }
-        }
-
-        /* ── HEADER ── */
-        #main-header {
-            animation: headerGlow 4s ease-in-out infinite;
-            position: relative;
-        }
-        #main-header::before {
-            content: '';
-            position: absolute;
-            width: 200px; height: 200px; border-radius: 50%;
-            background: radial-gradient(circle, rgba(236,72,153,0.18) 0%, transparent 70%);
-            top: -50px; right: -30px;
-            animation: ambientFloat 7s ease-in-out infinite;
-            pointer-events: none; z-index: 0;
-        }
-        #main-header::after {
-            content: '';
-            position: absolute;
-            width: 160px; height: 160px; border-radius: 50%;
-            background: radial-gradient(circle, rgba(99,102,241,0.2) 0%, transparent 70%);
-            bottom: -35px; left: -20px;
-            animation: ambientFloat2 9s ease-in-out infinite;
-            pointer-events: none; z-index: 0;
-        }
-        #main-header .compact-header,
-        #main-header .stats-strip,
-        #main-header > div { position: relative; z-index: 1; }
-
-        /* ── AVATAR — glowing border ── */
-        .avatar-circle {
-            animation: avatarGlow 3s ease-in-out infinite;
-        }
-
-        /* ── STATS STRIP ── */
-        .stats-strip { animation: statsPulse 3.5s ease-in-out infinite; }
-
-        /* ── SEARCH BAR ── */
-        #searchInput { animation: searchGlow 4s ease-in-out infinite; }
-
-        /* ── CATEGORY PILLS ── */
-        .cat-pill.active { animation: catPillGlow 2.5s ease-in-out infinite; }
-
-        /* ── VIDEO CARDS — subtle glow + sweep on hover area ── */
-        .video-card-inner {
-            animation: cardGlow 5s ease-in-out infinite;
-            position: relative; overflow: hidden;
-        }
-        .video-card-inner::after {
-            content: '';
-            position: absolute; top: 0; left: 0;
-            width: 50%; height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
-            transform: translateX(-130%) skewX(-18deg);
-            animation: lightSweepSlow 6s ease-in-out infinite;
-            pointer-events: none;
-        }
-
-        /* ── BOTTOM NAV ── */
-        #bottom-nav { animation: navGlow 4s ease-in-out infinite; }
-
-        /* Active nav icon glow */
-        #nav-home.text-indigo-600 i,
-        #nav-favorites.text-rose-500 i,
-        #nav-history.text-indigo-500 i {
-            animation: navIconPulse 2.5s ease-in-out infinite;
-        }
-
-        /* ── SLIDER ── */
-        #slider-wrapper { animation: sliderGlow 4s ease-in-out infinite; }
-
-        /* ── DETAIL STATS BAR ── */
-        .detail-stats-bar { animation: detailCardGlow 4s ease-in-out infinite; }
-
-        /* ── AD SHEET ── */
-        .ad-sheet { animation: adSheetGlow 3.5s ease-in-out infinite; }
-
-        /* ── PROFILE POPUP — rainbow border ── */
-        .profile-popup { animation: borderRainbow 4s ease-in-out infinite; }
-
-        /* ══ BUTTON LIGHT SWEEP — সব প্রধান বাটনে ══ */
-        .btn-light-sweep {
-            position: relative !important;
-            overflow: hidden !important;
-        }
-        .btn-light-sweep::after {
-            content: '' !important;
-            position: absolute !important;
-            top: 0; left: 0;
-            width: 42%; height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-            transform: translateX(-130%) skewX(-18deg);
-            animation: lightSweep 2.8s ease-in-out infinite !important;
-            pointer-events: none;
-        }
-        .btn-glow { animation: glowPulse 2.8s ease-in-out infinite; }
-
-        /* ── HEADER ICON BUTTONS (refresh, theme) — sweep ── */
-        .compact-header button,
-        .compact-header a {
-            position: relative; overflow: hidden;
-        }
-        .compact-header button::after,
-        .compact-header a::after {
-            content: '';
-            position: absolute; top: 0; left: 0;
-            width: 60%; height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent);
-            transform: translateX(-130%) skewX(-18deg);
-            animation: lightSweep 4s ease-in-out infinite;
-            pointer-events: none;
-        }
-
-        /* ── HISTORY / FAVORITES HEADER ── */
-        #history-view header,
-        #favorites-view header {
-            animation: detailCardGlow 4.5s ease-in-out infinite;
-        }
-
-        /* ── ONBOARDING DOTS ── */
-        @keyframes obDotGlow {
-            0%,100% { background: #c7d2fe; box-shadow: none; }
-            50%      { background: #6366f1; box-shadow: 0 0 8px rgba(99,102,241,0.6); }
-        }
-
         /* ── COMPACT HEADER ── */
         .compact-header {
             padding: 10px 16px;
@@ -495,16 +290,6 @@
             gap: 10px; box-shadow: 0 4px 20px rgba(99,102,241,0.4);
             transform: translateY(-100%);
             transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
-            position: relative; overflow: hidden;
-        }
-        .inapp-banner::after {
-            content: '';
-            position: absolute; top: 0; left: 0;
-            width: 40%; height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent);
-            transform: translateX(-130%) skewX(-18deg);
-            animation: lightSweep 3.5s ease-in-out infinite;
-            pointer-events: none;
         }
         .inapp-banner.show { transform: translateY(0); }
         .inapp-banner-close {
@@ -918,16 +703,6 @@
             display: flex; align-items: center; justify-content: center; gap: 8px;
             box-shadow: 0 8px 25px rgba(99,102,241,0.32);
             transition: transform 0.15s, box-shadow 0.15s;
-            position: relative; overflow: hidden;
-        }
-        .onboard-btn::after {
-            content: '';
-            position: absolute; top: 0; left: 0;
-            width: 40%; height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent);
-            transform: translateX(-120%) skewX(-20deg);
-            animation: lightSweep 3s ease-in-out infinite;
-            pointer-events: none;
         }
         .onboard-btn:active { transform: scale(0.97); }
         .onboard-skip {
@@ -1009,16 +784,7 @@
             margin-top: 8px; letter-spacing: 0.3px;
             transition: all 0.2s;
             box-shadow: 0 4px 20px rgba(99,102,241,0.4);
-            display: block; position: relative; z-index: 1; overflow: hidden;
-        }
-        .lang-confirm-btn::after {
-            content: '';
-            position: absolute; top: 0; left: 0;
-            width: 40%; height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent);
-            transform: translateX(-120%) skewX(-20deg);
-            animation: lightSweep 3s ease-in-out infinite;
-            pointer-events: none; z-index: 2;
+            display: block; position: relative; z-index: 1;
         }
         .lang-confirm-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(99,102,241,0.5); }
         .lang-confirm-btn:active { transform: scale(0.98) translateY(0); }
@@ -1164,7 +930,7 @@
                 </div>
                 <i class="fas fa-chevron-right" style="color:#d97706;font-size:12px;"></i>
             </div>
-            <a id="cj-join-btn" href="#" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;border-radius:16px;background:linear-gradient(135deg,#f59e0b,#ef4444);color:white;font-weight:700;font-size:14px;text-decoration:none;box-shadow:0 4px 20px rgba(245,158,11,0.4);margin-bottom:10px;transition:all 0.2s;position:relative;overflow:hidden;" class="btn-light-sweep" onclick="window._cjJoinClicked=true">
+            <a id="cj-join-btn" href="#" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;border-radius:16px;background:linear-gradient(135deg,#f59e0b,#ef4444);color:white;font-weight:700;font-size:14px;text-decoration:none;box-shadow:0 4px 20px rgba(245,158,11,0.4);margin-bottom:10px;transition:all 0.2s;" onclick="window._cjJoinClicked=true">
                 <i class="fab fa-telegram"></i> Join Channel / Group
             </a>
             <button onclick="window.checkChannelJoin()" style="width:100%;padding:12px;border-radius:14px;border:2px solid #e2e8f0;background:white;color:#6366f1;font-weight:700;font-size:13px;cursor:pointer;transition:all 0.2s;" id="cj-verify-btn">
@@ -1385,10 +1151,14 @@
         </button>
     </div>
 
+    <div id="ad-container-1" class="my-4 flex justify-center" style="min-height:50px;width:100%;overflow:visible;"></div>
+
     <div id="slider-wrapper" class="w-full h-40 md:h-72 bg-gray-200 dark:bg-gray-800 rounded-2xl mb-6 overflow-hidden relative shadow-md hidden border border-transparent dark:border-gray-700">
         <div id="slider-track" class="flex slider-track h-full w-full"></div>
         <div id="slider-dots" class="absolute bottom-3 w-full flex justify-center gap-2 z-10"></div>
     </div>
+
+    <div id="ad-container-2" class="my-4 flex justify-center" style="min-height:50px;width:100%;overflow:visible;"></div>
 
     <h2 class="text-xl font-bold mb-4 px-1 text-gray-800 dark:text-gray-100 flex items-center gap-2">
         <i class="fas fa-fire text-orange-500 text-base"></i> Available Videos
@@ -1474,6 +1244,9 @@
             <h3 class="text-base font-bold text-gray-800 dark:text-white mb-2">About this video</h3>
             <p id="detail-desc" class="text-gray-600 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-line"></p>
         </div>
+
+        <!-- Ad Slot 3 — Details Page Banner -->
+        <div id="ad-container-3" class="px-4 md:px-6 my-2 flex justify-center" style="min-height:50px;width:100%;overflow:visible;"></div>
 
         <!-- Reviews -->
         <div class="p-4 md:p-6 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900">
@@ -1655,7 +1428,7 @@
 </div>
 
 <!-- ═══════════════ BOTTOM NAV ═══════════════ -->
-<nav id="bottom-nav" class="fixed bottom-0 w-full bg-white dark:bg-gray-900 border-t dark:border-gray-800 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.07)] z-40">
+<nav class="fixed bottom-0 w-full bg-white dark:bg-gray-900 border-t dark:border-gray-800 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.07)] z-40">
     <div class="flex justify-around items-center h-16 max-w-md mx-auto">
         <button onclick="window.switchTab('home')" id="nav-home" class="nav-btn-enhanced text-indigo-600 dark:text-indigo-400">
             <i class="fas fa-home text-2xl mb-0.5"></i>
@@ -1703,7 +1476,7 @@
             <p class="ad-sub-gray" id="ad-stage-sub">Watch a short ad to unlock</p>
             <!-- Progress dots (একাধিক ad থাকলে দেখায়) -->
             <div id="ad-dots" style="display:flex;justify-content:center;gap:8px;margin:14px 0;"></div>
-            <button id="watch-ad-btn" class="ad-watch-btn btn-light-sweep" onclick="window._adFlow.watchNext()">
+            <button id="watch-ad-btn" class="ad-watch-btn" onclick="window._adFlow.watchNext()">
                 <i class="fas fa-play"></i> <span id="watch-btn-label">WATCH AD</span>
             </button>
             <button id="ad-cancel-btn" onclick="window._adFlow.cancel()" class="ad-cancel-btn">Cancel</button>
@@ -2053,9 +1826,10 @@ async function loadData() {
         new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
     ]);
 
-    const [generalSnap, adflowSnap, slidersSnap, sponsorSnap] = await Promise.allSettled([
+    const [generalSnap, adflowSnap, adsSnap, slidersSnap, sponsorSnap] = await Promise.allSettled([
         withTimeout(getDoc(doc(db,"settings","general"))),
         withTimeout(getDoc(doc(db,"settings","adflow"))),
+        withTimeout(getDoc(doc(db,"settings","ads"))),
         withTimeout(getDocs(query(collection(db,"sliders"), orderBy("createdAt","desc")))),
         withTimeout(getDocs(query(collection(db,"sponsorPosts"), orderBy("order","asc"))))
     ]);
@@ -2176,7 +1950,89 @@ async function loadData() {
         loadMonetagScript(adSettings.monetagZoneId, adSettings.monetagCustomScript);
     }
 
+    // 3. Banner ads
+    // ✅ Adsterra + সব ad network support করে
+    function injectAdCode(containerId, htmlCode) {
+        const container = document.getElementById(containerId);
+        if (!container || !htmlCode) return;
+        container.innerHTML = '';
 
+        // Adsterra zone ID only (numeric or "adsterra:ID" format)
+        const trimmed = (htmlCode || '').trim();
+        const adsterraIdMatch = trimmed.match(/^adsterra:(\d+)$/) || trimmed.match(/^(\d{7,10})$/);
+        if (adsterraIdMatch) {
+            // Pure zone ID — Adsterra Direct Link iframe এ লোড করো
+            const zoneId = adsterraIdMatch[1];
+            const iframe = document.createElement('iframe');
+            iframe.src = `https://www.highperformanceformat.com/${zoneId}/invoke.js`;
+            // Alternatively inject script tag approach for Adsterra banner
+            // Use script injection with invoke.js
+            const wrapper = document.createElement('div');
+            wrapper.style.cssText = 'text-align:center;overflow:hidden;';
+            const script1 = document.createElement('script');
+            script1.type = 'text/javascript';
+            script1.textContent = `atOptions = {'key':'${zoneId}','format':'iframe','height':50,'width':320,'params':{}};`;
+            const script2 = document.createElement('script');
+            script2.type = 'text/javascript';
+            script2.src = `//www.highperformanceformat.com/${zoneId}/invoke.js`;
+            script2.async = true;
+            wrapper.appendChild(script1);
+            wrapper.appendChild(script2);
+            container.appendChild(wrapper);
+            return;
+        }
+
+        // Adsterra detect করো: atOptions pattern আছে কিনা
+        const isAdsterra = htmlCode.includes('atOptions') || htmlCode.includes('invoke.js');
+
+        if (isAdsterra) {
+            // Adsterra এর জন্য: iframe এ চালাও — সবচেয়ে নির্ভরযোগ্য
+            const blob = new Blob([`<!DOCTYPE html><html><head><meta charset="utf-8">
+                <style>*{margin:0;padding:0;overflow:hidden;}</style></head>
+                <body>${htmlCode}</body></html>`], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const iframe = document.createElement('iframe');
+            iframe.src = url;
+            iframe.style.cssText = 'border:none;width:100%;overflow:hidden;';
+            iframe.setAttribute('scrolling', 'no');
+            iframe.setAttribute('frameborder', '0');
+            // atOptions থেকে width/height বের করো
+            const wMatch = htmlCode.match(/'width'\s*:\s*(\d+)/);
+            const hMatch = htmlCode.match(/'height'\s*:\s*(\d+)/);
+            const adW = wMatch ? wMatch[1] : '320';
+            const adH = hMatch ? hMatch[1] : '50';
+            iframe.style.width  = adW + 'px';
+            iframe.style.height = adH + 'px';
+            iframe.onload = () => URL.revokeObjectURL(url);
+            container.appendChild(iframe);
+        } else {
+            // অন্য ad network: recursive script injection
+            const temp = document.createElement('div');
+            temp.innerHTML = htmlCode;
+            function processNode(node, target) {
+                if (node.nodeName === 'SCRIPT') {
+                    const script = document.createElement('script');
+                    Array.from(node.attributes).forEach(attr => script.setAttribute(attr.name, attr.value));
+                    if (node.src) { script.src = node.src; script.async = true; }
+                    else { script.textContent = node.textContent; }
+                    target.appendChild(script);
+                } else {
+                    const clone = node.cloneNode(false);
+                    target.appendChild(clone);
+                    Array.from(node.childNodes).forEach(child => processNode(child, clone));
+                }
+            }
+            Array.from(temp.childNodes).forEach(node => processNode(node, container));
+        }
+    }
+    try {
+        if (adsSnap.status === 'fulfilled' && adsSnap.value.exists()) {
+            const d = adsSnap.value.data();
+            if (d.adSlot1) injectAdCode('ad-container-1', d.adSlot1);
+            if (d.adSlot2) injectAdCode('ad-container-2', d.adSlot2);
+            if (d.adSlot3) injectAdCode('ad-container-3', d.adSlot3);
+        }
+    } catch(e) { console.error("Banner ads error:", e); }
 
     // 4. Sliders
     try {
@@ -2304,7 +2160,7 @@ function renderFavorites() {
         const req   = parseInt(file.requiredAds)||2;
         const isUnlocked = count >= req;
         const card = document.createElement('div');
-        card.className = 'video-card-inner bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col hover:shadow-lg transition-all duration-300 group cursor-pointer';
+        card.className = 'bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col hover:shadow-lg transition-all duration-300 group cursor-pointer';
         card.onclick = () => window.openDetails(file.id);
         card.innerHTML = `
             <div class="relative w-full bg-gray-100 dark:bg-gray-700 overflow-hidden" style="aspect-ratio:16/9;">
@@ -2431,7 +2287,7 @@ function renderFiles() {
         const isFav = favs.includes(file.id);
         const isNew = isNewFile(file);
         const card  = document.createElement('div');
-        card.className = 'video-card-inner bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col hover:shadow-lg transition-all duration-300 group';
+        card.className = 'bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col hover:shadow-lg transition-all duration-300 group';
         card.style.animation = `slideUp 0.3s ease ${i * 0.04}s both`;
         card.style.opacity = '0';
         // Per-post download count from Firestore (file.downloads)
@@ -2455,7 +2311,7 @@ function renderFiles() {
             </div>
             <div class="p-3 flex flex-col flex-1">
                 <h3 class="font-bold text-sm text-gray-800 dark:text-white line-clamp-2 cursor-pointer mb-2 leading-snug" onclick="window.openDetails('${file.id}')">${file.title}</h3>
-                <button onclick="window.openDetails('${file.id}')" class="btn-light-sweep w-full py-2 mt-auto ${isUnlocked ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-100 dark:border-green-800/50 hover:bg-green-600 hover:text-white dark:hover:bg-green-600' : 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600'} active:scale-95 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 border">
+                <button onclick="window.openDetails('${file.id}')" class="w-full py-2 mt-auto ${isUnlocked ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-100 dark:border-green-800/50 hover:bg-green-600 hover:text-white dark:hover:bg-green-600' : 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600'} active:scale-95 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 border">
                     <i class="fas ${isUnlocked ? 'fa-download' : 'fa-play-circle'} text-xs"></i>
                     ${isUnlocked ? '⬇️ Download Now' : `🔓 Watch Ad (${count}/${req})`}
                 </button>
@@ -2490,9 +2346,9 @@ function buildSponsorCard(sp) {
     const isClickable = !!sp.linkUrl;
 
     wrap.innerHTML = `
-        <div class="flex items-center gap-2 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/30 border-b border-amber-200 dark:border-amber-800/40">
-            <span class="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest flex items-center gap-1">
-                <i class="fas fa-ad text-[8px]"></i> Sponsored
+        <div class="flex items-center gap-2 px-3 py-2 bg-amber-100 dark:bg-amber-900/30 border-b border-amber-200 dark:border-amber-800/40">
+            <span class="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest flex items-center gap-1">
+                <i class="fas fa-ad text-[9px]"></i> Sponsored
             </span>
         </div>
         <div class="relative w-full bg-gray-900 cursor-pointer" style="aspect-ratio:16/9;" ${isClickable ? `onclick="window.open('${sp.linkUrl}','_blank')"` : ''}>
@@ -2502,16 +2358,16 @@ function buildSponsorCard(sp) {
                 autoplay muted loop playsinline
                 style="display:block;">
             </video>
-            ${sp.title ? `<div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5">
-                <p class="text-white text-[11px] font-bold line-clamp-1">${sp.title}</p>
+            ${sp.title ? `<div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-3 py-2">
+                <p class="text-white text-xs font-bold line-clamp-1">${sp.title}</p>
             </div>` : ''}
-            ${isClickable ? `<div class="absolute top-1.5 right-1.5 bg-amber-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                <i class="fas fa-external-link-alt text-[7px]"></i> Visit
+            ${isClickable ? `<div class="absolute top-2 right-2 bg-amber-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                <i class="fas fa-external-link-alt text-[8px]"></i> Visit
             </div>` : ''}
         </div>
-        ${isClickable ? `<div class="px-3 py-1.5">
-            <a href="${sp.linkUrl}" target="_blank" class="text-[11px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1 hover:underline">
-                <i class="fas fa-link text-[8px]"></i> ${sp.linkUrl.replace(/^https?:\/\//,'')}
+        ${isClickable ? `<div class="px-3 py-2">
+            <a href="${sp.linkUrl}" target="_blank" class="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1 hover:underline">
+                <i class="fas fa-link text-[9px]"></i> ${sp.linkUrl.replace(/^https?:\/\//,'')}
             </a>
         </div>` : ''}
     `;
@@ -2691,15 +2547,15 @@ function updateDetailButtonState(file) {
     if (isUnlocked) {
         saveToHistory(file.id);
         container.innerHTML = `
-            <a href="${file.downloadUrl}" target="_blank" class="big-action-btn btn-light-sweep btn-glow flex-1 py-4 bg-green-600 hover:bg-green-700 active:scale-95 text-white text-center rounded-2xl font-extrabold shadow-lg flex items-center justify-center gap-2 transition-all">
+            <a href="${file.downloadUrl}" target="_blank" class="big-action-btn flex-1 py-4 bg-green-600 hover:bg-green-700 active:scale-95 text-white text-center rounded-2xl font-extrabold shadow-lg flex items-center justify-center gap-2 transition-all">
                 <i class="fas fa-download text-lg"></i> ${file.btnName1||'Download'}
             </a>
-            ${file.downloadUrl2?`<a href="${file.downloadUrl2}" target="_blank" class="big-action-btn btn-light-sweep flex-1 py-4 bg-teal-600 hover:bg-teal-700 active:scale-95 text-white text-center rounded-2xl font-extrabold shadow-lg flex items-center justify-center gap-2 transition-all"><i class="fas fa-link text-lg"></i> ${file.btnName2||'Mirror'}</a>`:''}
+            ${file.downloadUrl2?`<a href="${file.downloadUrl2}" target="_blank" class="big-action-btn flex-1 py-4 bg-teal-600 hover:bg-teal-700 active:scale-95 text-white text-center rounded-2xl font-extrabold shadow-lg flex items-center justify-center gap-2 transition-all"><i class="fas fa-link text-lg"></i> ${file.btnName2||'Mirror'}</a>`:''}
             ${shareBtn}`;
     } else {
         container.innerHTML = `
             <button id="unlock-action-btn" onclick="window.unlockFile('${file.id}',${req})"
-                class="big-action-btn btn-light-sweep btn-glow flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 active:scale-95 text-white rounded-2xl font-extrabold shadow-lg flex items-center justify-center gap-2 transition-all"
+                class="big-action-btn flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 active:scale-95 text-white rounded-2xl font-extrabold shadow-lg flex items-center justify-center gap-2 transition-all"
                 style="animation: pulse-ring 2s ease-in-out infinite;">
                 <i class="fas fa-lock text-lg"></i>
                 <span>Unlock Video (${count}/${req})</span>
@@ -3056,7 +2912,7 @@ function renderHistory() {
         const file = allFiles.find(f=>f.id===id);
         if (!file) return;
         const item = document.createElement('div');
-        item.className = 'video-card-inner bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border dark:border-gray-700 flex items-center gap-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors';
+        item.className = 'bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border dark:border-gray-700 flex items-center gap-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors';
         item.onclick = ()=>window.openDetails(file.id);
         item.innerHTML = `
             <div class="relative w-24 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100 dark:bg-gray-700">
