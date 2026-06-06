@@ -1151,14 +1151,14 @@
         </button>
     </div>
 
-    <div id="ad-container-1" class="my-4 flex justify-center min-h-[50px]"></div>
+    <div id="ad-container-1" class="my-4 flex justify-center" style="min-height:50px;width:100%;overflow:visible;"></div>
 
     <div id="slider-wrapper" class="w-full h-40 md:h-72 bg-gray-200 dark:bg-gray-800 rounded-2xl mb-6 overflow-hidden relative shadow-md hidden border border-transparent dark:border-gray-700">
         <div id="slider-track" class="flex slider-track h-full w-full"></div>
         <div id="slider-dots" class="absolute bottom-3 w-full flex justify-center gap-2 z-10"></div>
     </div>
 
-    <div id="ad-container-2" class="my-4 flex justify-center min-h-[50px]"></div>
+    <div id="ad-container-2" class="my-4 flex justify-center" style="min-height:50px;width:100%;overflow:visible;"></div>
 
     <h2 class="text-xl font-bold mb-4 px-1 text-gray-800 dark:text-gray-100 flex items-center gap-2">
         <i class="fas fa-fire text-orange-500 text-base"></i> Available Videos
@@ -1246,7 +1246,7 @@
         </div>
 
         <!-- Ad Slot 3 — Details Page Banner -->
-        <div id="ad-container-3" class="px-4 md:px-6 my-2 flex justify-center min-h-[50px]"></div>
+        <div id="ad-container-3" class="px-4 md:px-6 my-2 flex justify-center" style="min-height:50px;width:100%;overflow:visible;"></div>
 
         <!-- Reviews -->
         <div class="p-4 md:p-6 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900">
@@ -1950,14 +1950,17 @@ async function loadData() {
     }
 
     // 3. Banner ads
-    // ✅ injectAdCode: innerHTML দিয়ে <script> execute হয় না, তাই manually inject করতে হবে
+    // ✅ injectAdCode: <ins> এর ভেতরে nested <script> সহ সব ধরনের ad code handle করে
     function injectAdCode(containerId, htmlCode) {
         const container = document.getElementById(containerId);
         if (!container || !htmlCode) return;
         container.innerHTML = '';
+
         const temp = document.createElement('div');
         temp.innerHTML = htmlCode;
-        Array.from(temp.childNodes).forEach(node => {
+
+        // সব elements (top-level + nested) থেকে script গুলো বের করে execute করো
+        function processNode(node, target) {
             if (node.nodeName === 'SCRIPT') {
                 const script = document.createElement('script');
                 Array.from(node.attributes).forEach(attr => script.setAttribute(attr.name, attr.value));
@@ -1967,11 +1970,17 @@ async function loadData() {
                 } else {
                     script.textContent = node.textContent;
                 }
-                container.appendChild(script);
+                target.appendChild(script);
             } else {
-                container.appendChild(node.cloneNode(true));
+                // <ins>, <div> ইত্যাদি — clone করে append, তারপর nested script গুলো handle করো
+                const clone = node.cloneNode(false); // shallow clone
+                target.appendChild(clone);
+                // ভেতরের child গুলো recursively process করো
+                Array.from(node.childNodes).forEach(child => processNode(child, clone));
             }
-        });
+        }
+
+        Array.from(temp.childNodes).forEach(node => processNode(node, container));
     }
     try {
         if (adsSnap.status === 'fulfilled' && adsSnap.value.exists()) {
