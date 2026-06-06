@@ -69,111 +69,209 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* ══ LIGHTING ANIMATIONS ══ */
+        /* ══════════════════════════════════════════
+           LIGHTING & GLOW ANIMATION SYSTEM
+        ══════════════════════════════════════════ */
 
-        /* Rotating border sweep for buttons */
-        @keyframes borderSweep {
-            0%   { background-position: 0% 50%; }
-            50%  { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
+        /* — Core keyframes — */
         @keyframes lightSweep {
-            0%   { transform: translateX(-120%) skewX(-20deg); opacity: 0; }
-            40%  { opacity: 0.6; }
-            60%  { opacity: 0.6; }
-            100% { transform: translateX(220%) skewX(-20deg); opacity: 0; }
+            0%   { transform: translateX(-130%) skewX(-18deg); opacity: 0; }
+            35%  { opacity: 0.55; }
+            65%  { opacity: 0.55; }
+            100% { transform: translateX(230%) skewX(-18deg); opacity: 0; }
+        }
+        @keyframes lightSweepSlow {
+            0%   { transform: translateX(-130%) skewX(-18deg); opacity: 0; }
+            35%  { opacity: 0.35; }
+            65%  { opacity: 0.35; }
+            100% { transform: translateX(230%) skewX(-18deg); opacity: 0; }
         }
         @keyframes glowPulse {
-            0%,100% { box-shadow: 0 0 8px rgba(99,102,241,0.3), 0 2px 12px rgba(99,102,241,0.2); }
-            50%      { box-shadow: 0 0 18px rgba(168,85,247,0.5), 0 2px 20px rgba(99,102,241,0.35); }
+            0%,100% { box-shadow: 0 0 8px rgba(99,102,241,0.3), 0 2px 12px rgba(99,102,241,0.15); }
+            50%      { box-shadow: 0 0 20px rgba(168,85,247,0.5), 0 2px 22px rgba(99,102,241,0.3); }
         }
         @keyframes headerGlow {
-            0%,100% { box-shadow: 0 8px 32px rgba(99,102,241,0.25), 0 2px 8px rgba(99,102,241,0.1); }
-            50%      { box-shadow: 0 8px 40px rgba(168,85,247,0.4), 0 2px 16px rgba(236,72,153,0.2); }
+            0%,100% { box-shadow: 0 8px 32px rgba(99,102,241,0.28), 0 2px 8px rgba(99,102,241,0.1); }
+            50%      { box-shadow: 0 8px 44px rgba(168,85,247,0.42), 0 2px 18px rgba(236,72,153,0.22); }
         }
         @keyframes ambientFloat {
-            0%,100% { transform: translateX(-60%) translateY(0) scale(1); opacity: 0.6; }
-            33%      { transform: translateX(10%) translateY(-8px) scale(1.08); opacity: 0.8; }
-            66%      { transform: translateX(-30%) translateY(6px) scale(0.95); opacity: 0.5; }
+            0%,100% { transform: translateX(-60%) translateY(0) scale(1); opacity: 0.55; }
+            33%      { transform: translateX(10%) translateY(-10px) scale(1.1); opacity: 0.75; }
+            66%      { transform: translateX(-25%) translateY(7px) scale(0.93); opacity: 0.45; }
         }
         @keyframes ambientFloat2 {
-            0%,100% { transform: translateX(60%) translateY(0) scale(1); opacity: 0.4; }
-            40%      { transform: translateX(-10%) translateY(10px) scale(1.1); opacity: 0.7; }
-            70%      { transform: translateX(30%) translateY(-6px) scale(0.92); opacity: 0.4; }
+            0%,100% { transform: translateX(60%) translateY(0) scale(1); opacity: 0.38; }
+            40%      { transform: translateX(-8%) translateY(12px) scale(1.12); opacity: 0.62; }
+            70%      { transform: translateX(28%) translateY(-7px) scale(0.9); opacity: 0.35; }
         }
         @keyframes navGlow {
-            0%,100% { box-shadow: 0 -2px 16px rgba(99,102,241,0.12); }
-            50%      { box-shadow: 0 -2px 24px rgba(168,85,247,0.22); }
+            0%,100% { box-shadow: 0 -2px 18px rgba(99,102,241,0.13); }
+            50%      { box-shadow: 0 -2px 28px rgba(168,85,247,0.25); }
         }
         @keyframes statsPulse {
             0%,100% { background: rgba(255,255,255,0.13); }
-            50%      { background: rgba(255,255,255,0.22); }
+            50%      { background: rgba(255,255,255,0.23); }
         }
         @keyframes catPillGlow {
             0%,100% { box-shadow: 0 4px 12px rgba(99,102,241,0.35); }
-            50%      { box-shadow: 0 4px 20px rgba(168,85,247,0.55), 0 0 8px rgba(99,102,241,0.3); }
+            50%      { box-shadow: 0 4px 22px rgba(168,85,247,0.58), 0 0 10px rgba(99,102,241,0.28); }
+        }
+        @keyframes cardGlow {
+            0%,100% { box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+            50%      { box-shadow: 0 4px 18px rgba(99,102,241,0.14), 0 2px 8px rgba(0,0,0,0.06); }
+        }
+        @keyframes navIconPulse {
+            0%,100% { filter: drop-shadow(0 0 0px transparent); }
+            50%      { filter: drop-shadow(0 0 6px rgba(99,102,241,0.6)); }
+        }
+        @keyframes avatarGlow {
+            0%,100% { box-shadow: 0 0 0 2px rgba(255,255,255,0.4); }
+            50%      { box-shadow: 0 0 0 3px rgba(255,255,255,0.7), 0 0 14px rgba(255,255,255,0.25); }
+        }
+        @keyframes borderRainbow {
+            0%   { border-color: rgba(99,102,241,0.5); }
+            33%  { border-color: rgba(168,85,247,0.5); }
+            66%  { border-color: rgba(236,72,153,0.5); }
+            100% { border-color: rgba(99,102,241,0.5); }
+        }
+        @keyframes searchGlow {
+            0%,100% { box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+            50%      { box-shadow: 0 4px 24px rgba(99,102,241,0.18); }
+        }
+        @keyframes detailCardGlow {
+            0%,100% { box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+            50%      { box-shadow: 0 4px 20px rgba(99,102,241,0.12); }
+        }
+        @keyframes adSheetGlow {
+            0%,100% { border-color: rgba(255,255,255,0.07); }
+            50%      { border-color: rgba(99,102,241,0.25); box-shadow: 0 30px 80px rgba(0,0,0,0.8), 0 0 40px rgba(99,102,241,0.15); }
+        }
+        @keyframes sliderGlow {
+            0%,100% { box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+            50%      { box-shadow: 0 6px 28px rgba(99,102,241,0.18); }
         }
 
-        /* Header ambient glow */
+        /* ── HEADER ── */
         #main-header {
             animation: headerGlow 4s ease-in-out infinite;
             position: relative;
         }
-        /* Header floating orbs */
         #main-header::before {
             content: '';
             position: absolute;
-            width: 180px; height: 180px;
-            border-radius: 50%;
+            width: 200px; height: 200px; border-radius: 50%;
             background: radial-gradient(circle, rgba(236,72,153,0.18) 0%, transparent 70%);
-            top: -40px; right: -30px;
+            top: -50px; right: -30px;
             animation: ambientFloat 7s ease-in-out infinite;
             pointer-events: none; z-index: 0;
         }
         #main-header::after {
             content: '';
             position: absolute;
-            width: 150px; height: 150px;
-            border-radius: 50%;
+            width: 160px; height: 160px; border-radius: 50%;
             background: radial-gradient(circle, rgba(99,102,241,0.2) 0%, transparent 70%);
-            bottom: -30px; left: -20px;
+            bottom: -35px; left: -20px;
             animation: ambientFloat2 9s ease-in-out infinite;
             pointer-events: none; z-index: 0;
         }
-        /* Make header children above orbs */
         #main-header .compact-header,
         #main-header .stats-strip,
         #main-header > div { position: relative; z-index: 1; }
 
-        /* Stats strip subtle pulse */
+        /* ── AVATAR — glowing border ── */
+        .avatar-circle {
+            animation: avatarGlow 3s ease-in-out infinite;
+        }
+
+        /* ── STATS STRIP ── */
         .stats-strip { animation: statsPulse 3.5s ease-in-out infinite; }
 
-        /* Active cat pill glow */
+        /* ── SEARCH BAR ── */
+        #searchInput { animation: searchGlow 4s ease-in-out infinite; }
+
+        /* ── CATEGORY PILLS ── */
         .cat-pill.active { animation: catPillGlow 2.5s ease-in-out infinite; }
 
-        /* Bottom nav subtle glow */
-        #bottom-nav {
-            animation: navGlow 4s ease-in-out infinite;
+        /* ── VIDEO CARDS — subtle glow + sweep on hover area ── */
+        .video-card-inner {
+            animation: cardGlow 5s ease-in-out infinite;
+            position: relative; overflow: hidden;
         }
-
-        /* ── BUTTON LIGHT SWEEP — all primary buttons ── */
-        .btn-light-sweep {
-            position: relative;
-            overflow: hidden;
-        }
-        .btn-light-sweep::after {
+        .video-card-inner::after {
             content: '';
-            position: absolute;
-            top: 0; left: 0;
-            width: 40%; height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent);
-            transform: translateX(-120%) skewX(-20deg);
-            animation: lightSweep 3s ease-in-out infinite;
+            position: absolute; top: 0; left: 0;
+            width: 50%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+            transform: translateX(-130%) skewX(-18deg);
+            animation: lightSweepSlow 6s ease-in-out infinite;
             pointer-events: none;
         }
-        /* Subtle glow on important buttons */
-        .btn-glow {
-            animation: glowPulse 2.8s ease-in-out infinite;
+
+        /* ── BOTTOM NAV ── */
+        #bottom-nav { animation: navGlow 4s ease-in-out infinite; }
+
+        /* Active nav icon glow */
+        #nav-home.text-indigo-600 i,
+        #nav-favorites.text-rose-500 i,
+        #nav-history.text-indigo-500 i {
+            animation: navIconPulse 2.5s ease-in-out infinite;
+        }
+
+        /* ── SLIDER ── */
+        #slider-wrapper { animation: sliderGlow 4s ease-in-out infinite; }
+
+        /* ── DETAIL STATS BAR ── */
+        .detail-stats-bar { animation: detailCardGlow 4s ease-in-out infinite; }
+
+        /* ── AD SHEET ── */
+        .ad-sheet { animation: adSheetGlow 3.5s ease-in-out infinite; }
+
+        /* ── PROFILE POPUP — rainbow border ── */
+        .profile-popup { animation: borderRainbow 4s ease-in-out infinite; }
+
+        /* ══ BUTTON LIGHT SWEEP — সব প্রধান বাটনে ══ */
+        .btn-light-sweep {
+            position: relative !important;
+            overflow: hidden !important;
+        }
+        .btn-light-sweep::after {
+            content: '' !important;
+            position: absolute !important;
+            top: 0; left: 0;
+            width: 42%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transform: translateX(-130%) skewX(-18deg);
+            animation: lightSweep 2.8s ease-in-out infinite !important;
+            pointer-events: none;
+        }
+        .btn-glow { animation: glowPulse 2.8s ease-in-out infinite; }
+
+        /* ── HEADER ICON BUTTONS (refresh, theme) — sweep ── */
+        .compact-header button,
+        .compact-header a {
+            position: relative; overflow: hidden;
+        }
+        .compact-header button::after,
+        .compact-header a::after {
+            content: '';
+            position: absolute; top: 0; left: 0;
+            width: 60%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent);
+            transform: translateX(-130%) skewX(-18deg);
+            animation: lightSweep 4s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        /* ── HISTORY / FAVORITES HEADER ── */
+        #history-view header,
+        #favorites-view header {
+            animation: detailCardGlow 4.5s ease-in-out infinite;
+        }
+
+        /* ── ONBOARDING DOTS ── */
+        @keyframes obDotGlow {
+            0%,100% { background: #c7d2fe; box-shadow: none; }
+            50%      { background: #6366f1; box-shadow: 0 0 8px rgba(99,102,241,0.6); }
         }
 
         /* ── COMPACT HEADER ── */
@@ -397,6 +495,16 @@
             gap: 10px; box-shadow: 0 4px 20px rgba(99,102,241,0.4);
             transform: translateY(-100%);
             transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+            position: relative; overflow: hidden;
+        }
+        .inapp-banner::after {
+            content: '';
+            position: absolute; top: 0; left: 0;
+            width: 40%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent);
+            transform: translateX(-130%) skewX(-18deg);
+            animation: lightSweep 3.5s ease-in-out infinite;
+            pointer-events: none;
         }
         .inapp-banner.show { transform: translateY(0); }
         .inapp-banner-close {
@@ -2196,7 +2304,7 @@ function renderFavorites() {
         const req   = parseInt(file.requiredAds)||2;
         const isUnlocked = count >= req;
         const card = document.createElement('div');
-        card.className = 'bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col hover:shadow-lg transition-all duration-300 group cursor-pointer';
+        card.className = 'video-card-inner bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col hover:shadow-lg transition-all duration-300 group cursor-pointer';
         card.onclick = () => window.openDetails(file.id);
         card.innerHTML = `
             <div class="relative w-full bg-gray-100 dark:bg-gray-700 overflow-hidden" style="aspect-ratio:16/9;">
@@ -2323,7 +2431,7 @@ function renderFiles() {
         const isFav = favs.includes(file.id);
         const isNew = isNewFile(file);
         const card  = document.createElement('div');
-        card.className = 'bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col hover:shadow-lg transition-all duration-300 group';
+        card.className = 'video-card-inner bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col hover:shadow-lg transition-all duration-300 group';
         card.style.animation = `slideUp 0.3s ease ${i * 0.04}s both`;
         card.style.opacity = '0';
         // Per-post download count from Firestore (file.downloads)
@@ -2347,7 +2455,7 @@ function renderFiles() {
             </div>
             <div class="p-3 flex flex-col flex-1">
                 <h3 class="font-bold text-sm text-gray-800 dark:text-white line-clamp-2 cursor-pointer mb-2 leading-snug" onclick="window.openDetails('${file.id}')">${file.title}</h3>
-                <button onclick="window.openDetails('${file.id}')" class="w-full py-2 mt-auto ${isUnlocked ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-100 dark:border-green-800/50 hover:bg-green-600 hover:text-white dark:hover:bg-green-600' : 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600'} active:scale-95 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 border">
+                <button onclick="window.openDetails('${file.id}')" class="btn-light-sweep w-full py-2 mt-auto ${isUnlocked ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-100 dark:border-green-800/50 hover:bg-green-600 hover:text-white dark:hover:bg-green-600' : 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600'} active:scale-95 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 border">
                     <i class="fas ${isUnlocked ? 'fa-download' : 'fa-play-circle'} text-xs"></i>
                     ${isUnlocked ? '⬇️ Download Now' : `🔓 Watch Ad (${count}/${req})`}
                 </button>
@@ -2948,7 +3056,7 @@ function renderHistory() {
         const file = allFiles.find(f=>f.id===id);
         if (!file) return;
         const item = document.createElement('div');
-        item.className = 'bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border dark:border-gray-700 flex items-center gap-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors';
+        item.className = 'video-card-inner bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border dark:border-gray-700 flex items-center gap-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors';
         item.onclick = ()=>window.openDetails(file.id);
         item.innerHTML = `
             <div class="relative w-24 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100 dark:bg-gray-700">
