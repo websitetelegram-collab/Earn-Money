@@ -828,8 +828,13 @@
         </div>
         <div class="sp-orbit"><div class="sp-orbit-dot"></div></div>
         <div class="sp-orbit-2"><div class="sp-orbit-dot-2"></div></div>
-        <div class="sp-hex"><div class="sp-hex-shine"></div></div>
-        <img id="sp-bot-logo" src="" alt="" style="display:none;position:relative;z-index:2;width:80px;height:80px;border-radius:22px;object-fit:cover;filter:drop-shadow(0 4px 16px rgba(0,0,0,0.45));">
+        <!-- hex background — logo থাকলে image দেখাবে, না থাকলে gradient থাকবে -->
+        <div class="sp-hex" id="sp-hex-bg">
+            <div class="sp-hex-shine" id="sp-hex-shine"></div>
+            <!-- logo image hex এর ভেতরে পুরোপুরি fit -->
+            <img id="sp-bot-logo" src="" alt=""
+                style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:26px;z-index:1;">
+        </div>
         <i id="sp-default-icon" class="fas fa-play-circle sp-logo-icon app-splash-icon"></i>
     </div>
 
@@ -1842,16 +1847,25 @@ async function loadData() {
             // ✅ App Logo — Admin থেকে দেওয়া logo splash screen এ দেখাও
             const botImgEl  = document.getElementById('sp-bot-logo');
             const botIconEl = document.getElementById('sp-default-icon');
-            if (botImgEl && d.appLogoUrl) {
-                botImgEl.src = d.appLogoUrl;
-                botImgEl.onload = function() {
-                    botImgEl.style.display = '';
-                    if (botIconEl) botIconEl.style.display = 'none';
-                };
-                botImgEl.onerror = function() {
-                    botImgEl.style.display = 'none';
-                    if (botIconEl) botIconEl.style.display = '';
-                };
+            if (d.appLogoUrl) {
+                // localStorage এ cache করো — পরের বার splash এ আগেই দেখাবে
+                localStorage.setItem('app_logo_url', d.appLogoUrl);
+                if (botImgEl) {
+                    botImgEl.src = d.appLogoUrl;
+                    botImgEl.onload = function() {
+                        botImgEl.style.display = '';
+                        if (botIconEl) botIconEl.style.display = 'none';
+                    };
+                    botImgEl.onerror = function() {
+                        botImgEl.style.display = 'none';
+                        if (botIconEl) botIconEl.style.display = '';
+                    };
+                }
+            } else {
+                // logo নেই — cache clear করো, default icon দেখাও
+                localStorage.removeItem('app_logo_url');
+                if (botImgEl) botImgEl.style.display = 'none';
+                if (botIconEl) botIconEl.style.display = '';
             }
 
             // App Title
@@ -3082,6 +3096,25 @@ window._startAppLoading = async function() {
     // Splash show করো
     const splash = document.getElementById('splash-screen');
     if (splash) splash.style.display = '';
+
+    // ✅ Splash দেখানোর সাথে সাথেই cached logo দেখাও (Firebase আসার আগে)
+    const cachedLogo = localStorage.getItem('app_logo_url');
+    if (cachedLogo) {
+        const botImgEl  = document.getElementById('sp-bot-logo');
+        const botIconEl = document.getElementById('sp-default-icon');
+        if (botImgEl) {
+            botImgEl.src = cachedLogo;
+            botImgEl.onload = function() {
+                botImgEl.style.display = '';
+                if (botIconEl) botIconEl.style.display = 'none';
+            };
+            botImgEl.onerror = function() {
+                botImgEl.style.display = 'none';
+                if (botIconEl) botIconEl.style.display = '';
+                localStorage.removeItem('app_logo_url');
+            };
+        }
+    }
 
     const splashStart = Date.now();
     const MIN_SPLASH  = 2800;
