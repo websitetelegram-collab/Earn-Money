@@ -835,7 +835,7 @@
             <img id="sp-bot-logo" src="" alt=""
                 style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:26px;z-index:1;">
         </div>
-        <i id="sp-default-icon" class="fas fa-play-circle sp-logo-icon app-splash-icon"></i>
+        <i id="sp-default-icon" class="fas fa-play-circle sp-logo-icon app-splash-icon" style="display:none;"></i>
     </div>
 
     <!-- Title -->
@@ -1826,11 +1826,12 @@ async function loadData() {
         new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
     ]);
 
-    const [generalSnap, adflowSnap, adsSnap, slidersSnap] = await Promise.allSettled([
+    const [generalSnap, adflowSnap, adsSnap, slidersSnap, sponsorSnap] = await Promise.allSettled([
         withTimeout(getDoc(doc(db,"settings","general"))),
         withTimeout(getDoc(doc(db,"settings","adflow"))),
         withTimeout(getDoc(doc(db,"settings","ads"))),
-        withTimeout(getDocs(query(collection(db,"sliders"), orderBy("createdAt","desc"))))
+        withTimeout(getDocs(query(collection(db,"sliders"), orderBy("createdAt","desc")))),
+        withTimeout(getDocs(query(collection(db,"sponsorPosts"), orderBy("order","asc"))))
     ]);
 
     // 1. General settings
@@ -1956,6 +1957,31 @@ async function loadData() {
         if (!container || !htmlCode) return;
         container.innerHTML = '';
 
+        // Adsterra zone ID only (numeric or "adsterra:ID" format)
+        const trimmed = (htmlCode || '').trim();
+        const adsterraIdMatch = trimmed.match(/^adsterra:(\d+)$/) || trimmed.match(/^(\d{7,10})$/);
+        if (adsterraIdMatch) {
+            // Pure zone ID — Adsterra Direct Link iframe এ লোড করো
+            const zoneId = adsterraIdMatch[1];
+            const iframe = document.createElement('iframe');
+            iframe.src = `https://www.highperformanceformat.com/${zoneId}/invoke.js`;
+            // Alternatively inject script tag approach for Adsterra banner
+            // Use script injection with invoke.js
+            const wrapper = document.createElement('div');
+            wrapper.style.cssText = 'text-align:center;overflow:hidden;';
+            const script1 = document.createElement('script');
+            script1.type = 'text/javascript';
+            script1.textContent = `atOptions = {'key':'${zoneId}','format':'iframe','height':50,'width':320,'params':{}};`;
+            const script2 = document.createElement('script');
+            script2.type = 'text/javascript';
+            script2.src = `//www.highperformanceformat.com/${zoneId}/invoke.js`;
+            script2.async = true;
+            wrapper.appendChild(script1);
+            wrapper.appendChild(script2);
+            container.appendChild(wrapper);
+            return;
+        }
+
         // Adsterra detect করো: atOptions pattern আছে কিনা
         const isAdsterra = htmlCode.includes('atOptions') || htmlCode.includes('invoke.js');
 
@@ -2050,6 +2076,20 @@ async function loadData() {
 
     // 5. Files await করো (আগেই শুরু হয়েছে)
     await filesPromise;
+
+    // 5b. Sponsor Posts
+    try {
+        if (sponsorSnap.status === 'fulfilled') {
+            _sponsorPosts = [];
+            sponsorSnap.value.forEach(d => {
+                const sp = d.data();
+                if (sp.active !== false && sp.videoUrl) {
+                    _sponsorPosts.push({ id: d.id, ...sp });
+                }
+            });
+            if (_sponsorPosts.length > 0) renderFiles(); // re-render with sponsors
+        }
+    } catch(e) { console.error("Sponsor posts error:", e); }
 
     // 6. Broadcast — real-time onSnapshot listener
     try {
@@ -2210,6 +2250,9 @@ function buildCategoryPills() {
 }
 
 // ── Render Grid ─────────────────────────────────────────────────────────
+// Global sponsor posts state
+let _sponsorPosts = [];   // [{id, videoUrl, linkUrl, interval, title}, ...]
+
 function renderFiles() {
     const grid = document.getElementById('files-grid');
     grid.innerHTML = '';
@@ -2235,6 +2278,8 @@ function renderFiles() {
         return;
     }
     const favs = getFavorites();
+    let sponsorIdx = 0; // which sponsor post to show next
+
     filtered.forEach((file, i) => {
         const count = parseInt(localStorage.getItem(`adCount_${file.id}`))||0;
         const req   = parseInt(file.requiredAds)||2;
@@ -2274,7 +2319,59 @@ function renderFiles() {
         grid.appendChild(card);
         // Fallback: if image never fires onload (cached), make visible
         setTimeout(() => { card.style.opacity = '1'; }, 500 + i * 40);
+
+        // ── Sponsor Post injection ──
+        // After every `interval` posts, insert the next sponsor post
+        if (_sponsorPosts.length > 0) {
+            const sp = _sponsorPosts[sponsorIdx % _sponsorPosts.length];
+            const interval = parseInt(sp.interval) || 4;
+            // insert after post number: interval, interval*2, ...
+            // i is 0-indexed, so check (i+1) % interval === 0
+            if ((i + 1) % interval === 0) {
+                const spCard = buildSponsorCard(sp);
+                // Sponsor card spans full width
+                spCard.style.gridColumn = '1 / -1';
+                grid.appendChild(spCard);
+                sponsorIdx++;
+            }
+        }
     });
+}
+
+function buildSponsorCard(sp) {
+    const wrap = document.createElement('div');
+    wrap.className = 'sponsor-post-card rounded-2xl overflow-hidden shadow-sm border border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-900/10';
+    wrap.style.animation = 'slideUp 0.35s ease both';
+
+    const isClickable = !!sp.linkUrl;
+
+    wrap.innerHTML = `
+        <div class="flex items-center gap-2 px-3 py-2 bg-amber-100 dark:bg-amber-900/30 border-b border-amber-200 dark:border-amber-800/40">
+            <span class="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest flex items-center gap-1">
+                <i class="fas fa-ad text-[9px]"></i> Sponsored
+            </span>
+        </div>
+        <div class="relative w-full bg-gray-900 cursor-pointer" style="aspect-ratio:16/9;" ${isClickable ? `onclick="window.open('${sp.linkUrl}','_blank')"` : ''}>
+            <video
+                src="${sp.videoUrl}"
+                class="w-full h-full object-cover"
+                autoplay muted loop playsinline
+                style="display:block;">
+            </video>
+            ${sp.title ? `<div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-3 py-2">
+                <p class="text-white text-xs font-bold line-clamp-1">${sp.title}</p>
+            </div>` : ''}
+            ${isClickable ? `<div class="absolute top-2 right-2 bg-amber-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                <i class="fas fa-external-link-alt text-[8px]"></i> Visit
+            </div>` : ''}
+        </div>
+        ${isClickable ? `<div class="px-3 py-2">
+            <a href="${sp.linkUrl}" target="_blank" class="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1 hover:underline">
+                <i class="fas fa-link text-[9px]"></i> ${sp.linkUrl.replace(/^https?:\/\//,'')}
+            </a>
+        </div>` : ''}
+    `;
+    return wrap;
 }
 
 // ── Details ──────────────────────────────────────────────────────────────
@@ -3545,6 +3642,23 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <script>
+// Splash logo cache — page load এর সাথে সাথে দেখাও (Firebase আসার আগেই)
+(function() {
+    document.addEventListener('DOMContentLoaded', function() {
+        var cachedLogo = localStorage.getItem('app_logo_url');
+        var botImgEl   = document.getElementById('sp-bot-logo');
+        var botIconEl  = document.getElementById('sp-default-icon');
+        if (cachedLogo && botImgEl) {
+            botImgEl.src = cachedLogo;
+            botImgEl.style.display = '';
+            if (botIconEl) botIconEl.style.display = 'none';
+        } else if (botIconEl) {
+            // লোগো নেই — icon দেখাও
+            botIconEl.style.display = '';
+        }
+    });
+})();
+
 // Generate random stars for splash
 (function() {
     document.addEventListener('DOMContentLoaded', function() {
