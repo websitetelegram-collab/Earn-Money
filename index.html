@@ -69,6 +69,113 @@
             100% { transform: rotate(360deg); }
         }
 
+        /* ══ LIGHTING ANIMATIONS ══ */
+
+        /* Rotating border sweep for buttons */
+        @keyframes borderSweep {
+            0%   { background-position: 0% 50%; }
+            50%  { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes lightSweep {
+            0%   { transform: translateX(-120%) skewX(-20deg); opacity: 0; }
+            40%  { opacity: 0.6; }
+            60%  { opacity: 0.6; }
+            100% { transform: translateX(220%) skewX(-20deg); opacity: 0; }
+        }
+        @keyframes glowPulse {
+            0%,100% { box-shadow: 0 0 8px rgba(99,102,241,0.3), 0 2px 12px rgba(99,102,241,0.2); }
+            50%      { box-shadow: 0 0 18px rgba(168,85,247,0.5), 0 2px 20px rgba(99,102,241,0.35); }
+        }
+        @keyframes headerGlow {
+            0%,100% { box-shadow: 0 8px 32px rgba(99,102,241,0.25), 0 2px 8px rgba(99,102,241,0.1); }
+            50%      { box-shadow: 0 8px 40px rgba(168,85,247,0.4), 0 2px 16px rgba(236,72,153,0.2); }
+        }
+        @keyframes ambientFloat {
+            0%,100% { transform: translateX(-60%) translateY(0) scale(1); opacity: 0.6; }
+            33%      { transform: translateX(10%) translateY(-8px) scale(1.08); opacity: 0.8; }
+            66%      { transform: translateX(-30%) translateY(6px) scale(0.95); opacity: 0.5; }
+        }
+        @keyframes ambientFloat2 {
+            0%,100% { transform: translateX(60%) translateY(0) scale(1); opacity: 0.4; }
+            40%      { transform: translateX(-10%) translateY(10px) scale(1.1); opacity: 0.7; }
+            70%      { transform: translateX(30%) translateY(-6px) scale(0.92); opacity: 0.4; }
+        }
+        @keyframes navGlow {
+            0%,100% { box-shadow: 0 -2px 16px rgba(99,102,241,0.12); }
+            50%      { box-shadow: 0 -2px 24px rgba(168,85,247,0.22); }
+        }
+        @keyframes statsPulse {
+            0%,100% { background: rgba(255,255,255,0.13); }
+            50%      { background: rgba(255,255,255,0.22); }
+        }
+        @keyframes catPillGlow {
+            0%,100% { box-shadow: 0 4px 12px rgba(99,102,241,0.35); }
+            50%      { box-shadow: 0 4px 20px rgba(168,85,247,0.55), 0 0 8px rgba(99,102,241,0.3); }
+        }
+
+        /* Header ambient glow */
+        #main-header {
+            animation: headerGlow 4s ease-in-out infinite;
+            position: relative;
+        }
+        /* Header floating orbs */
+        #main-header::before {
+            content: '';
+            position: absolute;
+            width: 180px; height: 180px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(236,72,153,0.18) 0%, transparent 70%);
+            top: -40px; right: -30px;
+            animation: ambientFloat 7s ease-in-out infinite;
+            pointer-events: none; z-index: 0;
+        }
+        #main-header::after {
+            content: '';
+            position: absolute;
+            width: 150px; height: 150px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(99,102,241,0.2) 0%, transparent 70%);
+            bottom: -30px; left: -20px;
+            animation: ambientFloat2 9s ease-in-out infinite;
+            pointer-events: none; z-index: 0;
+        }
+        /* Make header children above orbs */
+        #main-header .compact-header,
+        #main-header .stats-strip,
+        #main-header > div { position: relative; z-index: 1; }
+
+        /* Stats strip subtle pulse */
+        .stats-strip { animation: statsPulse 3.5s ease-in-out infinite; }
+
+        /* Active cat pill glow */
+        .cat-pill.active { animation: catPillGlow 2.5s ease-in-out infinite; }
+
+        /* Bottom nav subtle glow */
+        #bottom-nav {
+            animation: navGlow 4s ease-in-out infinite;
+        }
+
+        /* ── BUTTON LIGHT SWEEP — all primary buttons ── */
+        .btn-light-sweep {
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-light-sweep::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 40%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent);
+            transform: translateX(-120%) skewX(-20deg);
+            animation: lightSweep 3s ease-in-out infinite;
+            pointer-events: none;
+        }
+        /* Subtle glow on important buttons */
+        .btn-glow {
+            animation: glowPulse 2.8s ease-in-out infinite;
+        }
+
         /* ── COMPACT HEADER ── */
         .compact-header {
             padding: 10px 16px;
@@ -703,6 +810,16 @@
             display: flex; align-items: center; justify-content: center; gap: 8px;
             box-shadow: 0 8px 25px rgba(99,102,241,0.32);
             transition: transform 0.15s, box-shadow 0.15s;
+            position: relative; overflow: hidden;
+        }
+        .onboard-btn::after {
+            content: '';
+            position: absolute; top: 0; left: 0;
+            width: 40%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent);
+            transform: translateX(-120%) skewX(-20deg);
+            animation: lightSweep 3s ease-in-out infinite;
+            pointer-events: none;
         }
         .onboard-btn:active { transform: scale(0.97); }
         .onboard-skip {
@@ -784,7 +901,16 @@
             margin-top: 8px; letter-spacing: 0.3px;
             transition: all 0.2s;
             box-shadow: 0 4px 20px rgba(99,102,241,0.4);
-            display: block; position: relative; z-index: 1;
+            display: block; position: relative; z-index: 1; overflow: hidden;
+        }
+        .lang-confirm-btn::after {
+            content: '';
+            position: absolute; top: 0; left: 0;
+            width: 40%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent);
+            transform: translateX(-120%) skewX(-20deg);
+            animation: lightSweep 3s ease-in-out infinite;
+            pointer-events: none; z-index: 2;
         }
         .lang-confirm-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(99,102,241,0.5); }
         .lang-confirm-btn:active { transform: scale(0.98) translateY(0); }
@@ -930,7 +1056,7 @@
                 </div>
                 <i class="fas fa-chevron-right" style="color:#d97706;font-size:12px;"></i>
             </div>
-            <a id="cj-join-btn" href="#" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;border-radius:16px;background:linear-gradient(135deg,#f59e0b,#ef4444);color:white;font-weight:700;font-size:14px;text-decoration:none;box-shadow:0 4px 20px rgba(245,158,11,0.4);margin-bottom:10px;transition:all 0.2s;" onclick="window._cjJoinClicked=true">
+            <a id="cj-join-btn" href="#" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;border-radius:16px;background:linear-gradient(135deg,#f59e0b,#ef4444);color:white;font-weight:700;font-size:14px;text-decoration:none;box-shadow:0 4px 20px rgba(245,158,11,0.4);margin-bottom:10px;transition:all 0.2s;position:relative;overflow:hidden;" class="btn-light-sweep" onclick="window._cjJoinClicked=true">
                 <i class="fab fa-telegram"></i> Join Channel / Group
             </a>
             <button onclick="window.checkChannelJoin()" style="width:100%;padding:12px;border-radius:14px;border:2px solid #e2e8f0;background:white;color:#6366f1;font-weight:700;font-size:13px;cursor:pointer;transition:all 0.2s;" id="cj-verify-btn">
@@ -1151,14 +1277,10 @@
         </button>
     </div>
 
-    <div id="ad-container-1" class="my-4 flex justify-center" style="min-height:50px;width:100%;overflow:visible;"></div>
-
     <div id="slider-wrapper" class="w-full h-40 md:h-72 bg-gray-200 dark:bg-gray-800 rounded-2xl mb-6 overflow-hidden relative shadow-md hidden border border-transparent dark:border-gray-700">
         <div id="slider-track" class="flex slider-track h-full w-full"></div>
         <div id="slider-dots" class="absolute bottom-3 w-full flex justify-center gap-2 z-10"></div>
     </div>
-
-    <div id="ad-container-2" class="my-4 flex justify-center" style="min-height:50px;width:100%;overflow:visible;"></div>
 
     <h2 class="text-xl font-bold mb-4 px-1 text-gray-800 dark:text-gray-100 flex items-center gap-2">
         <i class="fas fa-fire text-orange-500 text-base"></i> Available Videos
@@ -1244,9 +1366,6 @@
             <h3 class="text-base font-bold text-gray-800 dark:text-white mb-2">About this video</h3>
             <p id="detail-desc" class="text-gray-600 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-line"></p>
         </div>
-
-        <!-- Ad Slot 3 — Details Page Banner -->
-        <div id="ad-container-3" class="px-4 md:px-6 my-2 flex justify-center" style="min-height:50px;width:100%;overflow:visible;"></div>
 
         <!-- Reviews -->
         <div class="p-4 md:p-6 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900">
@@ -1428,7 +1547,7 @@
 </div>
 
 <!-- ═══════════════ BOTTOM NAV ═══════════════ -->
-<nav class="fixed bottom-0 w-full bg-white dark:bg-gray-900 border-t dark:border-gray-800 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.07)] z-40">
+<nav id="bottom-nav" class="fixed bottom-0 w-full bg-white dark:bg-gray-900 border-t dark:border-gray-800 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.07)] z-40">
     <div class="flex justify-around items-center h-16 max-w-md mx-auto">
         <button onclick="window.switchTab('home')" id="nav-home" class="nav-btn-enhanced text-indigo-600 dark:text-indigo-400">
             <i class="fas fa-home text-2xl mb-0.5"></i>
@@ -1476,7 +1595,7 @@
             <p class="ad-sub-gray" id="ad-stage-sub">Watch a short ad to unlock</p>
             <!-- Progress dots (একাধিক ad থাকলে দেখায়) -->
             <div id="ad-dots" style="display:flex;justify-content:center;gap:8px;margin:14px 0;"></div>
-            <button id="watch-ad-btn" class="ad-watch-btn" onclick="window._adFlow.watchNext()">
+            <button id="watch-ad-btn" class="ad-watch-btn btn-light-sweep" onclick="window._adFlow.watchNext()">
                 <i class="fas fa-play"></i> <span id="watch-btn-label">WATCH AD</span>
             </button>
             <button id="ad-cancel-btn" onclick="window._adFlow.cancel()" class="ad-cancel-btn">Cancel</button>
@@ -1826,10 +1945,9 @@ async function loadData() {
         new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
     ]);
 
-    const [generalSnap, adflowSnap, adsSnap, slidersSnap, sponsorSnap] = await Promise.allSettled([
+    const [generalSnap, adflowSnap, slidersSnap, sponsorSnap] = await Promise.allSettled([
         withTimeout(getDoc(doc(db,"settings","general"))),
         withTimeout(getDoc(doc(db,"settings","adflow"))),
-        withTimeout(getDoc(doc(db,"settings","ads"))),
         withTimeout(getDocs(query(collection(db,"sliders"), orderBy("createdAt","desc")))),
         withTimeout(getDocs(query(collection(db,"sponsorPosts"), orderBy("order","asc"))))
     ]);
@@ -1950,89 +2068,7 @@ async function loadData() {
         loadMonetagScript(adSettings.monetagZoneId, adSettings.monetagCustomScript);
     }
 
-    // 3. Banner ads
-    // ✅ Adsterra + সব ad network support করে
-    function injectAdCode(containerId, htmlCode) {
-        const container = document.getElementById(containerId);
-        if (!container || !htmlCode) return;
-        container.innerHTML = '';
 
-        // Adsterra zone ID only (numeric or "adsterra:ID" format)
-        const trimmed = (htmlCode || '').trim();
-        const adsterraIdMatch = trimmed.match(/^adsterra:(\d+)$/) || trimmed.match(/^(\d{7,10})$/);
-        if (adsterraIdMatch) {
-            // Pure zone ID — Adsterra Direct Link iframe এ লোড করো
-            const zoneId = adsterraIdMatch[1];
-            const iframe = document.createElement('iframe');
-            iframe.src = `https://www.highperformanceformat.com/${zoneId}/invoke.js`;
-            // Alternatively inject script tag approach for Adsterra banner
-            // Use script injection with invoke.js
-            const wrapper = document.createElement('div');
-            wrapper.style.cssText = 'text-align:center;overflow:hidden;';
-            const script1 = document.createElement('script');
-            script1.type = 'text/javascript';
-            script1.textContent = `atOptions = {'key':'${zoneId}','format':'iframe','height':50,'width':320,'params':{}};`;
-            const script2 = document.createElement('script');
-            script2.type = 'text/javascript';
-            script2.src = `//www.highperformanceformat.com/${zoneId}/invoke.js`;
-            script2.async = true;
-            wrapper.appendChild(script1);
-            wrapper.appendChild(script2);
-            container.appendChild(wrapper);
-            return;
-        }
-
-        // Adsterra detect করো: atOptions pattern আছে কিনা
-        const isAdsterra = htmlCode.includes('atOptions') || htmlCode.includes('invoke.js');
-
-        if (isAdsterra) {
-            // Adsterra এর জন্য: iframe এ চালাও — সবচেয়ে নির্ভরযোগ্য
-            const blob = new Blob([`<!DOCTYPE html><html><head><meta charset="utf-8">
-                <style>*{margin:0;padding:0;overflow:hidden;}</style></head>
-                <body>${htmlCode}</body></html>`], { type: 'text/html' });
-            const url = URL.createObjectURL(blob);
-            const iframe = document.createElement('iframe');
-            iframe.src = url;
-            iframe.style.cssText = 'border:none;width:100%;overflow:hidden;';
-            iframe.setAttribute('scrolling', 'no');
-            iframe.setAttribute('frameborder', '0');
-            // atOptions থেকে width/height বের করো
-            const wMatch = htmlCode.match(/'width'\s*:\s*(\d+)/);
-            const hMatch = htmlCode.match(/'height'\s*:\s*(\d+)/);
-            const adW = wMatch ? wMatch[1] : '320';
-            const adH = hMatch ? hMatch[1] : '50';
-            iframe.style.width  = adW + 'px';
-            iframe.style.height = adH + 'px';
-            iframe.onload = () => URL.revokeObjectURL(url);
-            container.appendChild(iframe);
-        } else {
-            // অন্য ad network: recursive script injection
-            const temp = document.createElement('div');
-            temp.innerHTML = htmlCode;
-            function processNode(node, target) {
-                if (node.nodeName === 'SCRIPT') {
-                    const script = document.createElement('script');
-                    Array.from(node.attributes).forEach(attr => script.setAttribute(attr.name, attr.value));
-                    if (node.src) { script.src = node.src; script.async = true; }
-                    else { script.textContent = node.textContent; }
-                    target.appendChild(script);
-                } else {
-                    const clone = node.cloneNode(false);
-                    target.appendChild(clone);
-                    Array.from(node.childNodes).forEach(child => processNode(child, clone));
-                }
-            }
-            Array.from(temp.childNodes).forEach(node => processNode(node, container));
-        }
-    }
-    try {
-        if (adsSnap.status === 'fulfilled' && adsSnap.value.exists()) {
-            const d = adsSnap.value.data();
-            if (d.adSlot1) injectAdCode('ad-container-1', d.adSlot1);
-            if (d.adSlot2) injectAdCode('ad-container-2', d.adSlot2);
-            if (d.adSlot3) injectAdCode('ad-container-3', d.adSlot3);
-        }
-    } catch(e) { console.error("Banner ads error:", e); }
 
     // 4. Sliders
     try {
@@ -2346,9 +2382,9 @@ function buildSponsorCard(sp) {
     const isClickable = !!sp.linkUrl;
 
     wrap.innerHTML = `
-        <div class="flex items-center gap-2 px-3 py-2 bg-amber-100 dark:bg-amber-900/30 border-b border-amber-200 dark:border-amber-800/40">
-            <span class="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest flex items-center gap-1">
-                <i class="fas fa-ad text-[9px]"></i> Sponsored
+        <div class="flex items-center gap-2 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/30 border-b border-amber-200 dark:border-amber-800/40">
+            <span class="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest flex items-center gap-1">
+                <i class="fas fa-ad text-[8px]"></i> Sponsored
             </span>
         </div>
         <div class="relative w-full bg-gray-900 cursor-pointer" style="aspect-ratio:16/9;" ${isClickable ? `onclick="window.open('${sp.linkUrl}','_blank')"` : ''}>
@@ -2358,16 +2394,16 @@ function buildSponsorCard(sp) {
                 autoplay muted loop playsinline
                 style="display:block;">
             </video>
-            ${sp.title ? `<div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-3 py-2">
-                <p class="text-white text-xs font-bold line-clamp-1">${sp.title}</p>
+            ${sp.title ? `<div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5">
+                <p class="text-white text-[11px] font-bold line-clamp-1">${sp.title}</p>
             </div>` : ''}
-            ${isClickable ? `<div class="absolute top-2 right-2 bg-amber-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                <i class="fas fa-external-link-alt text-[8px]"></i> Visit
+            ${isClickable ? `<div class="absolute top-1.5 right-1.5 bg-amber-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                <i class="fas fa-external-link-alt text-[7px]"></i> Visit
             </div>` : ''}
         </div>
-        ${isClickable ? `<div class="px-3 py-2">
-            <a href="${sp.linkUrl}" target="_blank" class="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1 hover:underline">
-                <i class="fas fa-link text-[9px]"></i> ${sp.linkUrl.replace(/^https?:\/\//,'')}
+        ${isClickable ? `<div class="px-3 py-1.5">
+            <a href="${sp.linkUrl}" target="_blank" class="text-[11px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1 hover:underline">
+                <i class="fas fa-link text-[8px]"></i> ${sp.linkUrl.replace(/^https?:\/\//,'')}
             </a>
         </div>` : ''}
     `;
@@ -2547,15 +2583,15 @@ function updateDetailButtonState(file) {
     if (isUnlocked) {
         saveToHistory(file.id);
         container.innerHTML = `
-            <a href="${file.downloadUrl}" target="_blank" class="big-action-btn flex-1 py-4 bg-green-600 hover:bg-green-700 active:scale-95 text-white text-center rounded-2xl font-extrabold shadow-lg flex items-center justify-center gap-2 transition-all">
+            <a href="${file.downloadUrl}" target="_blank" class="big-action-btn btn-light-sweep btn-glow flex-1 py-4 bg-green-600 hover:bg-green-700 active:scale-95 text-white text-center rounded-2xl font-extrabold shadow-lg flex items-center justify-center gap-2 transition-all">
                 <i class="fas fa-download text-lg"></i> ${file.btnName1||'Download'}
             </a>
-            ${file.downloadUrl2?`<a href="${file.downloadUrl2}" target="_blank" class="big-action-btn flex-1 py-4 bg-teal-600 hover:bg-teal-700 active:scale-95 text-white text-center rounded-2xl font-extrabold shadow-lg flex items-center justify-center gap-2 transition-all"><i class="fas fa-link text-lg"></i> ${file.btnName2||'Mirror'}</a>`:''}
+            ${file.downloadUrl2?`<a href="${file.downloadUrl2}" target="_blank" class="big-action-btn btn-light-sweep flex-1 py-4 bg-teal-600 hover:bg-teal-700 active:scale-95 text-white text-center rounded-2xl font-extrabold shadow-lg flex items-center justify-center gap-2 transition-all"><i class="fas fa-link text-lg"></i> ${file.btnName2||'Mirror'}</a>`:''}
             ${shareBtn}`;
     } else {
         container.innerHTML = `
             <button id="unlock-action-btn" onclick="window.unlockFile('${file.id}',${req})"
-                class="big-action-btn flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 active:scale-95 text-white rounded-2xl font-extrabold shadow-lg flex items-center justify-center gap-2 transition-all"
+                class="big-action-btn btn-light-sweep btn-glow flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 active:scale-95 text-white rounded-2xl font-extrabold shadow-lg flex items-center justify-center gap-2 transition-all"
                 style="animation: pulse-ring 2s ease-in-out infinite;">
                 <i class="fas fa-lock text-lg"></i>
                 <span>Unlock Video (${count}/${req})</span>
