@@ -1908,6 +1908,18 @@ function setupPresenceAndSaveUser() {
         }
     }).catch(()=>{});
 
+    // ── Firestore users collection এ save করো (admin panel এর জন্য) ──
+    try {
+        const fsUserRef = doc(db, 'users', uid);
+        setDoc(fsUserRef, {
+            id:       tgUser.id   || uid,
+            name:     tgUser.name || 'Guest User',
+            username: tgUser.username || '',
+            platform: window.Telegram && window.Telegram.WebApp ? 'telegram' : 'web',
+            lastSeen: serverTimestamp(),
+        }, { merge: true }).catch(()=>{});
+    } catch(e) {}
+
     // Mark offline on disconnect
     onDisconnect(ref(rtdb, 'users/' + uid + '/online')).set(false);
     onDisconnect(ref(rtdb, 'users/' + uid + '/lastSeen')).set(rtdbServerTimestamp());
