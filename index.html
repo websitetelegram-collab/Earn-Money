@@ -2991,8 +2991,23 @@ async function showAdsgramAd(blockId) {
     if (!window.Adsgram) throw new Error("Adsgram not loaded");
     return new Promise((resolve, reject) => {
         try {
-            const ctrl = window.Adsgram.init({ blockId: String(blockId) });
-            ctrl.show().then(resolve).catch(reject);
+            let rewarded = false;
+            const ctrl = window.Adsgram.init({
+                blockId: String(blockId),
+                onReward: () => {
+                    rewarded = true;  // ✅ ad সম্পূর্ণ দেখা হয়েছে
+                    resolve();
+                },
+                onError: (result) => {
+                    // skip/close/error — সব reject
+                    reject(new Error(result?.description || 'Ad not completed'));
+                },
+            });
+            // ctrl.show() — Promise return করে
+            // resolve আগে না হলে reject করো (double-fire safe)
+            ctrl.show().then(() => {
+                if (!rewarded) reject(new Error('Ad closed without reward'));
+            }).catch(reject);
         } catch(e) { reject(e); }
     });
 }
@@ -3000,7 +3015,8 @@ async function showAdsgramAd(blockId) {
 // Monetag ad
 async function showMonetagAd(zoneId) {
     return new Promise((resolve, reject) => {
-        const z = zoneId || _monetagZoneId || '11069454';
+        const z = zoneId || _monetagZoneId || '';
+        if (!z) { reject(new Error('No Monetag zone ID')); return; }
         let settled = false;
         function done(ok, err) {
             if (settled) return; settled = true;
@@ -3014,15 +3030,17 @@ async function showMonetagAd(zoneId) {
                 try {
                     const ret = fn();
                     if (ret && typeof ret.then === 'function') {
+                        // Promise return করলে সেটা await করো
                         ret.then(() => done(true)).catch(e => done(false, e));
                     } else {
-                        setTimeout(() => done(true), 2000);
+                        // Non-promise — SDK নিজেই manage করে, 3s অপেক্ষা
+                        setTimeout(() => done(true), 3000);
                     }
                 } catch(e) { done(false, e); }
                 return;
             }
             if (attempts < 40) setTimeout(tryCall, 300);
-            else done(false, new Error('Ad SDK not ready'));
+            else done(false, new Error('Monetag SDK not ready'));
         }
         tryCall();
     });
@@ -3129,32 +3147,44 @@ window._adFlow = {
 
     // Count সেভ + পোস্ট পেজে ফেরা (overlay বন্ধ)
     async _saveCountAndReturn() {
-        // Loading দেখাও (brief — শুধু save করার সময়)
+        showStage('stage-loading');
         document.getElementById('loading-label').textContent = 'Saving...';
         const errBox = document.getElementById('ad-error-box');
         if (errBox) errBox.classList.add('hidden');
 
-        const safeUserId = safeUid(tgUser.id); // ✅ FIX: safeUid() consistently use করো
+        const safeUserId = safeUid(tgUser.id);
         let newCount = 1;
+        let firebaseSaved = false;
 
-        try {
-            const fileDoc = await getDoc(doc(db, 'files', _adFileId));
-            const firebaseCount = fileDoc.exists()
-                ? ((fileDoc.data().adUnlockCount || {})[safeUserId] || 0) : 0;
-            const localCount = parseInt(localStorage.getItem(`adCount_${_adFileId}`)) || 0;
-            newCount = Math.max(localCount, firebaseCount) + 1;
+        // ── Firestore write — 3 বার retry ──────────────────────────────
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                const fileDoc = await getDoc(doc(db, 'files', _adFileId));
+                const firebaseCount = fileDoc.exists()
+                    ? ((fileDoc.data().adUnlockCount || {})[safeUserId] || 0) : 0;
+                const localCount = parseInt(localStorage.getItem(`adCount_${_adFileId}`)) || 0;
+                newCount = Math.max(localCount, firebaseCount) + 1;
 
-            await updateDoc(doc(db, 'files', _adFileId), {
-                [`adUnlockCount.${safeUserId}`]: newCount
-            });
-        } catch(e) {
+                await updateDoc(doc(db, 'files', _adFileId), {
+                    [`adUnlockCount.${safeUserId}`]: newCount
+                });
+                firebaseSaved = true;
+                break; // সফল — loop বন্ধ
+            } catch(e) {
+                console.warn(`Save attempt ${attempt} failed:`, e.code || e.message);
+                if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt));
+            }
+        }
+
+        // Firestore save না হলে শুধু localStorage এ রাখো
+        if (!firebaseSaved) {
             const localCount = parseInt(localStorage.getItem(`adCount_${_adFileId}`)) || 0;
             newCount = localCount + 1;
         }
 
         localStorage.setItem(`adCount_${_adFileId}`, newCount);
 
-        // Unlock হলে download count বাড়াও
+        // ── Unlock হলে download count বাড়াও ───────────────────────────
         if (newCount >= _adRequired) {
             try {
                 const file = allFiles.find(f => f.id === _adFileId);
@@ -3165,11 +3195,18 @@ window._adFlow = {
             } catch(e) {}
         }
 
-        // সরাসরি পোস্ট পেজে ফেরা — আর কোনো loading বা done screen নেই
         _returnToPostPage(newCount);
     },
 
-    cancel() { closeOverlay(); }
+    cancel() {
+        // Ad চলার সময় cancel করা যাবে না
+        const loadingStage = document.getElementById('stage-loading');
+        if (loadingStage && !loadingStage.classList.contains('hidden')) {
+            // Ad চলছে — cancel block
+            return;
+        }
+        closeOverlay();
+    }
 };
 
 // ── Main unlock entry ────────────────────────────────────────────────────
