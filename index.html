@@ -1216,7 +1216,7 @@
                 </div>
                 <i class="fas fa-chevron-right" style="color:#d97706;font-size:12px;"></i>
             </div>
-            <a id="cj-join-btn" href="#" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;border-radius:16px;background:linear-gradient(135deg,#f59e0b,#ef4444);color:white;font-weight:700;font-size:14px;text-decoration:none;box-shadow:0 4px 20px rgba(245,158,11,0.4);margin-bottom:10px;transition:all 0.2s;position:relative;overflow:hidden;" class="btn-light-sweep" onclick="window._cjJoinClicked=true">
+            <a id="cj-join-btn" href="#" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;border-radius:16px;background:linear-gradient(135deg,#f59e0b,#ef4444);color:white;font-weight:700;font-size:14px;text-decoration:none;box-shadow:0 4px 20px rgba(245,158,11,0.4);margin-bottom:10px;transition:all 0.2s;position:relative;overflow:hidden;" class="btn-light-sweep" onclick="window._cjJoinClicked=true; window._cjJoinTimestamp=Date.now();">
                 <i class="fab fa-telegram"></i> Join Channel / Group
             </a>
             <button onclick="window.checkChannelJoin()" style="width:100%;padding:12px;border-radius:14px;border:2px solid #e2e8f0;background:white;color:#6366f1;font-weight:700;font-size:13px;cursor:pointer;transition:all 0.2s;" id="cj-verify-btn">
@@ -2636,34 +2636,67 @@ function buildSponsorCard(sp) {
     wrap.className = 'sponsor-post-card rounded-2xl overflow-hidden shadow-sm border border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-900/10';
     wrap.style.animation = 'slideUp 0.35s ease both';
 
-    const isClickable = !!sp.linkUrl;
+    // ✅ FIX: XSS রোধে URL validate ও encode করো — raw string interpolation বাদ
+    const isClickable = !!sp.linkUrl && /^https?:\/\//i.test(sp.linkUrl);
+    const safeLink    = isClickable ? sp.linkUrl : '';
+    const safeVideo   = sp.videoUrl ? sp.videoUrl : '';
+    const safeTitle   = sp.title   ? sp.title.replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
+    const safeLinkDisplay = safeLink.replace(/^https?:\/\//,'');
 
-    wrap.innerHTML = `
-        <div class="flex items-center gap-2 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/30 border-b border-amber-200 dark:border-amber-800/40">
-            <span class="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest flex items-center gap-1">
-                <i class="fas fa-ad text-[8px]"></i> Sponsored
-            </span>
-        </div>
-        <div class="relative w-full bg-gray-900 cursor-pointer" style="aspect-ratio:16/9;" ${isClickable ? `onclick="window.open('${sp.linkUrl}','_blank')"` : ''}>
-            <video
-                src="${sp.videoUrl}"
-                class="w-full h-full object-cover"
-                autoplay muted loop playsinline
-                style="display:block;">
-            </video>
-            ${sp.title ? `<div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5">
-                <p class="text-white text-[11px] font-bold line-clamp-1">${sp.title}</p>
-            </div>` : ''}
-            ${isClickable ? `<div class="absolute top-1.5 right-1.5 bg-amber-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                <i class="fas fa-external-link-alt text-[7px]"></i> Visit
-            </div>` : ''}
-        </div>
-        ${isClickable ? `<div class="px-3 py-1.5">
-            <a href="${sp.linkUrl}" target="_blank" class="text-[11px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1 hover:underline">
-                <i class="fas fa-link text-[8px]"></i> ${sp.linkUrl.replace(/^https?:\/\//,'')}
-            </a>
-        </div>` : ''}
-    `;
+    // Header
+    const header = document.createElement('div');
+    header.className = 'flex items-center gap-2 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/30 border-b border-amber-200 dark:border-amber-800/40';
+    header.innerHTML = `<span class="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest flex items-center gap-1"><i class="fas fa-ad text-[8px]"></i> Sponsored</span>`;
+    wrap.appendChild(header);
+
+    // Video container
+    const videoWrap = document.createElement('div');
+    videoWrap.className = 'relative w-full bg-gray-900';
+    if (isClickable) videoWrap.style.cursor = 'pointer';
+    videoWrap.style.aspectRatio = '16/9';
+
+    // ✅ FIX: onclick addEventListener দিয়ে set করো — string injection নয়
+    if (isClickable) {
+        videoWrap.addEventListener('click', () => window.open(safeLink, '_blank', 'noopener,noreferrer'));
+    }
+
+    const video = document.createElement('video');
+    video.src = safeVideo;
+    video.className = 'w-full h-full object-cover';
+    video.autoplay = true; video.muted = true; video.loop = true;
+    video.setAttribute('playsinline', '');
+    video.style.display = 'block';
+    videoWrap.appendChild(video);
+
+    if (safeTitle) {
+        const titleBar = document.createElement('div');
+        titleBar.className = 'absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5';
+        titleBar.innerHTML = `<p class="text-white text-[11px] font-bold line-clamp-1">${safeTitle}</p>`;
+        videoWrap.appendChild(titleBar);
+    }
+    if (isClickable) {
+        const visitBadge = document.createElement('div');
+        visitBadge.className = 'absolute top-1.5 right-1.5 bg-amber-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5';
+        visitBadge.innerHTML = `<i class="fas fa-external-link-alt text-[7px]"></i> Visit`;
+        videoWrap.appendChild(visitBadge);
+    }
+    wrap.appendChild(videoWrap);
+
+    // Link footer
+    if (isClickable) {
+        const footer = document.createElement('div');
+        footer.className = 'px-3 py-1.5';
+        const a = document.createElement('a');
+        a.href   = safeLink;
+        a.target = '_blank';
+        a.rel    = 'noopener noreferrer';
+        a.className = 'text-[11px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1 hover:underline';
+        a.innerHTML = `<i class="fas fa-link text-[8px]"></i>`;
+        a.appendChild(document.createTextNode(' ' + safeLinkDisplay));
+        footer.appendChild(a);
+        wrap.appendChild(footer);
+    }
+
     return wrap;
 }
 
@@ -3101,7 +3134,7 @@ window._adFlow = {
         const errBox = document.getElementById('ad-error-box');
         if (errBox) errBox.classList.add('hidden');
 
-        const safeUserId = tgUser.id.replace(/[.#$\/\[\]]/g, '_');
+        const safeUserId = safeUid(tgUser.id); // ✅ FIX: safeUid() consistently use করো
         let newCount = 1;
 
         try {
@@ -3164,7 +3197,7 @@ window.unlockFile = async (id, req) => {
     // Firebase থেকে sync করো
     if (btn) { btn.disabled = true; btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Loading...`; }
     try {
-        const safeUserId = tgUser.id.replace(/[.#$\/\[\]]/g, '_');
+        const safeUserId = safeUid(tgUser.id); // ✅ FIX: safeUid() consistently use করো
         const fileDoc = await getDoc(doc(db, 'files', id));
         const firebaseCount = fileDoc.exists()
             ? ((fileDoc.data().adUnlockCount || {})[safeUserId] || 0) : 0;
@@ -3232,6 +3265,7 @@ function renderHistory() {
 //  CHANNEL JOIN MODAL
 // ══════════════════════════════════════════════════
 window._cjJoinClicked   = false;
+window._cjJoinTimestamp = 0;   // ✅ FIX: join click এর সময় record করো
 window._pendingUnlockId  = null;
 window._pendingUnlockReq = null;
 window._channelJoinRequired = false;
@@ -3245,26 +3279,36 @@ window.showChannelJoinModal = function() {
     const joinBtn = document.getElementById('cj-join-btn');
     if (nameEl) nameEl.textContent = window._channelJoinName || '@channel';
     if (joinBtn) joinBtn.href = window._channelJoinLink || '#';
-    window._cjJoinClicked = false;
+    // ✅ FIX: প্রতিবার modal খুললে state reset করো
+    window._cjJoinClicked   = false;
+    window._cjJoinTimestamp = 0;
     modal.style.display = 'flex';
 };
 
 window.checkChannelJoin = function() {
     const verifyBtn = document.getElementById('cj-verify-btn');
-    if (!window._cjJoinClicked) {
-        // শুধু shake করো
+    const now = Date.now();
+    // ✅ FIX: Join click হয়েছে কিনা এবং কমপক্ষে ২ সেকেন্ড পরে verify করছে কিনা চেক করো
+    // এটা console bypass ঠেকায় — কেউ আগেই verify চাপলে কাজ করবে না
+    const joinedRecently = window._cjJoinClicked && (now - window._cjJoinTimestamp) >= 2000;
+    if (!joinedRecently) {
+        // shake করো + error দেখাও
         if (verifyBtn) {
             verifyBtn.style.borderColor = '#ef4444';
             verifyBtn.style.color = '#ef4444';
-            setTimeout(() => { verifyBtn.style.borderColor = ''; verifyBtn.style.color = ''; }, 1200);
+            verifyBtn.style.transform = 'translateX(-4px)';
+            setTimeout(() => {
+                verifyBtn.style.transform = 'translateX(4px)';
+                setTimeout(() => { verifyBtn.style.transform = ''; verifyBtn.style.borderColor = ''; verifyBtn.style.color = ''; }, 100);
+            }, 100);
         }
-        showToast('⚠️ আগে Channel/Group-এ Join করুন!', 'error');
+        showToast(window._cjJoinClicked ? '⏳ Join করার পর ২ সেকেন্ড অপেক্ষা করুন!' : '⚠️ আগে Channel/Group-এ Join করুন!');
         return;
     }
     // Mark joined
     localStorage.setItem('channel_joined', '1');
     document.getElementById('channel-join-modal').style.display = 'none';
-    showToast('✅ Join নিশ্চিত হয়েছে!', 'success');
+    showToast('✅ Join নিশ্চিত হয়েছে!');
     // Resume pending action
     if (window._pendingUnlockId) {
         setTimeout(() => {
@@ -3396,11 +3440,12 @@ async function loadNotifHistory() {
     list.innerHTML = '<div class="px-4 py-6 text-center text-gray-400 dark:text-gray-500 text-sm"><i class="fas fa-spinner fa-spin text-2xl mb-2 block opacity-60"></i>Loading...</div>';
 
     try {
-        const q = query(collection(db, 'settings'), orderBy('sentAt', 'desc'));
+        // ✅ FIX: broadcastHistory collection থেকে load করো
+        const q = query(collection(db, 'broadcastHistory'), orderBy('sentAt', 'desc'));
         const snap = await getDocs(q);
         const items = [];
         snap.forEach(d => {
-            if (d.id.startsWith('inapp_history_')) items.push({ id: d.id, ...d.data() });
+            if (d.id.startsWith('inapp_')) items.push({ id: d.id, ...d.data() });
         });
 
         if (!items.length) {
