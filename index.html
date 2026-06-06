@@ -120,38 +120,6 @@
             0%,100% { box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
             50%      { box-shadow: 0 4px 18px rgba(99,102,241,0.14), 0 2px 8px rgba(0,0,0,0.06); }
         }
-        /* Light mode card glow override */
-        :root:not(.dark) .video-card-inner {
-            animation: cardGlowLight 5s ease-in-out infinite;
-        }
-        @keyframes cardGlowLight {
-            0%,100% { box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
-            50%      { box-shadow: 0 6px 24px rgba(99,102,241,0.22), 0 2px 8px rgba(0,0,0,0.07); }
-        }
-        /* Light mode search glow */
-        :root:not(.dark) #searchInput {
-            animation: searchGlowLight 4s ease-in-out infinite;
-        }
-        @keyframes searchGlowLight {
-            0%,100% { box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-            50%      { box-shadow: 0 4px 28px rgba(99,102,241,0.28), 0 2px 8px rgba(0,0,0,0.06); }
-        }
-        /* Light mode nav glow */
-        :root:not(.dark) #bottom-nav {
-            animation: navGlowLight 4s ease-in-out infinite;
-        }
-        @keyframes navGlowLight {
-            0%,100% { box-shadow: 0 -2px 18px rgba(99,102,241,0.1); }
-            50%      { box-shadow: 0 -2px 28px rgba(99,102,241,0.28); }
-        }
-        /* Light mode slider glow */
-        :root:not(.dark) #slider-wrapper {
-            animation: sliderGlowLight 4s ease-in-out infinite;
-        }
-        @keyframes sliderGlowLight {
-            0%,100% { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
-            50%      { box-shadow: 0 8px 32px rgba(99,102,241,0.22); }
-        }
         @keyframes navIconPulse {
             0%,100% { filter: drop-shadow(0 0 0px transparent); }
             50%      { filter: drop-shadow(0 0 6px rgba(99,102,241,0.6)); }
@@ -663,9 +631,6 @@
             align-items: center; justify-content: center;
             overflow: hidden;
             transition: opacity 0.8s cubic-bezier(0.4,0,0.2,1), transform 0.8s cubic-bezier(0.4,0,0.2,1);
-            will-change: opacity, transform;
-            -webkit-backface-visibility: hidden;
-            backface-visibility: hidden;
         }
         #splash-screen.hide {
             opacity: 0; transform: scale(1.06) translateY(-10px);
@@ -680,8 +645,6 @@
             position: absolute; width: 200%; height: 200%;
             border-radius: 40%;
             animation: auroraDrift linear infinite;
-            will-change: transform;
-            transform: translateZ(0);
         }
         .sp-aurora-band:nth-child(1) {
             background: conic-gradient(from 0deg at 30% 50%, rgba(99,102,241,0.18) 0deg, transparent 120deg, rgba(168,85,247,0.14) 240deg, transparent 360deg);
@@ -765,7 +728,6 @@
         .sp-ring {
             position: absolute; border-radius: 50%;
             border: 2px solid transparent;
-            will-change: transform;
         }
         .sp-ring-1 {
             inset: 0;
@@ -792,8 +754,6 @@
         .sp-orbit {
             position: absolute; inset: -28px;
             animation: ringSpinA 4s linear infinite;
-            will-change: transform;
-            transform: translateZ(0);
         }
         .sp-orbit-dot {
             position: absolute; top: 50%; left: 0;
@@ -805,8 +765,6 @@
         .sp-orbit-2 {
             position: absolute; inset: -36px;
             animation: ringSpinB 6s linear infinite;
-            will-change: transform;
-            transform: translateZ(0);
         }
         .sp-orbit-dot-2 {
             position: absolute; top: 0; left: 50%;
@@ -1135,7 +1093,7 @@
 </div>
 
 <!-- ═══════════════ LANGUAGE SELECTOR POPUP ═══════════════ -->
-<div id="lang-popup-overlay" class="hidden" onclick="if(window.selectLang && !event.target.closest('.lang-sheet')) return;">
+<div id="lang-popup-overlay" onclick="if(window.selectLang && !event.target.closest('.lang-sheet')) return;">
     <div class="lang-sheet" onclick="event.stopPropagation()">
         <div class="lang-sheet-glow"></div>
         <!-- Header -->
@@ -1427,7 +1385,7 @@
         </button>
     </div>
 
-    <div id="slider-wrapper" class="w-full h-28 md:h-48 bg-gray-200 dark:bg-gray-800 rounded-2xl mb-4 overflow-hidden relative shadow-md hidden border border-transparent dark:border-gray-700">
+    <div id="slider-wrapper" class="w-full h-40 md:h-72 bg-gray-200 dark:bg-gray-800 rounded-2xl mb-6 overflow-hidden relative shadow-md hidden border border-transparent dark:border-gray-700">
         <div id="slider-track" class="flex slider-track h-full w-full"></div>
         <div id="slider-dots" class="absolute bottom-3 w-full flex justify-center gap-2 z-10"></div>
     </div>
@@ -1727,7 +1685,7 @@
 </nav>
 
 <!-- Toast -->
-<div id="toast" class="fixed top-6 left-1/2 -translate-x-1/2 -translate-y-24 opacity-0 z-[99999] transition-all duration-300">
+<div id="toast" class="fixed top-6 left-1/2 -translate-x-1/2 -translate-y-24 opacity-0 z-[70] transition-all duration-300">
     <div class="bg-gray-800 dark:bg-gray-100 text-white dark:text-gray-900 py-3 px-6 rounded-full shadow-2xl flex items-center gap-3">
         <i class="fas fa-info-circle text-indigo-400 dark:text-indigo-600"></i>
         <span id="toast-message" class="text-sm font-medium"></span>
@@ -1907,18 +1865,6 @@ function setupPresenceAndSaveUser() {
             update(ref(rtdb, 'users/' + uid), { joinedAt: rtdbServerTimestamp() }).catch(()=>{});
         }
     }).catch(()=>{});
-
-    // ── Firestore users collection এ save করো (admin panel এর জন্য) ──
-    try {
-        const fsUserRef = doc(db, 'users', uid);
-        setDoc(fsUserRef, {
-            id:       tgUser.id   || uid,
-            name:     tgUser.name || 'Guest User',
-            username: tgUser.username || '',
-            platform: window.Telegram && window.Telegram.WebApp ? 'telegram' : 'web',
-            lastSeen: serverTimestamp(),
-        }, { merge: true }).catch(()=>{});
-    } catch(e) {}
 
     // Mark offline on disconnect
     onDisconnect(ref(rtdb, 'users/' + uid + '/online')).set(false);
@@ -3378,27 +3324,7 @@ window.finishOnboarding = function() {
     const ob = document.getElementById('onboarding-screen');
     if (!ob) return;
     ob.classList.add('hide');
-    setTimeout(() => {
-        ob.classList.remove('visible');
-        ob.classList.remove('hide');
-        // Onboarding শেষে deep link check করো
-        try {
-            let startParam = '';
-            const tgWebApp = window.Telegram?.WebApp;
-            if (tgWebApp) startParam = tgWebApp.initDataUnsafe?.start_param || '';
-            if (!startParam) {
-                const urlParams = new URLSearchParams(window.location.search);
-                startParam = urlParams.get('start') || urlParams.get('startapp') || '';
-            }
-            if (!startParam && window.location.hash) startParam = window.location.hash.replace('#', '');
-            if (startParam && startParam.startsWith('file_')) {
-                const fileId = startParam.replace('file_', '');
-                if (fileId && allFiles.find(f => f.id === fileId)) {
-                    setTimeout(() => window.openDetails(fileId), 300);
-                }
-            }
-        } catch(e) {}
-    }, 420);
+    setTimeout(() => { ob.classList.remove('visible'); ob.classList.remove('hide'); }, 420);
 };
 
 window.obNext = function() {
@@ -3455,29 +3381,22 @@ window._startAppLoading = async function() {
         el.textContent = cachedTitle ? 'Watch · Unlock · Download' : '';
         el.style.opacity = cachedTitle ? '1' : '0';
     });
-    // Logo — cached থাকলে icon কখনোই দেখাবে না
-    const botImgEl  = document.getElementById('sp-bot-logo');
-    const botIconEl = document.getElementById('sp-default-icon');
+    // Logo
     if (cachedLogo) {
-        if (botIconEl) botIconEl.style.display = 'none';
+        const botImgEl  = document.getElementById('sp-bot-logo');
+        const botIconEl = document.getElementById('sp-default-icon');
         if (botImgEl) {
             botImgEl.src = cachedLogo;
-            // Already preloaded — show immediately
-            if (botImgEl.complete && botImgEl.naturalWidth > 0) {
+            botImgEl.onload = function() {
                 botImgEl.style.display = '';
-            } else {
-                botImgEl.onload = function() { botImgEl.style.display = ''; };
-                botImgEl.onerror = function() {
-                    botImgEl.style.display = 'none';
-                    if (botIconEl) botIconEl.style.display = '';
-                    localStorage.removeItem('app_logo_url');
-                };
-            }
+                if (botIconEl) botIconEl.style.display = 'none';
+            };
+            botImgEl.onerror = function() {
+                botImgEl.style.display = 'none';
+                if (botIconEl) botIconEl.style.display = '';
+                localStorage.removeItem('app_logo_url');
+            };
         }
-    } else {
-        // লোগো নেই — icon দেখাও
-        if (botIconEl) botIconEl.style.display = '';
-        if (botImgEl) botImgEl.style.display = 'none';
     }
 
     const splashStart = Date.now();
@@ -3515,49 +3434,6 @@ window._startAppLoading = async function() {
     updateLangButtons();
     if (!localStorage.getItem(OB_KEY)) {
         setTimeout(showOnboarding, 300);
-    } else {
-        // ── Deep link / start_param handling ──────────────────────────────
-        // Telegram ?start=file_XXX লিংক থেকে এলে সরাসরি পোস্ট খুলবে
-        setTimeout(() => {
-            try {
-                let startParam = '';
-                // Telegram WebApp start_param
-                const tgWebApp = window.Telegram?.WebApp;
-                if (tgWebApp) {
-                    startParam = tgWebApp.initDataUnsafe?.start_param || '';
-                }
-                // Fallback: URL hash বা query parameter থেকেও দেখো
-                if (!startParam) {
-                    const urlParams = new URLSearchParams(window.location.search);
-                    startParam = urlParams.get('start') || urlParams.get('startapp') || '';
-                }
-                if (!startParam && window.location.hash) {
-                    startParam = window.location.hash.replace('#', '');
-                }
-                // file_ prefix দিয়ে শুরু হলে ওই file open করো
-                if (startParam && startParam.startsWith('file_')) {
-                    const fileId = startParam.replace('file_', '');
-                    if (fileId && allFiles.length > 0) {
-                        const file = allFiles.find(f => f.id === fileId);
-                        if (file) {
-                            window.openDetails(fileId);
-                        }
-                    } else if (fileId) {
-                        // files এখনো load হয়নি — একটু wait করে retry
-                        const retryDeepLink = setInterval(() => {
-                            if (allFiles.length > 0) {
-                                clearInterval(retryDeepLink);
-                                const file = allFiles.find(f => f.id === fileId);
-                                if (file) window.openDetails(fileId);
-                            }
-                        }, 300);
-                        setTimeout(() => clearInterval(retryDeepLink), 5000);
-                    }
-                }
-            } catch(e) {
-                console.warn('Deep link error:', e);
-            }
-        }, 400);
     }
 };
 
@@ -3573,7 +3449,7 @@ document.addEventListener('DOMContentLoaded', function() {
         applyTranslations();
         window._startAppLoading();
     } else {
-        // First time — বাংলা pre-select করো (popup দেখানো regular script handle করবে)
+        // First time — lang popup দেখাও, বাংলা pre-select করো
         selectedLang = 'bn';
         const cur = document.querySelector('.lang-option[data-lang="bn"]');
         if (cur) {
@@ -3581,9 +3457,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const check = document.getElementById('lang-check-bn');
             if (check) check.classList.remove('hidden');
         }
-        // Splash hide করো (popup দেখানোর আগে)
-        const splash = document.getElementById('splash-screen');
-        if (splash) splash.style.display = 'none';
     }
 });
 
@@ -3900,7 +3773,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var splash = document.getElementById('splash-screen');
         if (splash) splash.style.display = '';
     } else {
-        // First time — বাংলা pre-select, popup ছোট delay এর পর দেখাও
+        // First time — বাংলা pre-select
         window._selectedLang = 'bn';
         var cur = document.querySelector('.lang-option[data-lang="bn"]');
         if (cur) {
@@ -3908,33 +3781,13 @@ document.addEventListener('DOMContentLoaded', function() {
             var check = document.getElementById('lang-check-bn');
             if (check) check.classList.remove('hidden');
         }
-        // Splash hide করো, popup দেখাও (একটু delay দিলে page render হয় আগে)
-        var splash2 = document.getElementById('splash-screen');
-        if (splash2) splash2.style.display = 'none';
-        setTimeout(function() {
-            var overlay2 = document.getElementById('lang-popup-overlay');
-            if (overlay2) overlay2.classList.remove('hidden');
-        }, 80);
     }
 });
 </script>
 
 <script>
 // Splash logo cache — page load এর সাথে সাথে দেখাও (Firebase আসার আগেই)
-// CRITICAL: আগে থেকেই সঠিক element দেখাও যাতে কোনো flash না হয়
 (function() {
-    var cachedLogo = localStorage.getItem('app_logo_url');
-    // Inline style inject করো — DOMContentLoaded এর আগেই
-    if (cachedLogo) {
-        // লোগো আছে — icon কখনোই দেখাবে না, img preload করো
-        var style = document.createElement('style');
-        style.textContent = '#sp-default-icon { display: none !important; }';
-        document.head.appendChild(style);
-        // Preload image
-        var preloadImg = new Image();
-        preloadImg.src = cachedLogo;
-    }
-
     document.addEventListener('DOMContentLoaded', function() {
         var cachedLogo = localStorage.getItem('app_logo_url');
         var botImgEl   = document.getElementById('sp-bot-logo');
