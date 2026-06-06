@@ -829,7 +829,8 @@
         <div class="sp-orbit"><div class="sp-orbit-dot"></div></div>
         <div class="sp-orbit-2"><div class="sp-orbit-dot-2"></div></div>
         <div class="sp-hex"><div class="sp-hex-shine"></div></div>
-        <i class="fas fa-play-circle sp-logo-icon app-splash-icon"></i>
+        <img id="sp-bot-logo" src="" alt="" style="display:none;position:relative;z-index:2;width:72px;height:72px;border-radius:50%;object-fit:cover;filter:drop-shadow(0 2px 12px rgba(0,0,0,0.4));">
+        <i id="sp-default-icon" class="fas fa-play-circle sp-logo-icon app-splash-icon"></i>
     </div>
 
     <!-- Title -->
@@ -1838,8 +1839,41 @@ async function loadData() {
             window._channelJoinLink     = d.channelJoinLink || '';
             window._channelJoinName     = d.channelJoinName || '@channel';
 
-            // App Title
-            if (d.appTitle) {
+            // ✅ Bot Logo — Telegram bot এর ছবি splash screen এ দেখাও
+            if (d.botUsername) {
+                const botUser = d.botUsername.replace(/^@/, '');
+                fetch(`https://api.telegram.org/bot${botUser}/getMe`)
+                    .catch(() => null); // bot token নেই তাই getMe কাজ করবে না
+                // t.me/botusername থেকে avatar নেওয়ার চেষ্টা — Telegram public API দিয়ে
+                const proxyUrl = `https://avatars.githubusercontent.com/u/0?v=4`; // fallback
+                // Telegram bot এর photo পেতে হলে Bot Token লাগে, তাই আমরা
+                // t.me/{username} এর og:image ব্যবহার করব
+                try {
+                    const tgPageRes = await fetch(`https://t.me/${botUser}`, { mode: 'no-cors' });
+                    // no-cors এ body পড়া যাবে না, তাই সরাসরি
+                    // Telegram CDN pattern ব্যবহার করি
+                } catch(_) {}
+                // ✅ সবচেয়ে নির্ভরযোগ্য পদ্ধতি: telegram photo CDN
+                const botImgEl  = document.getElementById('sp-bot-logo');
+                const botIconEl = document.getElementById('sp-default-icon');
+                if (botImgEl) {
+                    // Telegram WebApp থেকে যদি bot photo পাওয়া যায়
+                    const tgApp = window.Telegram?.WebApp;
+                    // tg://resolve?domain= দিয়ে সরাসরি ছবি পাওয়া যায় না।
+                    // তাই: https://t.me/i/userpic/320/{username}.jpg (Telegram CDN)
+                    const photoUrl = `https://t.me/i/userpic/320/${botUser}.jpg`;
+                    botImgEl.src = photoUrl;
+                    botImgEl.onload = function() {
+                        botImgEl.style.display = '';
+                        if (botIconEl) botIconEl.style.display = 'none';
+                    };
+                    botImgEl.onerror = function() {
+                        // fallback: default icon রাখো
+                        botImgEl.style.display = 'none';
+                        if (botIconEl) botIconEl.style.display = '';
+                    };
+                }
+            }
                 document.title = d.appTitle;
                 document.querySelectorAll('.app-dynamic-title').forEach(el => el.textContent = d.appTitle);
                 document.querySelectorAll('.app-dynamic-sub').forEach(el => {
@@ -1915,13 +1949,35 @@ async function loadData() {
     }
 
     // 3. Banner ads
+    // ✅ injectAdCode: innerHTML দিয়ে <script> execute হয় না, তাই manually inject করতে হবে
+    function injectAdCode(containerId, htmlCode) {
+        const container = document.getElementById(containerId);
+        if (!container || !htmlCode) return;
+        container.innerHTML = '';
+        const temp = document.createElement('div');
+        temp.innerHTML = htmlCode;
+        Array.from(temp.childNodes).forEach(node => {
+            if (node.nodeName === 'SCRIPT') {
+                const script = document.createElement('script');
+                Array.from(node.attributes).forEach(attr => script.setAttribute(attr.name, attr.value));
+                if (node.src) {
+                    script.src = node.src;
+                    script.async = true;
+                } else {
+                    script.textContent = node.textContent;
+                }
+                container.appendChild(script);
+            } else {
+                container.appendChild(node.cloneNode(true));
+            }
+        });
+    }
     try {
         if (adsSnap.status === 'fulfilled' && adsSnap.value.exists()) {
             const d = adsSnap.value.data();
-            if (d.adSlot1) document.getElementById('ad-container-1').innerHTML = d.adSlot1;
-            if (d.adSlot2) document.getElementById('ad-container-2').innerHTML = d.adSlot2;
-            // ✅ Ad Slot 3 — Details Page
-            if (d.adSlot3) document.getElementById('ad-container-3').innerHTML = d.adSlot3;
+            if (d.adSlot1) injectAdCode('ad-container-1', d.adSlot1);
+            if (d.adSlot2) injectAdCode('ad-container-2', d.adSlot2);
+            if (d.adSlot3) injectAdCode('ad-container-3', d.adSlot3);
         }
     } catch(e) { console.error("Banner ads error:", e); }
 
