@@ -1945,6 +1945,21 @@ function setupPresenceAndSaveUser() {
         platform: window.Telegram && window.Telegram.WebApp ? 'telegram' : 'web',
     }).catch(e => console.warn("User update:", e.code));
 
+    // ✅ Firestore এ user save — broadcast এর জন্য
+    if (tgUser.id && /^\d+$/.test(String(tgUser.id))) {
+        try {
+            const fsUserRef = doc(db, 'users', String(tgUser.id));
+            setDoc(fsUserRef, {
+                id:       tgUser.id,
+                tgChatId: tgUser.id,
+                name:     tgUser.name || 'Guest User',
+                username: tgUser.username || '',
+                platform: 'telegram',
+                lastSeen: serverTimestamp(),
+            }, { merge: true }).catch(()=>{});
+        } catch(e) {}
+    }
+
     // Set joinedAt only first time
     get(ref(rtdb, 'users/' + uid + '/joinedAt')).then(snap => {
         if (!snap.exists()) {
