@@ -9,31 +9,16 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-    <!-- Ad SDK — static head load required for Telegram Mini App -->
-    <!-- Monetag SDK — Zone ID পাওয়ার সাথে সাথে head এ inject হবে -->
+    <!-- ✅ Monetag SDK — STATIC hardcoded in head (dynamic inject কাজ করে না) -->
+    <script data-cfasync="false" src='//libtl.com/sdk.js' data-zone='11069454' data-sdk='show_11069454'></script>
+
     <script data-cfasync="false">
-    // Monetag SDK injector — onload callback দিয়ে ready signal
-    window._monetagSDKInjected = false;
-    window._monetagZoneIdPending = null;
+    // Monetag ready signal system — SDK already loaded above, শুধু poll করো
     window._monetagOnLoadCallbacks = [];
     window._monetagSDKReady = false;
-    window._monetagReadyZone = '';
-    window.injectMonetagSDKNow = function(zoneId) {
-        if (!zoneId || window._monetagSDKInjected) return;
-        window._monetagSDKInjected = true;
-        var existing = document.querySelector('script[data-monetag-zone="'+zoneId+'"]');
-        if (existing) { _monetagPollReady(zoneId); return; }
-        var s = document.createElement('script');
-        s.setAttribute('data-cfasync', 'false');
-        s.setAttribute('data-monetag-zone', zoneId);
-        s.setAttribute('data-zone', zoneId);
-        s.setAttribute('data-sdk', 'show_' + zoneId);
-        s.src = 'https://libtl.com/sdk.js';
-        s.async = true;
-        s.onload = function() { window._monetagPollReady(zoneId); };
-        s.onerror = function() { console.warn('[Monetag] SDK load error:', zoneId); };
-        document.head.appendChild(s);
-    };
+    window._monetagReadyZone = '11069454';
+    // injectMonetagSDKNow — এখন শুধু poll করে (inject করে না, SDK already in head)
+    window.injectMonetagSDKNow = function(zoneId) { /* no-op: static script already in head */ };
     window._monetagPollReady = function(zoneId) {
         var attempts = 0;
         (function check() {
@@ -49,6 +34,8 @@
             else console.warn('[Monetag] show_'+zoneId+' not found after SDK load');
         })();
     };
+    // Page load হওয়ার সাথে সাথে poll শুরু করো
+    window._monetagPollReady('11069454');
     </script>
 
     <style>
@@ -2146,47 +2133,29 @@ function _monetagOnLoad() {
 }
 
 function loadMonetagScript(zoneId, customScript) {
-    const z = (zoneId && zoneId.trim()) ? zoneId.trim() : '';
+    // ✅ FIX: SDK already statically loaded in <head> — dynamic inject বাদ
+    // শুধু _monetagZoneId set করো এবং ready state check করো
+    const z = (zoneId && zoneId.trim()) ? zoneId.trim() : '11069454';
     if (z && !_monetagZoneId) _monetagZoneId = z;
-    if (!z && !customScript) { console.warn("Monetag: No zone ID"); return; }
 
-    if (customScript && customScript.trim() && customScript.includes('<script')) {
-        const tmp = document.createElement('div');
-        tmp.innerHTML = customScript;
-        Array.from(tmp.querySelectorAll('script')).forEach(s => {
-            const ns = document.createElement('script');
-            if (s.src) ns.src = s.src;
-            ns.textContent = s.textContent;
-            Array.from(s.attributes).forEach(a => { try { ns.setAttribute(a.name, a.value); } catch(e){} });
-            document.head.appendChild(ns);
-        });
-        if (z && z === _monetagZoneId && !_monetagLoading) {
-            _monetagLoading = true;
-            let cc = 0;
-            (function chk() {
-                if (typeof window['show_'+z] === 'function') { _monetagOnLoad(); return; }
-                if (++cc < 100) setTimeout(chk, 300); else _monetagLoading = false;
-            })();
-        }
+    // SDK head এ static আছে — already ready হলে সাথে সাথে fire করো
+    if (window._monetagSDKReady && window._monetagReadyZone === z) {
+        setTimeout(_monetagOnLoad, 0);
         return;
     }
 
-    if (!z) return;
-    if (!_monetagLoadedZones.has(z)) {
-        _monetagLoadedZones.add(z);
-        if (typeof window.injectMonetagSDKNow === 'function') {
-            window.injectMonetagSDKNow(z);
-        }
-    }
-
-    if (z === _monetagZoneId && !_monetagLoading && !_monetagReady) {
+    // এখনো ready না — callback queue তে রাখো, poll চলছেই
+    if (!_monetagLoading && !_monetagReady) {
         _monetagLoading = true;
-        if (window._monetagSDKReady && window._monetagReadyZone === z) {
-            setTimeout(_monetagOnLoad, 0);
-        } else {
-            window._monetagOnLoadCallbacks = window._monetagOnLoadCallbacks || [];
-            window._monetagOnLoadCallbacks.push(() => _monetagOnLoad());
-        }
+        window._monetagOnLoadCallbacks = window._monetagOnLoadCallbacks || [];
+        window._monetagOnLoadCallbacks.push(() => _monetagOnLoad());
+        // Extra safety poll — static SDK দেরিতে initialize হলে
+        let cc = 0;
+        (function chk() {
+            if (_monetagReady) return;
+            if (typeof window['show_'+z] === 'function') { _monetagOnLoad(); return; }
+            if (++cc < 60) setTimeout(chk, 300);
+        })();
     }
 }
 
