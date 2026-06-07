@@ -2110,7 +2110,7 @@ let _monetagReady    = false;
 let _monetagZoneId   = ''; // primary zone (global Ad 2)
 let _monetagReadyCbs = [];
 let _monetagLoading  = false;
-const _monetagLoadedZones = new Set(); // কোন zone গুলো inject হয়েছে track
+const _monetagLoadedZones = new Set();
 
 function onMonetagReady(cb) {
     if (_monetagReady) { cb(); return; }
@@ -2125,19 +2125,11 @@ function _monetagOnLoad() {
     }, 500);
 }
 
-// ✅ FIXED: multiple zone ID support — primary + extra + per-post zones
 function loadMonetagScript(zoneId, customScript) {
     const z = (zoneId && zoneId.trim()) ? zoneId.trim() : '';
-
-    // Primary zone ID set করো (প্রথমবার)
     if (z && !_monetagZoneId) _monetagZoneId = z;
+    if (!z && !customScript) { console.warn("Monetag: No zone ID"); return; }
 
-    if (!z && !customScript) {
-        console.warn("Monetag: No zone ID configured in admin panel");
-        return;
-    }
-
-    // custom script inject
     if (customScript && customScript.trim() && customScript.includes('<script')) {
         const tmp = document.createElement('div');
         tmp.innerHTML = customScript;
@@ -2151,25 +2143,21 @@ function loadMonetagScript(zoneId, customScript) {
         if (z && z === _monetagZoneId && !_monetagLoading) {
             _monetagLoading = true;
             let cc = 0;
-            (function chkCust() {
+            (function chk() {
                 if (typeof window['show_'+z] === 'function') { _monetagOnLoad(); return; }
-                if (++cc < 100) setTimeout(chkCust, 300);
-                else _monetagLoading = false;
+                if (++cc < 100) setTimeout(chk, 300); else _monetagLoading = false;
             })();
         }
         return;
     }
 
     if (!z) return;
-
-    // ইতিমধ্যে inject হয়ে গেলে duplicate করো না
     if (!_monetagLoadedZones.has(z)) {
         _monetagLoadedZones.add(z);
-        // Primary zone এর জন্য early injector ব্যবহার
         if (z === _monetagZoneId && typeof window.injectMonetagSDKNow === 'function' && !window._monetagSDKInjected) {
             window.injectMonetagSDKNow(z);
         } else {
-            const existing = document.querySelector(`script[data-zone="${z}"]`);
+            const existing = document.querySelector('script[data-zone="'+z+'"]');
             if (!existing) {
                 const s = document.createElement('script');
                 s.setAttribute('data-cfasync', 'false');
@@ -2182,7 +2170,6 @@ function loadMonetagScript(zoneId, customScript) {
         }
     }
 
-    // Primary zone ready polling (শুধু primary zone এর জন্য)
     if (z === _monetagZoneId && !_monetagLoading && !_monetagReady) {
         _monetagLoading = true;
         let checks = 0;
@@ -2664,15 +2651,16 @@ function renderFiles() {
         setTimeout(() => { card.style.opacity = '1'; }, 500 + i * 40);
 
         // ── Sponsor Post injection ──
-        // প্রতি `interval` টা video card এর পরে পরের sponsor post দেখায়
+        // After every `interval` posts, insert the next sponsor post
         if (_sponsorPosts.length > 0) {
-            const spIdx    = sponsorIdx % _sponsorPosts.length;
-            const sp       = _sponsorPosts[spIdx];
-            const interval = Math.max(1, parseInt(sp.interval) || 4);
-            // i is 0-indexed; (i+1) % interval === 0 মানে interval-th, 2×interval-th, ... video এর পরে insert
+            const sp = _sponsorPosts[sponsorIdx % _sponsorPosts.length];
+            const interval = parseInt(sp.interval) || 4;
+            // insert after post number: interval, interval*2, ...
+            // i is 0-indexed, so check (i+1) % interval === 0
             if ((i + 1) % interval === 0) {
                 const spCard = buildSponsorCard(sp);
-                spCard.style.gridColumn = '1 / -1'; // full width
+                // Sponsor card spans full width
+                spCard.style.gridColumn = '1 / -1';
                 grid.appendChild(spCard);
                 sponsorIdx++;
             }
@@ -2710,14 +2698,11 @@ function buildSponsorCard(sp) {
     }
 
     const video = document.createElement('video');
-    if (safeVideo) video.src = safeVideo;
+    video.src = safeVideo;
     video.className = 'w-full h-full object-cover';
-    video.autoplay = true; video.muted = true; video.loop = true; video.playsInline = true;
+    video.autoplay = true; video.muted = true; video.loop = true;
     video.setAttribute('playsinline', '');
     video.style.display = 'block';
-    // autoplay error handle — user interaction না থাকলে muted দিয়ে retry
-    video.addEventListener('error', () => { video.load(); });
-    video.play().catch(() => { video.muted = true; video.play().catch(() => {}); });
     videoWrap.appendChild(video);
 
     if (safeTitle) {
@@ -2799,6 +2784,25 @@ window.openDetails = (id) => {
     const dv = document.getElementById('details-view');
     dv.classList.remove('hidden'); dv.classList.add('flex');
     dv.querySelector('.flex-1').scrollTop = 0;
+
+    // ── Position-based auto ads ────────────────────────────────────────
+    // on_open: post খোলার সাথে সাথে background এ চলবে
+    const count2x = parseInt(localStorage.getItem('adCount_'+id))||0;
+    const req2x   = parseInt(file.requiredAds)||2;
+    const isUnlocked2x = count2x >= req2x;
+
+    // on_open → সবসময় (locked বা unlocked উভয়ক্ষেত্রে)
+    setTimeout(() => runPositionAds(id, 'on_open'), 500);
+
+    // before_unlock → শুধু locked অবস্থায়, post open হলে
+    if (!isUnlocked2x) {
+        setTimeout(() => runPositionAds(id, 'before_unlock'), 800);
+    }
+
+    // after_unlock → শুধু unlocked অবস্থায়, post open হলে
+    if (isUnlocked2x) {
+        setTimeout(() => runPositionAds(id, 'after_unlock'), 800);
+    }
     // Show guide for locked videos
     const count2 = parseInt(localStorage.getItem(`adCount_${id}`))||0;
     const req2   = parseInt(file.requiredAds)||2;
@@ -2976,85 +2980,94 @@ function showStage(id) {
 function openOverlay()  { document.getElementById('ad-overlay').classList.remove('hidden'); }
 function closeOverlay() { document.getElementById('ad-overlay').classList.add('hidden'); }
 
-// Admin settings থেকে ad slot list তৈরি (global + extra + per-post)
-function buildAdSlots(fileId) {
+// Admin settings থেকে ad slot list তৈরি
+// position filter: 'before_unlock' | 'after_unlock' | 'on_open' | '' (default=unlock flow)
+function buildAdSlots(fileId, positionFilter) {
     const slots = [];
+    // positionFilter falsy = unlock flow (global + extra + per-post default)
+    const isUnlockFlow = !positionFilter;
 
-    // ── ① Global Slots (Ad Flow > Ad 1, Ad 2) ───────────────────────────
-    if (adSettings.adsgramEnabled && adSettings.adsgramBlockId) {
-        slots.push({ type: 'adsgram', blockId: adSettings.adsgramBlockId, _src: 'global' });
-    }
-    if (adSettings.monetagEnabled && (adSettings.monetagZoneId || adSettings.monetagCustomScript)) {
-        slots.push({ type: 'monetag', zoneId: adSettings.monetagZoneId || _monetagZoneId, _src: 'global' });
-    }
+    // ── ① Global Slots — শুধু unlock flow এ ──────────────────────────
+    if (isUnlockFlow) {
+        if (adSettings.adsgramEnabled && adSettings.adsgramBlockId) {
+            slots.push({ type: 'adsgram', blockId: adSettings.adsgramBlockId, _src: 'global' });
+        }
+        if (adSettings.monetagEnabled && (adSettings.monetagZoneId || adSettings.monetagCustomScript)) {
+            slots.push({ type: 'monetag', zoneId: adSettings.monetagZoneId || _monetagZoneId, _src: 'global' });
+        }
 
-    // ── ② Extra Slots (Ad Flow > Extra Ad Slots) — global এর পরে ───────
-    if (adSettings.extraSlots && Array.isArray(adSettings.extraSlots)) {
-        adSettings.extraSlots.forEach(s => {
-            if (!s || !s.type) return;
-            if (s.type === 'adsgram') {
-                const blockId = (s.blockId && s.blockId.trim()) ? s.blockId.trim() : adSettings.adsgramBlockId;
-                if (blockId && adSettings.adsgramEnabled) {
-                    slots.push({ type: 'adsgram', blockId, _src: 'extra' });
-                }
-            } else if (s.type === 'monetag') {
-                const zoneId = (s.zoneId && s.zoneId.trim())
-                    ? s.zoneId.trim()
-                    : (adSettings.monetagZoneId || _monetagZoneId);
-                if (zoneId && adSettings.monetagEnabled) {
-                    // Extra monetag zone এর জন্য SDK preload
-                    if (zoneId !== adSettings.monetagZoneId && zoneId !== _monetagZoneId) {
-                        loadMonetagScript(zoneId, '');
-                    }
-                    slots.push({ type: 'monetag', zoneId, _src: 'extra' });
-                }
-            }
-        });
-    }
-
-    // ── ③ Per-Post Slots (Videos > প্রতিটা Video) — global+extra এর পরে ─
-    if (fileId) {
-        const file = allFiles.find(f => f.id === fileId);
-        if (file && Array.isArray(file.postAdSlots) && file.postAdSlots.length) {
-            file.postAdSlots.forEach(s => {
+        // ── ② Extra Slots — unlock flow এ global এর পরে ──────────────
+        if (adSettings.extraSlots && Array.isArray(adSettings.extraSlots)) {
+            adSettings.extraSlots.forEach(s => {
                 if (!s || !s.type) return;
-                // inactive slots skip
-                if (s.active === false) return;
-
                 if (s.type === 'adsgram') {
-                    // নিজস্ব blockId দেওয়া থাকলে সেটা ব্যবহার, না হলে global
-                    const blockId = (s.blockId && s.blockId.trim())
-                        ? s.blockId.trim()
-                        : adSettings.adsgramBlockId;
-                    if (blockId && adSettings.adsgramEnabled) {
-                        slots.push({ type: 'adsgram', blockId, _src: 'post' });
-                    }
+                    const blockId = (s.blockId && s.blockId.trim()) ? s.blockId.trim() : adSettings.adsgramBlockId;
+                    if (blockId && adSettings.adsgramEnabled)
+                        slots.push({ type: 'adsgram', blockId, _src: 'extra' });
                 } else if (s.type === 'monetag') {
-                    // নিজস্ব zoneId দেওয়া থাকলে সেটা ব্যবহার, না হলে global
-                    const zoneId = (s.zoneId && s.zoneId.trim())
-                        ? s.zoneId.trim()
-                        : (adSettings.monetagZoneId || _monetagZoneId);
-                    if (zoneId && adSettings.monetagEnabled) {
-                        // Per-post monetag zone এর জন্য SDK preload
-                        if (zoneId !== adSettings.monetagZoneId && zoneId !== _monetagZoneId) {
-                            loadMonetagScript(zoneId, '');
-                        }
-                        slots.push({ type: 'monetag', zoneId, _src: 'post' });
-                    }
+                    const zoneId = (s.zoneId && s.zoneId.trim()) ? s.zoneId.trim() : (adSettings.monetagZoneId || _monetagZoneId);
+                    if (zoneId && adSettings.monetagEnabled)
+                        slots.push({ type: 'monetag', zoneId, _src: 'extra' });
                 }
             });
         }
     }
 
-    // কোনো slot না থাকলে global monetag fallback
-    if (!slots.length) {
-        const fallbackZone = adSettings.monetagZoneId || _monetagZoneId;
-        if (fallbackZone) {
-            slots.push({ type: 'monetag', zoneId: fallbackZone, _src: 'fallback' });
+    // ── ③ Per-Post Slots — position দিয়ে filter ──────────────────────
+    if (fileId) {
+        const file = allFiles.find(f => f.id === fileId);
+        if (file && Array.isArray(file.postAdSlots) && file.postAdSlots.length) {
+            file.postAdSlots.forEach(s => {
+                if (!s || !s.type || s.active === false) return;
+                const slotPos = s.position || ''; // '', 'before_unlock', 'after_unlock', 'on_open'
+
+                // Position match চেক:
+                // - isUnlockFlow → position ফাঁকা বা unrecognized গুলো নাও
+                // - নির্দিষ্ট positionFilter → ঠিক সেই position এর slot নাও
+                const matches = isUnlockFlow
+                    ? (!slotPos || (slotPos !== 'before_unlock' && slotPos !== 'after_unlock' && slotPos !== 'on_open'))
+                    : (slotPos === positionFilter);
+
+                if (!matches) return;
+
+                if (s.type === 'adsgram') {
+                    const blockId = (s.blockId && s.blockId.trim()) ? s.blockId.trim() : adSettings.adsgramBlockId;
+                    if (blockId && adSettings.adsgramEnabled)
+                        slots.push({ type: 'adsgram', blockId, _src: 'post', _pos: slotPos });
+                } else if (s.type === 'monetag') {
+                    const zoneId = (s.zoneId && s.zoneId.trim()) ? s.zoneId.trim() : (adSettings.monetagZoneId || _monetagZoneId);
+                    if (zoneId && adSettings.monetagEnabled)
+                        slots.push({ type: 'monetag', zoneId, _src: 'post', _pos: slotPos });
+                }
+            });
         }
     }
 
+    // unlock flow তে কোনো slot না থাকলে fallback
+    if (isUnlockFlow && !slots.length) {
+        const fz = adSettings.monetagZoneId || _monetagZoneId;
+        if (fz) slots.push({ type: 'monetag', zoneId: fz, _src: 'fallback' });
+    }
     return slots;
+}
+
+// position-based auto ad চালাও (before_unlock / after_unlock / on_open)
+async function runPositionAds(fileId, position) {
+    const slots = buildAdSlots(fileId, position);
+    if (!slots.length) return; // এই position এ কোনো ad নেই
+
+    for (const slot of slots) {
+        try {
+            if (slot.type === 'adsgram') {
+                await showAdsgramAd(slot.blockId);
+            } else {
+                await showMonetagAd(slot.zoneId);
+            }
+        } catch(e) {
+            // position-based ad fail হলে silently skip — user experience নষ্ট করবে না
+            console.warn('Position ad failed:', position, e.message);
+        }
+    }
 }
 
 // Dot indicator update
@@ -3102,18 +3115,12 @@ async function showMonetagAd(zoneId) {
     return new Promise((resolve, reject) => {
         const z = (zoneId && zoneId.trim()) ? zoneId.trim() : (_monetagZoneId || '');
         if (!z) { reject(new Error('No Monetag zone ID')); return; }
-
         let settled = false;
         function done(ok, err) {
             if (settled) return; settled = true;
             ok ? resolve() : reject(err || new Error('Ad failed'));
         }
-
-        // zone টা inject হয়নি থাকলে এখনই inject করো
-        if (!_monetagLoadedZones.has(z)) {
-            loadMonetagScript(z, '');
-        }
-
+        if (!_monetagLoadedZones.has(z)) loadMonetagScript(z, '');
         let attempts = 0;
         function tryCall() {
             attempts++;
@@ -3124,7 +3131,6 @@ async function showMonetagAd(zoneId) {
                     if (ret && typeof ret.then === 'function') {
                         ret.then(() => done(true)).catch(e => done(false, e));
                     } else {
-                        // Non-promise — SDK নিজেই manage করে, 3s অপেক্ষা
                         setTimeout(() => done(true), 3000);
                     }
                 } catch(e) { done(false, e); }
@@ -3150,6 +3156,8 @@ function _returnToPostPage(newCount) {
         updateDetailButtonState(file);
         document.getElementById('detail-downloads').textContent = formatNumber(file.downloads||0);
         showToast('🎉 Unlocked! You can now download.');
+        // after_unlock position ads চালাও
+        setTimeout(() => runPositionAds(_adFileId, 'after_unlock'), 500);
     } else {
         // আরো round বাকী — পোস্ট পেজে count আপডেট দেখাবে
         updateDetailButtonState(file);
@@ -3201,6 +3209,7 @@ window._adFlow = {
                 : 'Ad চলছে...';
 
         const slot = _adSlots[_adIndex];
+
         try {
             if (slot.type === 'adsgram') {
                 await showAdsgramAd(slot.blockId);
@@ -3216,10 +3225,12 @@ window._adFlow = {
                 // আরো ad বাকী — পরের ad দেখাও
                 this._showWatchStage();
             } else {
-                // এই round-এর সব ad শেষ — count সেভ + পোস্ট পেজে ফেরা
+                // সব ad সফলভাবে শেষ — তবেই count save
                 await this._saveCountAndReturn();
             }
         } catch(e) {
+            // ❌ যেকোনো ad fail হলে count save হবে না — retry দেখাও
+            // Rule: সব ad সম্পূর্ণ হলেই একটা round গণনা হবে
             console.error('Ad error:', e);
             const errBox = document.getElementById('ad-error-box');
             const errMsg = document.getElementById('ad-error-msg');
