@@ -3146,23 +3146,33 @@ async function showAdsgramAd(blockId) {
                 blockId: String(blockId),
                 onReward: () => {
                     rewarded = true;
-                    done(true); // ✅ reward পেয়েছি — success
+                    done(true); // reward পেয়েছি — success
                 },
                 onError: (r) => {
-                    if (!rewarded) done(false, new Error(r?.description || 'Ad error'));
-                    // rewarded হলে error ignore — success already done
+                    if (rewarded) return; // already done
+                    const desc = r?.description || r?.message || String(r || '');
+                    // ✅ FIX: Rate-limit ("too often") error — reject with clear message
+                    const isRateLimit = desc.toLowerCase().includes('too often') ||
+                                        desc.toLowerCase().includes('rate') ||
+                                        desc.toLowerCase().includes('limit');
+                    const errMsg = isRateLimit
+                        ? '⏳ Please wait a few seconds before watching another ad.'
+                        : (desc || 'Ad error');
+                    done(false, new Error(errMsg));
                 },
             });
 
-            // ctrl.show() promise —
-            // resolve: ad window বন্ধ হলো (reward পেতে পারে বা না পেতে পারে)
+            // ctrl.show() promise:
+            // resolve: ad window বন্ধ হলো
             // reject:  show করতেই ব্যর্থ
             ctrl.show().then(() => {
-                // onReward আগে এলে settled=true, done() নিষ্ক্রিয়
-                // onReward না আসলে মানে skip/close — fail
-                if (!rewarded) done(false, new Error('Ad closed without reward'));
+                // ✅ FIX: Telegram WebView তে onReward সবসময় আসে না।
+                // Ad window বন্ধ হলে (show resolves) — reward না আসলেও success ধরো।
+                // Rate-limit/error case এ onError আগেই done(false) করে দেয়,
+                // তাই settled=true হলে এখানে done() কাজ করবে না।
+                if (!settled) done(true);
             }).catch(e => {
-                if (!rewarded) done(false, e);
+                if (!rewarded && !settled) done(false, e);
             });
 
         } catch(e) { reject(e); }
@@ -3343,12 +3353,16 @@ window._adFlow = {
                 await this._saveCountAndReturn();
             }
         } catch(e) {
-            window._watchRunning = false; // ✅ error তেও lock খোলো
+            window._watchRunning = false; // error তেও lock খোলো
             console.error('Ad error:', e);
             showStage('stage-watch');
             const errBox = document.getElementById('ad-error-box');
-            const errMsg = document.getElementById('ad-error-msg');
-            if (errMsg) errMsg.textContent = 'Ad failed. Please try again.';
+            const errMsgEl = document.getElementById('ad-error-msg');
+            const slot = _adSlots[_adIndex];
+            const adType = slot ? (slot.type === 'adsgram' ? 'Adsgram' : 'Monetag') : 'Ad';
+            // ✅ Show the actual SDK error message (e.g. rate-limit, timeout)
+            const displayMsg = e?.message || `${adType} Ad ${_adIndex + 1} failed. Please try again.`;
+            if (errMsgEl) errMsgEl.textContent = displayMsg;
             if (errBox) errBox.classList.remove('hidden');
             if (btn) btn.disabled = false;
         }
