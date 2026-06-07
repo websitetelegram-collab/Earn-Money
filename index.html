@@ -1909,24 +1909,29 @@ try {
             tgUser.username = u.username || null;
             tgUser.photoUrl = u.photo_url || null;
         }
-        // ✅ Telegram start_param থেকে deep link — file_XXX
+        // ✅ Telegram start_param থেকে deep link — post_XXX বা file_XXX
         const startParam = tg.initDataUnsafe?.start_param || '';
-        if (startParam.startsWith('file_')) {
+        if (startParam.startsWith('post_')) {
+            _deepLinkFileId = startParam.replace('post_', '');
+        } else if (startParam.startsWith('file_')) {
             _deepLinkFileId = startParam.replace('file_', '');
         }
     }
 } catch(e) {}
 
-// URL query / hash থেকেও deep link check করো (?start=file_XXX বা #file_XXX)
+// URL query / hash থেকেও deep link check করো (?startapp=post_XXX বা ?start=post_XXX)
 if (!_deepLinkFileId) {
     try {
         const urlParams = new URLSearchParams(window.location.search);
-        const startQ = urlParams.get('start') || urlParams.get('tgWebAppStartParam') || '';
-        if (startQ.startsWith('file_')) {
+        const startQ = urlParams.get('startapp') || urlParams.get('start') || urlParams.get('tgWebAppStartParam') || '';
+        if (startQ.startsWith('post_')) {
+            _deepLinkFileId = startQ.replace('post_', '');
+        } else if (startQ.startsWith('file_')) {
             _deepLinkFileId = startQ.replace('file_', '');
         } else if (window.location.hash) {
             const h = window.location.hash.replace('#','');
-            if (h.startsWith('file_')) _deepLinkFileId = h.replace('file_', '');
+            if (h.startsWith('post_')) _deepLinkFileId = h.replace('post_', '');
+            else if (h.startsWith('file_')) _deepLinkFileId = h.replace('file_', '');
         }
     } catch(e) {}
 }
@@ -2977,10 +2982,12 @@ function updateDetailButtonState(file) {
 window.shareFile = (fileId) => {
     const fid = fileId||currentFileId;
     if (!fid) return;
-    const bot = window._appSettings?.botUsername||'';
-    // ✅ FIX 2: সবসময় বট লিংক শেয়ার হবে — ওয়েবসাইট URL কখনো যাবে না
+    const bot      = window._appSettings?.botUsername || '';
+    const appShort = window._appSettings?.appShortName || '';
     if (!bot) { showToast('⚠️ Bot username not set!'); return; }
-    const url = `https://t.me/${bot}?start=file_${fid}`;
+    const url = bot && appShort
+        ? `https://t.me/${bot}/${appShort}?startapp=post_${fid}`
+        : `https://t.me/${bot}?start=post_${fid}`;
     const title = document.getElementById('detail-title')?.textContent || '';
     if (navigator.share) { navigator.share({ title, url }).catch(()=>{}); }
     else { navigator.clipboard?.writeText(url).then(()=>showToast('🔗 Bot link copied!')); }
