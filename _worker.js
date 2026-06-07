@@ -39,6 +39,6 @@ export default {
         return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { ...cors, 'Content-Type': 'application/json' } });
       }
     }
-    return env.ASSETS.fetch(request);
+    return fetch(request);
   }
 };
