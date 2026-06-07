@@ -10,7 +10,26 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
     <!-- Ad SDK — static head load required for Telegram Mini App -->
-    <!-- Monetag SDK — Zone ID admin থেকে dynamically load হবে, নিচের JS দেখুন -->
+    <!-- Monetag SDK — Zone ID পাওয়ার সাথে সাথে head এ inject হবে -->
+    <script data-cfasync="false">
+    // Monetag SDK early injector — Firebase থেকে zone ID পেলে সরাসরি head এ বসাবে
+    window._monetagSDKInjected = false;
+    window._monetagZoneIdPending = null;
+    window.injectMonetagSDKNow = function(zoneId) {
+        if (!zoneId || window._monetagSDKInjected) return;
+        window._monetagSDKInjected = true;
+        var existing = document.querySelector('script[data-monetag-zone]');
+        if (existing) return;
+        var s = document.createElement('script');
+        s.setAttribute('data-cfasync', 'false');
+        s.setAttribute('data-monetag-zone', zoneId);
+        s.setAttribute('data-zone', zoneId);
+        s.setAttribute('data-sdk', 'show_' + zoneId);
+        s.src = '//libtl.com/sdk.js';
+        s.async = false; // blocking — এটা important
+        document.head.appendChild(s);
+    };
+    </script>
 
     <style>
         .hide-scrollbar::-webkit-scrollbar { display: none; }
@@ -2134,34 +2153,40 @@ function loadMonetagScript(zoneId, customScript) {
             document.head.appendChild(ns);
         });
     } else if (_monetagZoneId) {
-        // ✅ FIX: Zone ID দিয়ে dynamically SDK load করো
-        const existing = document.querySelector(`script[data-zone="${_monetagZoneId}"]`);
-        if (!existing) {
-            const s = document.createElement('script');
-            s.setAttribute('data-cfasync', 'false');
-            s.src = '//libtl.com/sdk.js';
-            s.setAttribute('data-zone', _monetagZoneId);
-            s.setAttribute('data-sdk', `show_${_monetagZoneId}`);
-            s.async = true;
-            document.head.appendChild(s);
+        // ✅ FIX: early injector ব্যবহার করো (head এ blocking mode এ বসাবে)
+        if (typeof window.injectMonetagSDKNow === 'function') {
+            window.injectMonetagSDKNow(_monetagZoneId);
+        } else {
+            // Fallback: manually inject
+            const existing = document.querySelector(`script[data-zone="${_monetagZoneId}"]`);
+            if (!existing) {
+                const s = document.createElement('script');
+                s.setAttribute('data-cfasync', 'false');
+                s.src = '//libtl.com/sdk.js';
+                s.setAttribute('data-zone', _monetagZoneId);
+                s.setAttribute('data-sdk', `show_${_monetagZoneId}`);
+                s.async = false;
+                document.head.appendChild(s);
+            }
         }
     }
 
-    // Poll every 300ms up to 20s for the function to appear
+    // Poll every 300ms up to 30s for the function to appear
     let checks = 0;
     function checkReady() {
         const z = _monetagZoneId;
+        // show_ZONEID function চেক করো
         const fn = window[`show_${z}`];
         if (typeof fn === 'function') {
             _monetagOnLoad();
             return;
         }
         checks++;
-        if (checks < 66) { // 66 × 300ms = ~20s
+        if (checks < 100) { // 100 × 300ms = 30s
             setTimeout(checkReady, 300);
         } else {
             _monetagLoading = false;
-            console.warn('Monetag: show_' + z + ' not found after 20s');
+            console.warn('Monetag: show_' + z + ' not found after 30s');
         }
     }
     checkReady();
@@ -2335,6 +2360,12 @@ async function loadData() {
     // Load Adsgram script (non-blocking)
     if (adSettings.adsgramEnabled) {
         loadAdsgramScript(adSettings.adsgramScriptUrl).catch(e => console.warn("⚠️ Adsgram:", e));
+    }
+    // ✅ FIX: Monetag SDK — zone ID পাওয়ার সাথে সাথে HEAD এ inject করো
+    if (adSettings.monetagEnabled && adSettings.monetagZoneId) {
+        if (typeof window.injectMonetagSDKNow === 'function') {
+            window.injectMonetagSDKNow(adSettings.monetagZoneId);
+        }
     }
     // Load Monetag script (non-blocking)
     if (adSettings.monetagEnabled && (adSettings.monetagZoneId || adSettings.monetagCustomScript)) {
