@@ -12,28 +12,26 @@
     <!-- Ad SDK — static head load required for Telegram Mini App -->
     <!-- Monetag SDK — Zone ID পাওয়ার সাথে সাথে head এ inject হবে -->
     <script data-cfasync="false">
-    // Monetag SDK injector — Firebase থেকে zone ID পেলে head এ বসাবে + onload দিয়ে ready signal দেবে
+    // Monetag SDK injector — onload callback দিয়ে ready signal
     window._monetagSDKInjected = false;
     window._monetagZoneIdPending = null;
     window._monetagOnLoadCallbacks = [];
+    window._monetagSDKReady = false;
+    window._monetagReadyZone = '';
     window.injectMonetagSDKNow = function(zoneId) {
         if (!zoneId || window._monetagSDKInjected) return;
         window._monetagSDKInjected = true;
         var existing = document.querySelector('script[data-monetag-zone="'+zoneId+'"]');
-        if (existing) {
-            // Script already exists — just poll for readiness
-            _monetagPollReady(zoneId);
-            return;
-        }
+        if (existing) { _monetagPollReady(zoneId); return; }
         var s = document.createElement('script');
         s.setAttribute('data-cfasync', 'false');
         s.setAttribute('data-monetag-zone', zoneId);
         s.setAttribute('data-zone', zoneId);
         s.setAttribute('data-sdk', 'show_' + zoneId);
-        s.src = 'https://libtl.com/sdk.js'; // https — Telegram Mini App এ http block হয়
+        s.src = 'https://libtl.com/sdk.js';
         s.async = true;
-        s.onload = function() { _monetagPollReady(zoneId); };
-        s.onerror = function() { console.warn('[Monetag] SDK load error for zone:', zoneId); };
+        s.onload = function() { window._monetagPollReady(zoneId); };
+        s.onerror = function() { console.warn('[Monetag] SDK load error:', zoneId); };
         document.head.appendChild(s);
     };
     window._monetagPollReady = function(zoneId) {
@@ -42,16 +40,15 @@
             if (typeof window['show_'+zoneId] === 'function') {
                 window._monetagSDKReady = true;
                 window._monetagReadyZone = zoneId;
-                window._monetagOnLoadCallbacks.forEach(function(cb){ try{ cb(); }catch(e){} });
+                var cbs = window._monetagOnLoadCallbacks;
                 window._monetagOnLoadCallbacks = [];
+                cbs.forEach(function(cb){ try{ cb(); }catch(e){} });
                 return;
             }
-            if (++attempts < 60) setTimeout(check, 300); // 18s max
+            if (++attempts < 60) setTimeout(check, 300);
             else console.warn('[Monetag] show_'+zoneId+' not found after SDK load');
         })();
     };
-    window._monetagSDKReady = false;
-    window._monetagReadyZone = '';
     </script>
 
     <style>
@@ -2153,7 +2150,6 @@ function loadMonetagScript(zoneId, customScript) {
     if (z && !_monetagZoneId) _monetagZoneId = z;
     if (!z && !customScript) { console.warn("Monetag: No zone ID"); return; }
 
-    // customScript path (admin থেকে raw script দেওয়া থাকলে)
     if (customScript && customScript.trim() && customScript.includes('<script')) {
         const tmp = document.createElement('div');
         tmp.innerHTML = customScript;
@@ -2166,30 +2162,29 @@ function loadMonetagScript(zoneId, customScript) {
         });
         if (z && z === _monetagZoneId && !_monetagLoading) {
             _monetagLoading = true;
-            // ✅ window callback system ব্যবহার করো
-            window._monetagOnLoadCallbacks.push(() => _monetagOnLoad());
-            if (!window._monetagSDKInjected) window._monetagPollReady(z);
+            let cc = 0;
+            (function chk() {
+                if (typeof window['show_'+z] === 'function') { _monetagOnLoad(); return; }
+                if (++cc < 100) setTimeout(chk, 300); else _monetagLoading = false;
+            })();
         }
         return;
     }
 
     if (!z) return;
-
-    // ✅ Main path: SDK inject via global injector (onload-based)
     if (!_monetagLoadedZones.has(z)) {
         _monetagLoadedZones.add(z);
         if (typeof window.injectMonetagSDKNow === 'function') {
-            window.injectMonetagSDKNow(z); // internally handles duplicate check
+            window.injectMonetagSDKNow(z);
         }
     }
 
-    // ✅ _monetagOnLoad কে callback এ register করো — polling নয়
     if (z === _monetagZoneId && !_monetagLoading && !_monetagReady) {
         _monetagLoading = true;
         if (window._monetagSDKReady && window._monetagReadyZone === z) {
-            // SDK already ready (fast path)
             setTimeout(_monetagOnLoad, 0);
         } else {
+            window._monetagOnLoadCallbacks = window._monetagOnLoadCallbacks || [];
             window._monetagOnLoadCallbacks.push(() => _monetagOnLoad());
         }
     }
@@ -3102,23 +3097,20 @@ async function showAdsgramAd(blockId) {
     if (!window.Adsgram) throw new Error("Adsgram not loaded");
     return new Promise((resolve, reject) => {
         try {
-            let rewarded = false;
+            let settled = false;
+            function done(ok, err) {
+                if (settled) return; // ✅ double-fire সম্পূর্ণ বন্ধ
+                settled = true;
+                ok ? resolve() : reject(err || new Error('Ad not completed'));
+            }
             const ctrl = window.Adsgram.init({
                 blockId: String(blockId),
-                onReward: () => {
-                    rewarded = true;  // ✅ ad সম্পূর্ণ দেখা হয়েছে
-                    resolve();
-                },
-                onError: (result) => {
-                    // skip/close/error — সব reject
-                    reject(new Error(result?.description || 'Ad not completed'));
-                },
+                onReward: () => done(true),   // ✅ পুরো ad দেখা হয়েছে
+                onError:  (r) => done(false, new Error(r?.description || 'Ad error')),
             });
-            // ctrl.show() — Promise return করে
-            // resolve আগে না হলে reject করো (double-fire safe)
-            ctrl.show().then(() => {
-                if (!rewarded) reject(new Error('Ad closed without reward'));
-            }).catch(reject);
+            // ctrl.show() শুধু UI trigger করে — resolve/reject এর authority নেই
+            // onReward / onError ই একমাত্র decision maker
+            ctrl.show().catch(e => done(false, e));
         } catch(e) { reject(e); }
     });
 }
@@ -3133,53 +3125,32 @@ async function showMonetagAd(zoneId) {
             if (settled) return; settled = true;
             ok ? resolve() : reject(err || new Error('Ad failed'));
         }
-
-        // SDK load না হলে এখনই load করো
         if (!_monetagLoadedZones.has(z)) loadMonetagScript(z, '');
 
         function callShowFn() {
             const fn = window['show_'+z];
-            if (typeof fn !== 'function') {
-                done(false, new Error('Monetag SDK not ready (zone: '+z+')'));
-                return;
-            }
+            if (typeof fn !== 'function') { done(false, new Error('Monetag SDK not ready (zone: '+z+')')); return; }
             try {
                 const ret = fn();
                 if (ret && typeof ret.then === 'function') {
                     ret.then(() => done(true)).catch(e => done(false, e));
                 } else {
-                    // Promise return করে না — 3s পরে success ধরো
                     setTimeout(() => done(true), 3000);
                 }
             } catch(e) { done(false, e); }
         }
 
-        // ✅ SDK ready হলে সরাসরি call, না হলে callback + fallback polling
         if (typeof window['show_'+z] === 'function') {
             callShowFn();
         } else {
-            // Callback system — onload fire হলে তখন call করবো
             let timedOut = false;
-            const timeout = setTimeout(() => {
-                timedOut = true;
-                done(false, new Error('Monetag SDK timeout (zone: '+z+')'));
-            }, 20000);
-
+            const timeout = setTimeout(() => { timedOut = true; done(false, new Error('Monetag SDK timeout (zone: '+z+')')); }, 20000);
             window._monetagOnLoadCallbacks = window._monetagOnLoadCallbacks || [];
-            window._monetagOnLoadCallbacks.push(() => {
-                clearTimeout(timeout);
-                if (!timedOut && !settled) callShowFn();
-            });
-
-            // Fallback polling — callback miss হলে ধরবে
+            window._monetagOnLoadCallbacks.push(() => { clearTimeout(timeout); if (!timedOut) callShowFn(); });
             let polls = 0;
             (function poll() {
                 if (settled || timedOut) return;
-                if (typeof window['show_'+z] === 'function') {
-                    clearTimeout(timeout);
-                    if (!settled) callShowFn();
-                    return;
-                }
+                if (typeof window['show_'+z] === 'function') { clearTimeout(timeout); if (!settled) callShowFn(); return; }
                 if (++polls < 60) setTimeout(poll, 300);
             })();
         }
@@ -3265,18 +3236,18 @@ window._adFlow = {
             updateAdDots();
 
             if (_adIndex < _adSlots.length) {
-                // আরো ad বাকী — পরের ad দেখাও
-                this._showWatchStage();
+                // ✅ আরো ad বাকী — পরের Watch Ad বাটন দেখাও
+                // 300ms delay: Adsgram এর কোনো delayed callback যাতে
+                // এই stage change এর পরে আর trigger না করতে পারে
+                setTimeout(() => this._showWatchStage(), 300);
             } else {
                 // সব ad সফলভাবে শেষ — তবেই count save
                 await this._saveCountAndReturn();
             }
         } catch(e) {
             // ❌ যেকোনো ad fail হলে count save হবে না — retry দেখাও
-            // Rule: সব ad সম্পূর্ণ হলেই একটা round গণনা হবে
             console.error('Ad error:', e);
-            // ✅ stage-watch এ ফেরো যাতে Watch Ad বাটন আবার দেখা যায়
-            showStage('stage-watch');
+            showStage('stage-watch'); // ✅ Watch বাটন আবার দেখাও
             const errBox = document.getElementById('ad-error-box');
             const errMsg = document.getElementById('ad-error-msg');
             if (errMsg) errMsg.textContent = 'Ad failed. Please try again.';
