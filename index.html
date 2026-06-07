@@ -2830,18 +2830,8 @@ window.openDetails = (id) => {
     const req2x   = parseInt(file.requiredAds)||2;
     const isUnlocked2x = count2x >= req2x;
 
-    // on_open → সবসময় (locked বা unlocked উভয়ক্ষেত্রে)
+    // on_open → সবসময় background এ চলবে (silent monetag)
     setTimeout(() => runPositionAds(id, 'on_open'), 500);
-
-    // before_unlock → শুধু locked অবস্থায়, post open হলে
-    if (!isUnlocked2x) {
-        setTimeout(() => runPositionAds(id, 'before_unlock'), 800);
-    }
-
-    // after_unlock → শুধু unlocked অবস্থায়, post open হলে
-    if (isUnlocked2x) {
-        setTimeout(() => runPositionAds(id, 'after_unlock'), 800);
-    }
     // Show guide for locked videos
     const count2 = parseInt(localStorage.getItem(`adCount_${id}`))||0;
     const req2   = parseInt(file.requiredAds)||2;
@@ -3061,10 +3051,10 @@ function buildAdSlots(fileId, positionFilter) {
                 const slotPos = s.position || ''; // '', 'before_unlock', 'after_unlock', 'on_open'
 
                 // Position match চেক:
-                // - isUnlockFlow → position ফাঁকা বা unrecognized গুলো নাও
+                // - isUnlockFlow → blank, before_unlock, after_unlock সব নাও (on_open বাদে)
                 // - নির্দিষ্ট positionFilter → ঠিক সেই position এর slot নাও
                 const matches = isUnlockFlow
-                    ? (!slotPos || (slotPos !== 'before_unlock' && slotPos !== 'after_unlock' && slotPos !== 'on_open'))
+                    ? (!slotPos || slotPos === 'before_unlock' || slotPos === 'after_unlock')
                     : (slotPos === positionFilter);
 
                 if (!matches) return;
