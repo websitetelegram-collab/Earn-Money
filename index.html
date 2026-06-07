@@ -3186,9 +3186,10 @@ window._adFlow = {
     start(fileId, req) {
         _adFileId   = fileId;
         _adRequired = req;
-        _adSlots    = buildAdSlots(fileId); // per-post slots included
+        _adSlots    = buildAdSlots(fileId);
         _adIndex    = 0;
         _adsDone    = 0;
+        window._watchRunning = false; // ✅ fresh start এ lock reset
         openOverlay();
         this._showWatchStage();
     },
@@ -3211,6 +3212,10 @@ window._adFlow = {
 
     // প্রতিটা ad চালানো
     async watchNext() {
+        // ✅ Double-call সম্পূর্ণ বন্ধ — ad চলাকালীন আবার call এলে ignore
+        if (window._watchRunning) return;
+        window._watchRunning = true;
+
         const btn = document.getElementById('watch-ad-btn');
         if (btn) btn.disabled = true;
 
@@ -3234,20 +3239,19 @@ window._adFlow = {
             _adsDone++;
             _adIndex++;
             updateAdDots();
+            window._watchRunning = false; // ✅ ad শেষ — lock খোলো
 
             if (_adIndex < _adSlots.length) {
-                // ✅ আরো ad বাকী — পরের Watch Ad বাটন দেখাও
-                // 300ms delay: Adsgram এর কোনো delayed callback যাতে
-                // এই stage change এর পরে আর trigger না করতে পারে
-                setTimeout(() => this._showWatchStage(), 300);
+                // আরো ad বাকী — পরের Watch Ad বাটন দেখাও
+                this._showWatchStage();
             } else {
-                // সব ad সফলভাবে শেষ — তবেই count save
+                // সব ad সফলভাবে শেষ — count save করো
                 await this._saveCountAndReturn();
             }
         } catch(e) {
-            // ❌ যেকোনো ad fail হলে count save হবে না — retry দেখাও
+            window._watchRunning = false; // ✅ error তেও lock খোলো
             console.error('Ad error:', e);
-            showStage('stage-watch'); // ✅ Watch বাটন আবার দেখাও
+            showStage('stage-watch');
             const errBox = document.getElementById('ad-error-box');
             const errMsg = document.getElementById('ad-error-msg');
             if (errMsg) errMsg.textContent = 'Ad failed. Please try again.';
