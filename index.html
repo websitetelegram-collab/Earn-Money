@@ -1833,10 +1833,10 @@ let currentFileId = null;
 let userRating    = 0;
 let slideInterval = null;
 let adSettings    = {
-    adsgramEnabled:  true,
-    adsgramBlockId:  '20214',
+    adsgramEnabled:  false,   // ✅ FIX: default false — Admin থেকে enable না করলে চলবে না
+    adsgramBlockId:  '',       // ✅ FIX: blank — Admin Block ID দিতে হবে
     adsgramScriptUrl:'https://sad.adsgram.ai/js/sad.min.js',
-    monetagEnabled:  true,
+    monetagEnabled:  false,   // ✅ FIX: default false — Admin থেকে enable না করলে চলবে না
     monetagZoneId:   '',
     monetagCustomScript: '',
     preloadDuration: 3,
@@ -2333,13 +2333,15 @@ async function loadData() {
         if (adflowSnap.status === 'fulfilled' && adflowSnap.value.exists()) {
             const d = adflowSnap.value.data();
             if (d.adsgram) {
-                adSettings.adsgramEnabled   = d.adsgram.enabled !== false;
-                adSettings.adsgramBlockId   = d.adsgram.blockId   || '20214';
+                // ✅ FIX: enabled field explicitly check করো — undefined হলে false (default off)
+                adSettings.adsgramEnabled   = d.adsgram.enabled === true;
+                adSettings.adsgramBlockId   = (d.adsgram.blockId   || '').trim();
                 adSettings.adsgramScriptUrl = d.adsgram.scriptUrl || 'https://sad.adsgram.ai/js/sad.min.js';
             }
             if (d.monetag) {
-                adSettings.monetagEnabled      = d.monetag.enabled !== false;
-                adSettings.monetagZoneId       = d.monetag.zoneId       || '';
+                // ✅ FIX: enabled field explicitly check করো — undefined হলে false (default off)
+                adSettings.monetagEnabled      = d.monetag.enabled === true;
+                adSettings.monetagZoneId       = (d.monetag.zoneId       || '').trim();
                 adSettings.monetagCustomScript = d.monetag.customScript  || '';
             }
             if (d.timing) {
@@ -2358,14 +2360,19 @@ async function loadData() {
     } catch(e) { console.error("AdFlow settings error:", e); }
 
     // Load Adsgram script (non-blocking)
-    if (adSettings.adsgramEnabled) {
-        loadAdsgramScript(adSettings.adsgramScriptUrl).catch(e => console.warn("⚠️ Adsgram:", e));
+    // ✅ FIX: blockId ও enabled দুটোই চেক করো
+    if (adSettings.adsgramEnabled && adSettings.adsgramBlockId) {
+        loadAdsgramScript(adSettings.adsgramScriptUrl).catch(e => console.warn("⚠️ Adsgram script load failed:", e));
+    } else if (adSettings.adsgramEnabled && !adSettings.adsgramBlockId) {
+        console.warn("⚠️ Adsgram enabled কিন্তু Block ID দেওয়া নেই। Admin > Ad Flow এ Block ID দিন।");
     }
     // ✅ FIX: Monetag SDK — zone ID পাওয়ার সাথে সাথে HEAD এ inject করো
     if (adSettings.monetagEnabled && adSettings.monetagZoneId) {
         if (typeof window.injectMonetagSDKNow === 'function') {
             window.injectMonetagSDKNow(adSettings.monetagZoneId);
         }
+    } else if (adSettings.monetagEnabled && !adSettings.monetagZoneId && !adSettings.monetagCustomScript) {
+        console.warn("⚠️ Monetag enabled কিন্তু Zone ID দেওয়া নেই। Admin > Ad Flow এ Zone ID দিন।");
     }
     // Load Monetag script (non-blocking)
     if (adSettings.monetagEnabled && (adSettings.monetagZoneId || adSettings.monetagCustomScript)) {
@@ -2976,14 +2983,19 @@ function buildAdSlots(fileId) {
     const slots = [];
 
     // ── Global slots ────────────────────────────────────────────────────
-    if (adSettings.adsgramEnabled && adSettings.adsgramBlockId) {
-        slots.push({ type: 'adsgram', blockId: adSettings.adsgramBlockId, _src: 'global' });
+    // ✅ FIX: enabled + actual ID দুটোই থাকলেই slot যোগ করো
+    if (adSettings.adsgramEnabled && adSettings.adsgramBlockId && adSettings.adsgramBlockId.trim()) {
+        slots.push({ type: 'adsgram', blockId: adSettings.adsgramBlockId.trim(), _src: 'global' });
     }
     if (adSettings.monetagEnabled && (adSettings.monetagZoneId || adSettings.monetagCustomScript)) {
         slots.push({ type: 'monetag', zoneId: adSettings.monetagZoneId, _src: 'global' });
     }
     if (adSettings.extraSlots && Array.isArray(adSettings.extraSlots)) {
-        adSettings.extraSlots.forEach(s => slots.push(s));
+        adSettings.extraSlots.forEach(s => {
+            // ✅ FIX: extra slot এও ID চেক করো
+            if (s.type === 'adsgram' && s.blockId && s.blockId.trim()) slots.push(s);
+            else if (s.type === 'monetag' && s.zoneId && s.zoneId.trim()) slots.push(s);
+        });
     }
 
     // ── Per-post slots ──────────────────────────────────────────────────
@@ -3015,7 +3027,8 @@ function buildAdSlots(fileId) {
         }
     }
 
-    if (!slots.length) slots.push({ type: 'monetag', zoneId: _monetagZoneId });
+    // ✅ FIX: empty slot যোগ করা বন্ধ — কোনো ad configured না থাকলে empty array return করো
+    // Caller (watchNext) এই empty case handle করবে
     return slots;
 }
 
@@ -3035,7 +3048,17 @@ function updateAdDots() {
 
 // Adsgram ad
 async function showAdsgramAd(blockId) {
-    if (!window.Adsgram) throw new Error("Adsgram not loaded");
+    if (!window.Adsgram) {
+        // ✅ FIX: Adsgram load না হলে script আবার load করার চেষ্টা করো
+        if (adSettings.adsgramScriptUrl) {
+            try {
+                await loadAdsgramScript(adSettings.adsgramScriptUrl);
+                await new Promise(r => setTimeout(r, 1000)); // 1s wait
+            } catch(e) {}
+        }
+        if (!window.Adsgram) throw new Error("Adsgram SDK load হয়নি। Internet check করুন।");
+    }
+    if (!blockId || !blockId.trim()) throw new Error("Adsgram Block ID দেওয়া নেই। Admin এ সেট করুন।");
     return new Promise((resolve, reject) => {
         try {
             let rewarded = false;
@@ -3047,13 +3070,14 @@ async function showAdsgramAd(blockId) {
                 },
                 onError: (result) => {
                     // skip/close/error — সব reject
-                    reject(new Error(result?.description || 'Ad not completed'));
+                    const desc = result?.description || result?.type || 'Ad দেখা সম্পূর্ণ হয়নি';
+                    reject(new Error(desc));
                 },
             });
             // ctrl.show() — Promise return করে
             // resolve আগে না হলে reject করো (double-fire safe)
             ctrl.show().then(() => {
-                if (!rewarded) reject(new Error('Ad closed without reward'));
+                if (!rewarded) reject(new Error('Ad শেষ না করে বন্ধ করা হয়েছে'));
             }).catch(reject);
         } catch(e) { reject(e); }
     });
@@ -3063,11 +3087,11 @@ async function showAdsgramAd(blockId) {
 async function showMonetagAd(zoneId) {
     return new Promise((resolve, reject) => {
         const z = zoneId || _monetagZoneId || '';
-        if (!z) { reject(new Error('No Monetag zone ID')); return; }
+        if (!z) { reject(new Error('Monetag Zone ID দেওয়া নেই। Admin এ সেট করুন।')); return; }
         let settled = false;
         function done(ok, err) {
             if (settled) return; settled = true;
-            ok ? resolve() : reject(err || new Error('Ad failed'));
+            ok ? resolve() : reject(err || new Error('Ad দেখা সম্পূর্ণ হয়নি'));
         }
         let attempts = 0;
         function tryCall() {
@@ -3087,7 +3111,7 @@ async function showMonetagAd(zoneId) {
                 return;
             }
             if (attempts < 40) setTimeout(tryCall, 300);
-            else done(false, new Error('Monetag SDK not ready'));
+            else done(false, new Error(`Monetag SDK (show_${z}) load হয়নি। Zone ID চেক করুন।`));
         }
         tryCall();
     });
@@ -3123,6 +3147,14 @@ window._adFlow = {
         _adSlots    = buildAdSlots(fileId); // per-post slots included
         _adIndex    = 0;
         _adsDone    = 0;
+
+        // ✅ FIX: কোনো ad configured না থাকলে overlay না খুলে toast দেখাও
+        if (!_adSlots.length) {
+            showToast('⚠️ Ad system এখনো configure হয়নি। Admin এ Ad settings দিন।');
+            console.warn('[AdFlow] No ad slots configured in admin panel.');
+            return;
+        }
+
         openOverlay();
         this._showWatchStage();
     },
@@ -3179,9 +3211,14 @@ window._adFlow = {
             console.error('Ad error:', e);
             const errBox = document.getElementById('ad-error-box');
             const errMsg = document.getElementById('ad-error-msg');
-            if (errMsg) errMsg.textContent = 'Ad failed. Please try again.';
+            // ✅ FIX: actual error message দেখাও — generic নয়
+            const userMsg = e.message && e.message.length < 120
+                ? e.message
+                : 'Ad দেখা সম্পূর্ণ হয়নি। আবার চেষ্টা করুন।';
+            if (errMsg) errMsg.textContent = userMsg;
             if (errBox) errBox.classList.remove('hidden');
             if (btn) btn.disabled = false;
+            showStage('stage-watch');
         }
     },
 
