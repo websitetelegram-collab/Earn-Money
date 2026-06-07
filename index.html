@@ -9,33 +9,74 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-    <!-- ✅ Monetag SDK — STATIC hardcoded in head (dynamic inject কাজ করে না) -->
-    <script data-cfasync="false" src='//libtl.com/sdk.js' data-zone='11069454' data-sdk='show_11069454'></script>
-
+    <!-- Ad SDK — static head load required for Telegram Mini App -->
+    <!-- Monetag SDK — Zone ID পাওয়ার সাথে সাথে head এ inject হবে -->
     <script data-cfasync="false">
-    // Monetag ready signal system — SDK already loaded above, শুধু poll করো
+    // ✅ FIXED: Monetag SDK injector — per-zone tracking, callbacks never lost
+    window._monetagInjectedZones = window._monetagInjectedZones || {};
+    window._monetagZoneIdPending = null;
     window._monetagOnLoadCallbacks = [];
     window._monetagSDKReady = false;
-    window._monetagReadyZone = '11069454';
-    // injectMonetagSDKNow — এখন শুধু poll করে (inject করে না, SDK already in head)
-    window.injectMonetagSDKNow = function(zoneId) { /* no-op: static script already in head */ };
+    window._monetagReadyZone = '';
+    // Legacy compat flag — kept but no longer used as a global gate
+    window._monetagSDKInjected = false;
+
+    window.injectMonetagSDKNow = function(zoneId) {
+        if (!zoneId) return;
+        var z = String(zoneId).trim();
+        if (!z) return;
+        // ✅ FIX #1: Per-zone tracking instead of a single global flag
+        // This allows multiple zone IDs AND prevents duplicate injection for same zone
+        if (window._monetagInjectedZones[z]) {
+            // Already injected — just poll for readiness in case it finished loading
+            if (typeof window['show_'+z] !== 'function') {
+                window._monetagPollReady(z);
+            } else {
+                // Already ready — fire callbacks immediately
+                window._monetagSDKReady = true;
+                window._monetagReadyZone = z;
+                var cbs = window._monetagOnLoadCallbacks.splice(0);
+                cbs.forEach(function(cb){ try{ cb(); }catch(e){} });
+            }
+            return;
+        }
+        window._monetagInjectedZones[z] = true;
+        window._monetagSDKInjected = true; // legacy compat
+        var existing = document.querySelector('script[data-monetag-zone="'+z+'"]');
+        if (existing) { window._monetagPollReady(z); return; }
+        var s = document.createElement('script');
+        s.setAttribute('data-cfasync', 'false');
+        s.setAttribute('data-monetag-zone', z);
+        s.setAttribute('data-zone', z);
+        s.setAttribute('data-sdk', 'show_' + z);
+        s.src = 'https://libtl.com/sdk.js';
+        s.async = true;
+        s.onload = function() { window._monetagPollReady(z); };
+        s.onerror = function() {
+            console.warn('[Monetag] SDK load error for zone:', z);
+            // ✅ FIX: On load error, fire callbacks with null so waiters don't hang forever
+            var cbs = window._monetagOnLoadCallbacks.splice(0);
+            cbs.forEach(function(cb){ try{ cb(null, new Error('SDK load failed')); }catch(e){} });
+        };
+        document.head.appendChild(s);
+    };
     window._monetagPollReady = function(zoneId) {
+        var z = String(zoneId).trim();
         var attempts = 0;
         (function check() {
-            if (typeof window['show_'+zoneId] === 'function') {
+            if (typeof window['show_'+z] === 'function') {
                 window._monetagSDKReady = true;
-                window._monetagReadyZone = zoneId;
-                var cbs = window._monetagOnLoadCallbacks;
-                window._monetagOnLoadCallbacks = [];
+                window._monetagReadyZone = z;
+                // ✅ FIX #2: Use splice to atomically grab and clear callbacks
+                // This prevents race condition where new callbacks added during fire are lost
+                var cbs = window._monetagOnLoadCallbacks.splice(0);
                 cbs.forEach(function(cb){ try{ cb(); }catch(e){} });
                 return;
             }
-            if (++attempts < 60) setTimeout(check, 300);
-            else console.warn('[Monetag] show_'+zoneId+' not found after SDK load');
+            if (++attempts < 100) setTimeout(check, 300);
+            else console.warn('[Monetag] show_'+z+' not found after 30s. Zone:', z);
         })();
     };
-    // Page load হওয়ার সাথে সাথে poll শুরু করো
-    window._monetagPollReady('11069454');
     </script>
 
     <style>
@@ -2133,29 +2174,55 @@ function _monetagOnLoad() {
 }
 
 function loadMonetagScript(zoneId, customScript) {
-    // ✅ FIX: SDK already statically loaded in <head> — dynamic inject বাদ
-    // শুধু _monetagZoneId set করো এবং ready state check করো
-    const z = (zoneId && zoneId.trim()) ? zoneId.trim() : '11069454';
+    const z = (zoneId && zoneId.trim()) ? zoneId.trim() : '';
     if (z && !_monetagZoneId) _monetagZoneId = z;
+    if (!z && !customScript) { console.warn("Monetag: No zone ID"); return; }
 
-    // SDK head এ static আছে — already ready হলে সাথে সাথে fire করো
-    if (window._monetagSDKReady && window._monetagReadyZone === z) {
-        setTimeout(_monetagOnLoad, 0);
+    if (customScript && customScript.trim() && customScript.includes('<script')) {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = customScript;
+        Array.from(tmp.querySelectorAll('script')).forEach(s => {
+            const ns = document.createElement('script');
+            if (s.src) ns.src = s.src;
+            ns.textContent = s.textContent;
+            Array.from(s.attributes).forEach(a => { try { ns.setAttribute(a.name, a.value); } catch(e){} });
+            document.head.appendChild(ns);
+        });
+        if (z && z === _monetagZoneId && !_monetagLoading) {
+            _monetagLoading = true;
+            let cc = 0;
+            (function chk() {
+                if (typeof window['show_'+z] === 'function') { _monetagOnLoad(); return; }
+                if (++cc < 100) setTimeout(chk, 300); else _monetagLoading = false;
+            })();
+        }
         return;
     }
 
-    // এখনো ready না — callback queue তে রাখো, poll চলছেই
-    if (!_monetagLoading && !_monetagReady) {
+    if (!z) return;
+
+    // ✅ FIX #3: Always call injectMonetagSDKNow — it handles per-zone deduplication internally
+    if (!_monetagLoadedZones.has(z)) {
+        _monetagLoadedZones.add(z);
+    }
+    if (typeof window.injectMonetagSDKNow === 'function') {
+        window.injectMonetagSDKNow(z);
+    }
+
+    // ✅ FIX #4: Check if show_ function already exists BEFORE registering callbacks
+    if (z === _monetagZoneId && !_monetagLoading && !_monetagReady) {
         _monetagLoading = true;
-        window._monetagOnLoadCallbacks = window._monetagOnLoadCallbacks || [];
-        window._monetagOnLoadCallbacks.push(() => _monetagOnLoad());
-        // Extra safety poll — static SDK দেরিতে initialize হলে
-        let cc = 0;
-        (function chk() {
-            if (_monetagReady) return;
-            if (typeof window['show_'+z] === 'function') { _monetagOnLoad(); return; }
-            if (++cc < 60) setTimeout(chk, 300);
-        })();
+        if (typeof window['show_'+z] === 'function') {
+            // SDK function already present — fire _monetagOnLoad immediately
+            setTimeout(_monetagOnLoad, 0);
+        } else if (window._monetagSDKReady && window._monetagReadyZone === z) {
+            setTimeout(_monetagOnLoad, 0);
+        } else {
+            // Register _monetagOnLoad as a callback — showMonetagAd registers its own separate callback
+            // Both callbacks can coexist in the array safely
+            window._monetagOnLoadCallbacks = window._monetagOnLoadCallbacks || [];
+            window._monetagOnLoadCallbacks.push(() => _monetagOnLoad());
+        }
     }
 }
 
@@ -2328,13 +2395,8 @@ async function loadData() {
     if (adSettings.adsgramEnabled) {
         loadAdsgramScript(adSettings.adsgramScriptUrl).catch(e => console.warn("⚠️ Adsgram:", e));
     }
-    // ✅ FIX: Monetag SDK — zone ID পাওয়ার সাথে সাথে HEAD এ inject করো
-    if (adSettings.monetagEnabled && adSettings.monetagZoneId) {
-        if (typeof window.injectMonetagSDKNow === 'function') {
-            window.injectMonetagSDKNow(adSettings.monetagZoneId);
-        }
-    }
-    // Load Monetag script (non-blocking)
+    // ✅ FIX #6: Single call to loadMonetagScript — it internally calls injectMonetagSDKNow
+    // Removed the redundant standalone injectMonetagSDKNow call to avoid double-injection
     if (adSettings.monetagEnabled && (adSettings.monetagZoneId || adSettings.monetagCustomScript)) {
         loadMonetagScript(adSettings.monetagZoneId, adSettings.monetagCustomScript);
     }
@@ -3108,6 +3170,7 @@ async function showAdsgramAd(blockId) {
 }
 
 // Monetag ad — যেকোনো zone ID দিয়ে চলবে (global / extra / per-post)
+// ✅ FIX #5: Full race-condition-safe implementation
 async function showMonetagAd(zoneId) {
     return new Promise((resolve, reject) => {
         const z = (zoneId && zoneId.trim()) ? zoneId.trim() : (_monetagZoneId || '');
@@ -3117,6 +3180,8 @@ async function showMonetagAd(zoneId) {
             if (settled) return; settled = true;
             ok ? resolve() : reject(err || new Error('Ad failed'));
         }
+
+        // Ensure the SDK is being loaded for this zone
         if (!_monetagLoadedZones.has(z)) loadMonetagScript(z, '');
 
         function callShowFn() {
@@ -3125,27 +3190,61 @@ async function showMonetagAd(zoneId) {
             try {
                 const ret = fn();
                 if (ret && typeof ret.then === 'function') {
-                    ret.then(() => done(true)).catch(e => done(false, e));
+                    // ✅ FIX #7: Promise-based show_ — resolve on both success and rejection
+                    // In Telegram WebView, Monetag may reject the promise even when ad showed
+                    // So we resolve on BOTH success and catch (ad was attempted = count it)
+                    ret.then(() => done(true)).catch(e => {
+                        console.warn('[Monetag] show_ promise rejected:', e);
+                        // ✅ Still resolve — ad was attempted, don't block the unlock flow
+                        done(true);
+                    });
                 } else {
+                    // Non-promise return: fire-and-forget — resolve after 3s
                     setTimeout(() => done(true), 3000);
                 }
-            } catch(e) { done(false, e); }
+            } catch(e) {
+                console.warn('[Monetag] show_ threw:', e);
+                // ✅ FIX #7b: Even if show_ throws, resolve after 2s
+                // This handles Telegram WebView popup-block silently
+                setTimeout(() => done(true), 2000);
+            }
         }
 
+        // ✅ FIX #5a: Check if show_ function already exists right now
         if (typeof window['show_'+z] === 'function') {
             callShowFn();
-        } else {
-            let timedOut = false;
-            const timeout = setTimeout(() => { timedOut = true; done(false, new Error('Monetag SDK timeout (zone: '+z+')')); }, 20000);
-            window._monetagOnLoadCallbacks = window._monetagOnLoadCallbacks || [];
-            window._monetagOnLoadCallbacks.push(() => { clearTimeout(timeout); if (!timedOut) callShowFn(); });
-            let polls = 0;
-            (function poll() {
-                if (settled || timedOut) return;
-                if (typeof window['show_'+z] === 'function') { clearTimeout(timeout); if (!settled) callShowFn(); return; }
-                if (++polls < 60) setTimeout(poll, 300);
-            })();
+            return;
         }
+
+        // ✅ FIX #5b: SDK not ready yet — set up timeout + callback + polling
+        // The callback array is NOT cleared until _monetagPollReady fires all of them,
+        // so registering here is safe even if injection happened earlier in the same tick
+        let timedOut = false;
+        const timeout = setTimeout(() => {
+            timedOut = true;
+            done(false, new Error('Monetag SDK timeout (zone: '+z+')'));
+        }, 25000); // ✅ Increased to 25s for slow connections
+
+        // Register callback — will be called when _monetagPollReady detects show_ is available
+        window._monetagOnLoadCallbacks = window._monetagOnLoadCallbacks || [];
+        window._monetagOnLoadCallbacks.push(() => {
+            if (timedOut || settled) return;
+            clearTimeout(timeout);
+            callShowFn();
+        });
+
+        // ✅ FIX #5c: Active polling as an additional safety net
+        // In case the SDK loaded BETWEEN the check above and the callback registration
+        let polls = 0;
+        (function poll() {
+            if (settled || timedOut) return;
+            if (typeof window['show_'+z] === 'function') {
+                clearTimeout(timeout);
+                if (!settled) callShowFn();
+                return;
+            }
+            if (++polls < 100) setTimeout(poll, 300);
+        })();
     });
 }
 
