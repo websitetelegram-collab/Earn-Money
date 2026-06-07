@@ -3097,20 +3097,43 @@ async function showAdsgramAd(blockId) {
     if (!window.Adsgram) throw new Error("Adsgram not loaded");
     return new Promise((resolve, reject) => {
         try {
-            let settled = false;
+            let rewarded = false;
+            let settled  = false;
             function done(ok, err) {
-                if (settled) return; // ✅ double-fire সম্পূর্ণ বন্ধ
+                if (settled) return;
                 settled = true;
+                clearTimeout(adTimeout);
                 ok ? resolve() : reject(err || new Error('Ad not completed'));
             }
+
+            // 90s hard timeout
+            const adTimeout = setTimeout(() => {
+                done(false, new Error('Ad timeout'));
+            }, 90000);
+
             const ctrl = window.Adsgram.init({
                 blockId: String(blockId),
-                onReward: () => done(true),   // ✅ পুরো ad দেখা হয়েছে
-                onError:  (r) => done(false, new Error(r?.description || 'Ad error')),
+                onReward: () => {
+                    rewarded = true;
+                    done(true); // ✅ reward পেয়েছি — success
+                },
+                onError: (r) => {
+                    if (!rewarded) done(false, new Error(r?.description || 'Ad error'));
+                    // rewarded হলে error ignore — success already done
+                },
             });
-            // ctrl.show() শুধু UI trigger করে — resolve/reject এর authority নেই
-            // onReward / onError ই একমাত্র decision maker
-            ctrl.show().catch(e => done(false, e));
+
+            // ctrl.show() promise —
+            // resolve: ad window বন্ধ হলো (reward পেতে পারে বা না পেতে পারে)
+            // reject:  show করতেই ব্যর্থ
+            ctrl.show().then(() => {
+                // onReward আগে এলে settled=true, done() নিষ্ক্রিয়
+                // onReward না আসলে মানে skip/close — fail
+                if (!rewarded) done(false, new Error('Ad closed without reward'));
+            }).catch(e => {
+                if (!rewarded) done(false, e);
+            });
+
         } catch(e) { reject(e); }
     });
 }
@@ -3242,8 +3265,11 @@ window._adFlow = {
             window._watchRunning = false; // ✅ ad শেষ — lock খোলো
 
             if (_adIndex < _adSlots.length) {
-                // আরো ad বাকী — পরের Watch Ad বাটন দেখাও
-                this._showWatchStage();
+                // ✅ আরো ad বাকী — পরের Watch Ad বাটন দেখাও
+                // Adsgram overlay বন্ধ হওয়ার পরে webview focus ফিরে আসতে সময় লাগে
+                // তাই 600ms delay দিয়ে stage-watch দেখাও
+                const self = this;
+                setTimeout(function() { self._showWatchStage(); }, 600);
             } else {
                 // সব ad সফলভাবে শেষ — count save করো
                 await this._saveCountAndReturn();
