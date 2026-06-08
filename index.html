@@ -285,33 +285,6 @@
         /* ── CATEGORY PILLS ── */
         .cat-pill.active { animation: catPillGlow 2.5s ease-in-out infinite; }
 
-        /* ── UNLOCK BUTTON PULSE ANIMATION ── */
-        .unlock-pulse-btn {
-            animation: unlockPulse 2s ease-in-out infinite;
-            position: relative;
-        }
-        .unlock-pulse-btn::before {
-            content: '';
-            position: absolute;
-            inset: -2px;
-            border-radius: inherit;
-            background: linear-gradient(90deg, #6366f1, #8b5cf6, #6366f1);
-            background-size: 200% 100%;
-            animation: unlockShimmer 2s linear infinite;
-            opacity: 0;
-            z-index: -1;
-            border-radius: 0.75rem;
-        }
-        .unlock-pulse-btn:hover::before { opacity: 0.4; }
-        @keyframes unlockPulse {
-            0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.4); transform: scale(1); }
-            50%      { box-shadow: 0 0 0 6px rgba(99,102,241,0); transform: scale(1.02); }
-        }
-        @keyframes unlockShimmer {
-            0%   { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-        }
-
         /* ── VIDEO CARDS — subtle glow + sweep on hover area ── */
         .video-card-inner {
             animation: cardGlow 5s ease-in-out infinite;
@@ -1539,7 +1512,7 @@
     <h2 class="text-xl font-bold mb-4 px-1 text-gray-800 dark:text-gray-100 flex items-center gap-2">
         <i class="fas fa-fire text-orange-500 text-base"></i> Available Videos
     </h2>
-    <div id="files-grid" class="grid grid-cols-1 gap-3 md:gap-4"></div>
+    <div id="files-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-5"></div>
 </div>
 
 <!-- ═══════════════ HISTORY VIEW ═══════════════ -->
@@ -1609,7 +1582,11 @@
             </div>
         </div>
 
-        <!-- Preview section removed -->
+        <!-- Screenshots / Preview frames -->
+        <div class="mb-2">
+            <h3 class="text-base font-bold text-gray-800 dark:text-white px-4 md:px-6 mb-3">Preview</h3>
+            <div id="detail-screenshots" class="flex overflow-x-auto hide-scrollbar gap-3 px-4 md:px-6 snap-x pb-4"></div>
+        </div>
 
         <!-- Description -->
         <div class="p-4 md:p-6 border-t border-gray-100 dark:border-gray-800">
@@ -1639,21 +1616,7 @@
         </div>
     </div>
 
-    <!-- Tutorial Video Button -->
-        <div id="tutorial-btn-wrap" class="mx-4 mb-2 hidden">
-            <button onclick="window.openTutorial()" class="w-full flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-700/50 rounded-xl hover:from-amber-100 hover:to-orange-100 dark:hover:from-amber-900/30 dark:hover:to-orange-900/30 transition-all">
-                <div class="w-9 h-9 rounded-full bg-amber-500 flex items-center justify-center flex-shrink-0 shadow-sm">
-                    <i class="fas fa-play text-white text-xs ml-0.5"></i>
-                </div>
-                <div class="flex-1 text-left">
-                    <p class="text-sm font-bold text-amber-700 dark:text-amber-400" id="tutorial-btn-title">📹 How to Download?</p>
-                    <p class="text-xs text-amber-600/70 dark:text-amber-500/70">Watch tutorial to learn</p>
-                </div>
-                <i class="fas fa-chevron-right text-amber-500 text-xs"></i>
-            </button>
-        </div>
-
-        <!-- Unlock Guide -->
+    <!-- Unlock Guide -->
         <div id="unlock-guide-banner" class="mx-4 mb-2 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 rounded-xl p-3 flex items-start gap-3 text-xs text-indigo-700 dark:text-indigo-300 hidden">
             <i class="fas fa-lightbulb mt-0.5 text-indigo-500 flex-shrink-0"></i>
             <div id="unlock-guide-text">📺 বিজ্ঞাপন দেখে ভিডিও আনলক করুন। সব রাউন্ড শেষে ডাউনলোড করতে পারবেন।</div>
@@ -1670,19 +1633,6 @@
         <i class="fas fa-times text-xl"></i>
     </button>
     <img id="image-viewer-img" src="" class="max-w-[95%] max-h-[85vh] object-contain rounded-lg shadow-2xl transform scale-95 transition-transform duration-300">
-</div>
-
-<!-- ═══ TUTORIAL VIDEO MODAL ═══ -->
-<div id="tutorial-modal" class="fixed inset-0 bg-black/90 z-[110] hidden flex-col items-center justify-center p-4 backdrop-blur-md">
-    <div class="w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-2xl">
-        <div class="flex items-center justify-between px-4 py-3 bg-amber-500">
-            <span class="font-bold text-white flex items-center gap-2"><i class="fas fa-play-circle"></i> How to Download</span>
-            <button onclick="window.closeTutorial()" class="text-white/80 hover:text-white w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20 transition-colors">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div id="tutorial-content" class="p-4 text-center text-gray-600 dark:text-gray-300 text-sm"></div>
-    </div>
 </div>
 
 <!-- ═══════════════ PROFILE VIEW ═══════════════ -->
@@ -1815,7 +1765,7 @@
         </h1>
         <p class="text-gray-500 dark:text-gray-400 mt-1 text-sm">Your bookmarked videos</p>
     </header>
-    <div id="favorites-list" class="grid grid-cols-1 gap-3"></div>
+    <div id="favorites-list" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
     <div id="empty-favorites" class="hidden text-center py-10">
         <i class="fas fa-bookmark text-6xl text-gray-300 dark:text-gray-600 mb-4"></i>
         <p class="text-gray-500 dark:text-gray-400 text-lg">No favorites yet.</p>
@@ -2178,12 +2128,12 @@ function showSkeletonLoader() {
     grid.innerHTML = '';
     for (let i = 0; i < 10; i++) {
         grid.innerHTML += `
-        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-row">
-            <div class="flex-shrink-0 skeleton-box rounded-l-2xl" style="width:120px;min-height:90px;"></div>
-            <div class="p-3 flex flex-col flex-1 space-y-2">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+            <div class="w-full skeleton-box" style="aspect-ratio:16/9;"></div>
+            <div class="p-3 space-y-2">
                 <div class="h-4 skeleton-box rounded w-3/4"></div>
                 <div class="h-3 skeleton-box rounded w-full"></div>
-                <div class="h-8 skeleton-box rounded-xl w-full mt-auto"></div>
+                <div class="h-8 skeleton-box rounded-xl w-full mt-2"></div>
             </div>
         </div>`;
     }
@@ -2340,7 +2290,6 @@ async function loadData() {
             const d = generalSnap.value.data();
             timerDuration = d.timerDuration || 10;
             window._appSettings = d;
-            window._tutorialLink = d.tutorialLink || '';
             // Channel join settings
             window._channelJoinRequired = d.channelJoinRequired || false;
             window._channelJoinLink     = d.channelJoinLink || '';
@@ -2363,7 +2312,6 @@ async function loadData() {
                         if (botIconEl) botIconEl.style.display = '';
                     };
                     botImgEl.src = d.appLogoUrl;
-                    // Browser cache থেকে already loaded হলে onload fire হবে না
                     if (botImgEl.complete && botImgEl.naturalWidth > 0) {
                         botImgEl.style.display = '';
                         if (botIconEl) botIconEl.style.display = 'none';
@@ -2693,10 +2641,7 @@ function renderFiles() {
     filtered.sort((a, b) => {
         if (a.featured && !b.featured) return -1;
         if (!a.featured && b.featured) return 1;
-        // নতুন পোস্ট উপরে — timestamp desc
-        const ta = a.createdAt?.seconds || a.timestamp || 0;
-        const tb = b.createdAt?.seconds || b.timestamp || 0;
-        return tb - ta;
+        return 0;
     });
 
     updateStatsStrip();
@@ -2716,13 +2661,13 @@ function renderFiles() {
         const isFav = favs.includes(file.id);
         const isNew = isNewFile(file);
         const card  = document.createElement('div');
-        card.className = 'video-card-inner bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-row hover:shadow-lg transition-all duration-300 group';
+        card.className = 'video-card-inner bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col hover:shadow-lg transition-all duration-300 group';
         card.style.animation = `slideUp 0.3s ease ${i * 0.04}s both`;
         card.style.opacity = '0';
         // Per-post download count from Firestore (file.downloads)
         const dlCount = parseInt(file.downloads) || 0;
         card.innerHTML = `
-            <div class="relative flex-shrink-0 bg-gray-100 dark:bg-gray-700 cursor-pointer overflow-hidden rounded-l-2xl" style="width:120px;min-height:90px;" onclick="window.openDetails('${file.id}')">
+            <div class="relative w-full bg-gray-100 dark:bg-gray-700 cursor-pointer overflow-hidden" style="aspect-ratio:16/9;" onclick="window.openDetails('${file.id}')">
                 <img src="${file.thumbnailUrl}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="Thumbnail" loading="lazy"
                     onload="this.parentElement.parentElement.style.opacity='1';this.style.animation='fadeInScale 0.4s ease both'">
                 ${file.featured ? `<div class="featured-badge"><i class="fas fa-star text-[8px]"></i> FEATURED</div>` : (isNew ? `<div class="new-badge">NEW</div>` : `<div class="absolute top-2 left-2 bg-black/60 text-white text-[9px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1"><i class="fas fa-film text-[8px]"></i> VIDEO</div>`)}
@@ -2738,9 +2683,9 @@ function renderFiles() {
                     <i class="fas fa-download text-[8px]"></i> ${formatNumber(dlCount)}
                 </div>
             </div>
-            <div class="p-2.5 flex flex-col flex-1 min-w-0">
-                <h3 class="font-bold text-sm text-gray-800 dark:text-white line-clamp-1 cursor-pointer mb-1 leading-snug" onclick="window.openDetails('${file.id}')">${file.title}</h3>
-                <button onclick="window.openDetails('${file.id}')" class="btn-light-sweep w-full py-2 mt-auto ${isUnlocked ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-100 dark:border-green-800/50 hover:bg-green-600 hover:text-white dark:hover:bg-green-600' : 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600 unlock-pulse-btn'} active:scale-95 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 border">
+            <div class="p-3 flex flex-col flex-1">
+                <h3 class="font-bold text-sm text-gray-800 dark:text-white line-clamp-2 cursor-pointer mb-2 leading-snug" onclick="window.openDetails('${file.id}')">${file.title}</h3>
+                <button onclick="window.openDetails('${file.id}')" class="btn-light-sweep w-full py-2 mt-auto ${isUnlocked ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-100 dark:border-green-800/50 hover:bg-green-600 hover:text-white dark:hover:bg-green-600' : 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600'} active:scale-95 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 border">
                     <i class="fas ${isUnlocked ? 'fa-download' : 'fa-play-circle'} text-xs"></i>
                     ${isUnlocked ? '⬇️ Download Now' : `🔓 Watch Ad (${count}/${req})`}
                 </button>
@@ -2895,26 +2840,6 @@ window.openDetails = (id) => {
     // Show guide for locked videos
     const count2 = parseInt(localStorage.getItem(`adCount_${id}`))||0;
     const req2   = parseInt(file.requiredAds)||2;
-    // Tutorial button দেখাও
-    const tutBtnWrap = document.getElementById('tutorial-btn-wrap');
-    if (tutBtnWrap) {
-        if (window._tutorialLink) {
-            tutBtnWrap.classList.remove('hidden');
-        } else {
-            tutBtnWrap.classList.add('hidden');
-        }
-    }
-
-    // Tutorial button দেখাও
-    const tutBtnWrap = document.getElementById('tutorial-btn-wrap');
-    if (tutBtnWrap) {
-        if (window._tutorialLink) {
-            tutBtnWrap.classList.remove('hidden');
-        } else {
-            tutBtnWrap.classList.add('hidden');
-        }
-    }
-
     const guideBanner = document.getElementById('unlock-guide-banner');
     const guideText   = document.getElementById('unlock-guide-text');
     if (guideBanner && guideText) {
@@ -2931,57 +2856,6 @@ window.openDetails = (id) => {
         }
     }
 };
-window.openTutorial = () => {
-    const link = window._tutorialLink || '';
-    const modal = document.getElementById('tutorial-modal');
-    const contentEl = document.getElementById('tutorial-content');
-    if (!modal || !link) return;
-    // Telegram link → open in Telegram
-    if (link.includes('t.me') || link.includes('telegram')) {
-        window.open(link, '_blank', 'noopener');
-        return;
-    }
-    // Video link → embed in modal
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-    // YouTube embed
-    let embedUrl = link;
-    const ytMatch = link.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
-    if (ytMatch) {
-        embedUrl = 'https://www.youtube.com/embed/' + ytMatch[1] + '?autoplay=1';
-    }
-    contentEl.innerHTML = `<iframe src="${embedUrl}" class="w-full rounded-xl" style="aspect-ratio:16/9;border:none;" allowfullscreen allow="autoplay"></iframe>`;
-};
-window.closeTutorial = () => {
-    const modal = document.getElementById('tutorial-modal');
-    const contentEl = document.getElementById('tutorial-content');
-    if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
-    if (contentEl) contentEl.innerHTML = '';
-};
-
-window.openTutorial = () => {
-    const link = window._tutorialLink || '';
-    const modal = document.getElementById('tutorial-modal');
-    const contentEl = document.getElementById('tutorial-content');
-    if (!modal || !link) return;
-    if (link.includes('t.me') || link.includes('telegram')) {
-        window.open(link, '_blank', 'noopener');
-        return;
-    }
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-    let embedUrl = link;
-    const ytMatch = link.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
-    if (ytMatch) embedUrl = 'https://www.youtube.com/embed/' + ytMatch[1] + '?autoplay=1';
-    contentEl.innerHTML = '<iframe src="' + embedUrl + '" class="w-full rounded-xl" style="aspect-ratio:16/9;border:none;" allowfullscreen allow="autoplay"></iframe>';
-};
-window.closeTutorial = () => {
-    const modal = document.getElementById('tutorial-modal');
-    const contentEl = document.getElementById('tutorial-content');
-    if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
-    if (contentEl) contentEl.innerHTML = '';
-};
-
 window.closeDetails = () => {
     currentFileId = null;
     const dv = document.getElementById('details-view');
@@ -3973,7 +3847,8 @@ window._startAppLoading = async function() {
     const botIconEl = document.getElementById('sp-default-icon');
     if (cachedLogo) {
         if (botImgEl) {
-            // ✅ FIX: onload/onerror আগে সেট করো, তারপর src — নইলে cached image এ onload fire হয় না
+            // ✅ FIX: onload/onerror আগে সেট করো, তারপর src assign করো
+            // নইলে browser cache থেকে instantly load হলে onload fire হয় না
             botImgEl.onload = function() {
                 botImgEl.style.display = '';
                 if (botIconEl) botIconEl.style.display = 'none';
@@ -3984,7 +3859,7 @@ window._startAppLoading = async function() {
                 localStorage.removeItem('app_logo_url');
             };
             botImgEl.src = cachedLogo;
-            // Already loaded by browser cache? তাহলে onload fire হবে না — manually check করো
+            // Browser cache থেকে already loaded? তাহলে onload আর fire হবে না — manually check
             if (botImgEl.complete && botImgEl.naturalWidth > 0) {
                 botImgEl.style.display = '';
                 if (botIconEl) botIconEl.style.display = 'none';
@@ -4026,7 +3901,7 @@ window._startAppLoading = async function() {
 
         await Promise.race([
             loadData(),
-            new Promise(r => setTimeout(r, 20000)) // ✅ FIX: 20s timeout
+            new Promise(r => setTimeout(r, 6000)) // ✅ FIX: MAX_SPLASH এর মধ্যে শেষ হওয়ার জন্য 6s
         ]);
     } catch(e) {
         console.warn("Init error:", e);
