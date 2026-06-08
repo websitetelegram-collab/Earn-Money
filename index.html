@@ -2913,20 +2913,6 @@ let _sponsorStartOffset = 0;
 // Post-page: track last shown sponsor index to avoid immediate repeat
 let _sponsorLastPostPageIdx = -1;
 
-// ── ADVANCED ROTATION ENHANCEMENTS ───────────────────────────────────────
-// Persistent cross-render sponsor pointer: survives search/filter re-renders
-// so sponsor slots never restart from the same position within a session.
-let _sponsorGlobalPointer = 0;
-// Per-render rotation salt: re-randomized on every renderFiles() call so
-// even the same search term shows different sponsor placement each time.
-let _sponsorRenderSalt = Math.floor(Math.random() * 997);
-// Per-post sponsor history Map: postId → last sponsor index shown
-// Ensures visiting the same post multiple times within a session shows
-// a different sponsor each time.
-const _sponsorPostHistory = new Map();
-// Render call counter — used to further vary _sponsorStartOffset per render
-let _sponsorRenderCount = 0;
-
 // Fisher-Yates shuffle using a simple seeded PRNG so the order is
 // deterministic within one session but different across sessions.
 function _seededShuffle(arr, seed) {
@@ -2949,11 +2935,6 @@ function _rebuildSponsorRotation() {
     const baseInterval = _sponsorGlobalInterval || 4;
     _sponsorStartOffset = Math.floor(Math.random() * Math.max(1, baseInterval - 1)) + 1;
     _sponsorLastPostPageIdx = -1;
-    // Reset advanced rotation state on rebuild
-    _sponsorGlobalPointer = Math.floor(Math.random() * Math.max(1, (_sponsorShuffled.length || 1)));
-    _sponsorRenderSalt = Math.floor(Math.random() * 997);
-    _sponsorRenderCount = 0;
-    _sponsorPostHistory.clear();
 }
 
 function renderFiles() {
@@ -2988,22 +2969,7 @@ function renderFiles() {
     // _sponsorShuffled is a per-session seeded shuffle of _sponsorPosts.
     // _sponsorStartOffset shifts the first injection point so placement varies per session.
     const activeSponsorList = _sponsorShuffled.length ? _sponsorShuffled : _sponsorPosts;
-
-    // ── ADVANCED: Re-randomize offset and salt on every renderFiles() call ──
-    // This ensures search/filter/category re-renders produce different sponsor
-    // placement even within the same session, preventing any fixed pattern.
-    _sponsorRenderCount++;
-    if (activeSponsorList.length > 0) {
-        const baseInterval = _sponsorGlobalInterval || 4;
-        // Each render call shifts the offset using the render count + salt so
-        // the same query repeated twice still yields different sponsor positions.
-        _sponsorRenderSalt = (_sponsorRenderSalt * 1103515245 + 12345) & 0x7fffffff;
-        _sponsorStartOffset = ((_sponsorRenderSalt % Math.max(1, baseInterval - 1)) + 1);
-    }
-
-    // Use persistent global pointer instead of local sponsorIdx = 0 so that
-    // sponsors continue rotating across renders rather than resetting each time.
-    let sponsorIdx = _sponsorGlobalPointer;
+    let sponsorIdx = 0; // tracks which sponsor in the shuffled list to show next
     // Count of regular posts rendered so far — used with offset for slot detection
     let regularPostCount = 0;
 
@@ -3062,8 +3028,6 @@ function renderFiles() {
                 spCard.style.gridColumn = '1 / -1';
                 grid.appendChild(spCard);
                 sponsorIdx++;
-                // ── ADVANCED: Persist pointer so next render continues from here ──
-                _sponsorGlobalPointer = sponsorIdx % Math.max(1, activeSponsorList.length);
             }
         }
     });
@@ -3399,31 +3363,13 @@ function _renderPostPageSponsor() {
         // Only one available — must use it
         sp = activeSponsorList[0];
     } else {
-        // ── ADVANCED: Use per-post history to avoid repeating sponsor on same post ──
-        // currentFileId tracks which post is open; we look up the last sponsor
-        // shown for THAT post specifically so revisiting a post shows a new sponsor.
-        const postKey = currentFileId || '__default__';
-        const lastIdxForPost = _sponsorPostHistory.has(postKey)
-            ? _sponsorPostHistory.get(postKey)
-            : _sponsorLastPostPageIdx;
-
-        // Also advance the global pointer so post-page and list-page sponsors
-        // rotate independently rather than always picking from the same position.
-        let idx;
-        let attempts = 0;
+        // Pick randomly but avoid the last-shown index for variation per post open
+        let attempts = 0, idx;
         do {
-            // Blend global pointer with true randomness for maximum variation
-            idx = (_sponsorGlobalPointer + Math.floor(Math.random() * activeSponsorList.length))
-                  % activeSponsorList.length;
+            idx = Math.floor(Math.random() * activeSponsorList.length);
             attempts++;
-        } while (idx === lastIdxForPost && attempts < 10 && activeSponsorList.length > 1);
-
-        // Save per-post and global state
-        _sponsorPostHistory.set(postKey, idx);
+        } while (idx === _sponsorLastPostPageIdx && attempts < 10);
         _sponsorLastPostPageIdx = idx;
-        // Advance global pointer so subsequent list renders start from a new position
-        _sponsorGlobalPointer = (idx + 1) % activeSponsorList.length;
-
         sp = activeSponsorList[idx];
     }
     if (!sp || !sp.videoUrl) { wrap.classList.add('hidden'); return; }
