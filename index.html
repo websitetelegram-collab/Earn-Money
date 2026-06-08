@@ -2280,7 +2280,7 @@ function loadMonetagScript(zoneId, customScript) {
 // ✅ FIX 3: সব Firebase calls parallel-এ চলবে — sequential নয়
 async function loadData() {
     // ✅ FIX: Timeout 20 seconds
-    const withTimeout = (promise, ms=20000) => Promise.race([
+    const withTimeout = (promise, ms=5000) => Promise.race([
         promise,
         new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
     ]);
@@ -2288,8 +2288,8 @@ async function loadData() {
     // ✅ FIX: Auth নিশ্চিত করে তারপর files load করো — 3s পর্যন্ত wait
     async function fetchFiles() {
         if (!auth.currentUser) {
-            for (let i = 0; i < 6; i++) {
-                await new Promise(r => setTimeout(r, 500));
+            for (let i = 0; i < 4; i++) {
+                await new Promise(r => setTimeout(r, 400));
                 if (auth.currentUser) break;
             }
         }
@@ -3996,8 +3996,8 @@ window._startAppLoading = async function() {
     }
 
     const splashStart = Date.now();
-    const MIN_SPLASH  = 2800;
-    const MAX_SPLASH  = 6000; // ✅ FIX: 8s → 6s, faster fallback
+    const MIN_SPLASH  = 1500; // ✅ FIX: 2800 → 1500ms
+    const MAX_SPLASH  = 5000; // ✅ FIX: 6s → 5s absolute max
 
     const forceHideTimer = setTimeout(() => {
         hideSplash();
