@@ -285,33 +285,6 @@
         /* ── CATEGORY PILLS ── */
         .cat-pill.active { animation: catPillGlow 2.5s ease-in-out infinite; }
 
-        /* ── UNLOCK BUTTON PULSE ANIMATION ── */
-        .unlock-pulse-btn {
-            animation: unlockPulse 2s ease-in-out infinite;
-            position: relative;
-        }
-        .unlock-pulse-btn::before {
-            content: '';
-            position: absolute;
-            inset: -2px;
-            border-radius: inherit;
-            background: linear-gradient(90deg, #6366f1, #8b5cf6, #6366f1);
-            background-size: 200% 100%;
-            animation: unlockShimmer 2s linear infinite;
-            opacity: 0;
-            z-index: -1;
-            border-radius: 0.75rem;
-        }
-        .unlock-pulse-btn:hover::before { opacity: 0.4; }
-        @keyframes unlockPulse {
-            0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.4); transform: scale(1); }
-            50%      { box-shadow: 0 0 0 6px rgba(99,102,241,0); transform: scale(1.02); }
-        }
-        @keyframes unlockShimmer {
-            0%   { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-        }
-
         /* ── VIDEO CARDS — subtle glow + sweep on hover area ── */
         .video-card-inner {
             animation: cardGlow 5s ease-in-out infinite;
@@ -595,7 +568,25 @@
             touch-action: manipulation;
         }
 
-        /* ── FAVORITES ── */
+        /* ── UNLOCK BUTTON GUIDANCE ── */
+        @keyframes unlockPulse {
+            0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.7), 0 8px 25px rgba(99,102,241,0.32); transform: scale(1); }
+            50%      { box-shadow: 0 0 0 12px rgba(99,102,241,0), 0 8px 35px rgba(99,102,241,0.5); transform: scale(1.02); }
+        }
+        @keyframes arrowBounce {
+            0%,100% { transform: translateY(0); opacity: 0.8; }
+            50%      { transform: translateY(-6px); opacity: 1; }
+        }
+        .unlock-guidance-arrow {
+            display: flex; align-items: center; justify-content: center;
+            gap: 6px; color: #6366f1; font-size: 11px; font-weight: 800;
+            margin-bottom: 6px; letter-spacing: 0.5px;
+            animation: arrowBounce 1s ease-in-out infinite;
+        }
+        .dark .unlock-guidance-arrow { color: #818cf8; }
+        #unlock-action-btn {
+            animation: unlockPulse 1.8s ease-in-out infinite !important;
+        }
         .fav-badge {
             position: absolute; top: 6px; right: 6px; z-index: 5;
             width: 26px; height: 26px; border-radius: 50%;
@@ -837,7 +828,6 @@
         .sp-hex {
             position: absolute; inset: 0;
             border-radius: 28px;
-            overflow: hidden;
             background: linear-gradient(135deg, #4338ca 0%, #7c3aed 40%, #db2777 80%, #f43f5e 100%);
             box-shadow:
                 0 0 0 1px rgba(255,255,255,0.12),
@@ -1215,8 +1205,8 @@
             <!-- logo image hex এর ভেতরে পুরোপুরি fit -->
             <img id="sp-bot-logo" src="" alt=""
                 style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:26px;z-index:1;">
-            <i id="sp-default-icon" class="fas fa-play-circle app-splash-icon" style="display:none;position:absolute;inset:0;margin:auto;font-size:52px;color:white;z-index:2;width:fit-content;height:fit-content;top:50%;left:50%;transform:translate(-50%,-50%);"></i>
         </div>
+        <i id="sp-default-icon" class="fas fa-play-circle sp-logo-icon app-splash-icon" style="display:none;"></i>
     </div>
 
     <!-- Title -->
@@ -1540,7 +1530,7 @@
     <h2 class="text-xl font-bold mb-4 px-1 text-gray-800 dark:text-gray-100 flex items-center gap-2">
         <i class="fas fa-fire text-orange-500 text-base"></i> Available Videos
     </h2>
-    <div id="files-grid" class="grid grid-cols-1 gap-3 md:gap-4"></div>
+    <div id="files-grid" class="grid grid-cols-1 gap-3"></div>
 </div>
 
 <!-- ═══════════════ HISTORY VIEW ═══════════════ -->
@@ -1610,7 +1600,8 @@
             </div>
         </div>
 
-        <!-- Preview section removed -->
+        <!-- Screenshots / Preview frames — hidden per user panel settings -->
+        <div id="detail-screenshots" class="hidden"></div>
 
         <!-- Description -->
         <div class="p-4 md:p-6 border-t border-gray-100 dark:border-gray-800">
@@ -1640,21 +1631,7 @@
         </div>
     </div>
 
-    <!-- Tutorial Video Button -->
-        <div id="tutorial-btn-wrap" class="mx-4 mb-2 hidden">
-            <button onclick="window.openTutorial()" class="w-full flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-700/50 rounded-xl hover:from-amber-100 hover:to-orange-100 dark:hover:from-amber-900/30 dark:hover:to-orange-900/30 transition-all">
-                <div class="w-9 h-9 rounded-full bg-amber-500 flex items-center justify-center flex-shrink-0 shadow-sm">
-                    <i class="fas fa-play text-white text-xs ml-0.5"></i>
-                </div>
-                <div class="flex-1 text-left">
-                    <p class="text-sm font-bold text-amber-700 dark:text-amber-400" id="tutorial-btn-title">📹 How to Download?</p>
-                    <p class="text-xs text-amber-600/70 dark:text-amber-500/70">Watch tutorial to learn</p>
-                </div>
-                <i class="fas fa-chevron-right text-amber-500 text-xs"></i>
-            </button>
-        </div>
-
-        <!-- Unlock Guide -->
+    <!-- Unlock Guide -->
         <div id="unlock-guide-banner" class="mx-4 mb-2 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 rounded-xl p-3 flex items-start gap-3 text-xs text-indigo-700 dark:text-indigo-300 hidden">
             <i class="fas fa-lightbulb mt-0.5 text-indigo-500 flex-shrink-0"></i>
             <div id="unlock-guide-text">📺 বিজ্ঞাপন দেখে ভিডিও আনলক করুন। সব রাউন্ড শেষে ডাউনলোড করতে পারবেন।</div>
@@ -1673,16 +1650,35 @@
     <img id="image-viewer-img" src="" class="max-w-[95%] max-h-[85vh] object-contain rounded-lg shadow-2xl transform scale-95 transition-transform duration-300">
 </div>
 
-<!-- ═══ TUTORIAL VIDEO MODAL ═══ -->
-<div id="tutorial-modal" class="fixed inset-0 bg-black/90 z-[110] hidden flex-col items-center justify-center p-4 backdrop-blur-md">
-    <div class="w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-2xl">
-        <div class="flex items-center justify-between px-4 py-3 bg-amber-500">
-            <span class="font-bold text-white flex items-center gap-2"><i class="fas fa-play-circle"></i> How to Download</span>
-            <button onclick="window.closeTutorial()" class="text-white/80 hover:text-white w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20 transition-colors">
+<!-- ═══════════════ TUTORIAL VIEWER ═══════════════ -->
+<div id="tutorial-modal" class="fixed inset-0 z-[150] hidden flex-col items-center justify-center bg-black/90 backdrop-blur-md">
+    <div style="width:100%;max-width:480px;background:#1a1f35;border-radius:20px;overflow:hidden;position:relative;margin:20px;">
+        <!-- Header -->
+        <div style="background:linear-gradient(135deg,#6366f1,#a855f7);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <i class="fas fa-graduation-cap" style="color:white;font-size:18px;"></i>
+                <span id="tutorial-modal-title" style="color:white;font-weight:800;font-size:16px;">Tutorial</span>
+            </div>
+            <button onclick="window.closeTutorial()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;">
                 <i class="fas fa-times"></i>
             </button>
         </div>
-        <div id="tutorial-content" class="p-4 text-center text-gray-600 dark:text-gray-300 text-sm"></div>
+        <!-- Video Player (for video links) -->
+        <div id="tutorial-video-wrap" class="hidden" style="position:relative;width:100%;aspect-ratio:16/9;background:#000;">
+            <video id="tutorial-video-player" controls style="width:100%;height:100%;display:block;">
+                Your browser does not support video.
+            </video>
+        </div>
+        <!-- Telegram link fallback -->
+        <div id="tutorial-link-wrap" class="hidden" style="padding:32px 24px;text-align:center;">
+            <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#2196F3,#0d47a1);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+                <i class="fab fa-telegram" style="font-size:36px;color:white;"></i>
+            </div>
+            <p style="color:rgba(255,255,255,0.7);font-size:13px;margin-bottom:20px;">This tutorial opens in Telegram.</p>
+            <a id="tutorial-tg-link" href="#" target="_blank" style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#6366f1,#a855f7);color:white;font-weight:700;font-size:14px;padding:12px 28px;border-radius:14px;text-decoration:none;">
+                <i class="fab fa-telegram"></i> Open in Telegram
+            </a>
+        </div>
     </div>
 </div>
 
@@ -1779,6 +1775,15 @@
             </div>
             <i class="fas fa-chevron-right text-gray-300 text-xs"></i>
         </button>
+        <button id="pv-tutorial-btn" onclick="window.openTutorial()" class="hidden w-full flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            <div class="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center flex-shrink-0">
+                <i class="fas fa-graduation-cap text-purple-500 text-sm"></i>
+            </div>
+            <div class="flex-1 text-left">
+                <div class="font-semibold text-gray-800 dark:text-white text-sm" id="pv-tutorial-label">Tutorial</div>
+            </div>
+            <i class="fas fa-chevron-right text-gray-300 text-xs"></i>
+        </button>
     </div>
 
     <!-- App Info -->
@@ -1816,7 +1821,7 @@
         </h1>
         <p class="text-gray-500 dark:text-gray-400 mt-1 text-sm">Your bookmarked videos</p>
     </header>
-    <div id="favorites-list" class="grid grid-cols-1 gap-3"></div>
+    <div id="favorites-list" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
     <div id="empty-favorites" class="hidden text-center py-10">
         <i class="fas fa-bookmark text-6xl text-gray-300 dark:text-gray-600 mb-4"></i>
         <p class="text-gray-500 dark:text-gray-400 text-lg">No favorites yet.</p>
@@ -2180,11 +2185,11 @@ function showSkeletonLoader() {
     for (let i = 0; i < 10; i++) {
         grid.innerHTML += `
         <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-row">
-            <div class="flex-shrink-0 skeleton-box rounded-l-2xl" style="width:120px;min-height:90px;"></div>
-            <div class="p-3 flex flex-col flex-1 space-y-2">
+            <div class="skeleton-box flex-shrink-0" style="width:140px;aspect-ratio:16/9;"></div>
+            <div class="p-3 space-y-2 flex-1 flex flex-col justify-center">
                 <div class="h-4 skeleton-box rounded w-3/4"></div>
                 <div class="h-3 skeleton-box rounded w-full"></div>
-                <div class="h-8 skeleton-box rounded-xl w-full mt-auto"></div>
+                <div class="h-8 skeleton-box rounded-xl w-full mt-2"></div>
             </div>
         </div>`;
     }
@@ -2281,7 +2286,7 @@ function loadMonetagScript(zoneId, customScript) {
 // ✅ FIX 3: সব Firebase calls parallel-এ চলবে — sequential নয়
 async function loadData() {
     // ✅ FIX: Timeout 20 seconds
-    const withTimeout = (promise, ms=5000) => Promise.race([
+    const withTimeout = (promise, ms=20000) => Promise.race([
         promise,
         new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
     ]);
@@ -2289,8 +2294,8 @@ async function loadData() {
     // ✅ FIX: Auth নিশ্চিত করে তারপর files load করো — 3s পর্যন্ত wait
     async function fetchFiles() {
         if (!auth.currentUser) {
-            for (let i = 0; i < 4; i++) {
-                await new Promise(r => setTimeout(r, 400));
+            for (let i = 0; i < 6; i++) {
+                await new Promise(r => setTimeout(r, 500));
                 if (auth.currentUser) break;
             }
         }
@@ -2341,7 +2346,6 @@ async function loadData() {
             const d = generalSnap.value.data();
             timerDuration = d.timerDuration || 10;
             window._appSettings = d;
-            window._tutorialLink = d.tutorialLink || '';
             // Channel join settings
             window._channelJoinRequired = d.channelJoinRequired || false;
             window._channelJoinLink     = d.channelJoinLink || '';
@@ -2356,22 +2360,19 @@ async function loadData() {
                 if (botImgEl) {
                     botImgEl.src = d.appLogoUrl;
                     botImgEl.onload = function() {
-                        botImgEl.style.display = 'block';
+                        botImgEl.style.display = '';
                         if (botIconEl) botIconEl.style.display = 'none';
-                        // gradient hide করো যাতে logo clearly দেখা যায়
-                        var hexBg = document.getElementById('sp-hex-bg');
-                        if (hexBg) hexBg.style.background = 'none';
                     };
                     botImgEl.onerror = function() {
                         botImgEl.style.display = 'none';
-                        if (botIconEl) botIconEl.style.display = 'flex';
+                        if (botIconEl) botIconEl.style.display = '';
                     };
                 }
             } else {
                 // logo নেই — cache clear করো, default icon দেখাও
                 localStorage.removeItem('app_logo_url');
                 if (botImgEl) botImgEl.style.display = 'none';
-                if (botIconEl) botIconEl.style.display = 'flex';
+                if (botIconEl) botIconEl.style.display = '';
             }
 
             // App Title
@@ -2397,6 +2398,7 @@ async function loadData() {
             // ✅ Support Link
             const supportBtn = document.getElementById('support-link-btn');
             const popupSupportLink = document.getElementById('popup-support-link');
+            const pvSupportLink = document.getElementById('pv-support-link');
             if (supportBtn && d.supportLink) {
                 supportBtn.href = d.supportLink;
                 supportBtn.classList.remove('hidden');
@@ -2404,6 +2406,10 @@ async function loadData() {
             if (popupSupportLink && d.supportLink) {
                 popupSupportLink.href = d.supportLink;
                 popupSupportLink.classList.remove('hidden');
+            }
+            if (pvSupportLink && d.supportLink) {
+                pvSupportLink.href = d.supportLink;
+                pvSupportLink.classList.remove('hidden');
             }
 
             // ✅ Maintenance Mode
@@ -2413,6 +2419,21 @@ async function loadData() {
                 if (d.maintenanceMessage) msgEl.textContent = d.maintenanceMessage;
                 screen.classList.remove('hidden');
                 screen.classList.add('flex');
+            }
+
+            // ✅ Tutorial Settings
+            if (d.tutorial && d.tutorial.enabled && d.tutorial.link) {
+                window._tutorialSettings = d.tutorial;
+                const pvTutBtn = document.getElementById('pv-tutorial-btn');
+                const pvTutLabel = document.getElementById('pv-tutorial-label');
+                if (pvTutBtn) {
+                    pvTutBtn.classList.remove('hidden');
+                    if (pvTutLabel && d.tutorial.title) pvTutLabel.textContent = d.tutorial.title;
+                }
+            } else {
+                window._tutorialSettings = null;
+                const pvTutBtn = document.getElementById('pv-tutorial-btn');
+                if (pvTutBtn) pvTutBtn.classList.add('hidden');
             }
         }
     } catch(e) { console.error("General settings error:", e); }
@@ -2687,13 +2708,13 @@ function renderFiles() {
     if (activeCategory !== 'all') {
         filtered = filtered.filter(f => f.category === activeCategory);
     }
-    // Featured first
+    // Featured first, then newest first
     filtered.sort((a, b) => {
         if (a.featured && !b.featured) return -1;
         if (!a.featured && b.featured) return 1;
-        // নতুন পোস্ট উপরে — timestamp desc
-        const ta = a.createdAt?.seconds || a.timestamp || 0;
-        const tb = b.createdAt?.seconds || b.timestamp || 0;
+        // Sort by createdAt descending (newest first)
+        const ta = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : (a.createdAt || 0);
+        const tb = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : (b.createdAt || 0);
         return tb - ta;
     });
 
@@ -2720,11 +2741,10 @@ function renderFiles() {
         // Per-post download count from Firestore (file.downloads)
         const dlCount = parseInt(file.downloads) || 0;
         card.innerHTML = `
-            <div class="relative flex-shrink-0 bg-gray-100 dark:bg-gray-700 cursor-pointer overflow-hidden rounded-l-2xl" style="width:120px;min-height:90px;" onclick="window.openDetails('${file.id}')">
+            <div class="relative flex-shrink-0 bg-gray-100 dark:bg-gray-700 cursor-pointer overflow-hidden" style="width:140px;aspect-ratio:16/9;" onclick="window.openDetails('${file.id}')">
                 <img src="${file.thumbnailUrl}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="Thumbnail" loading="lazy"
                     onload="this.parentElement.parentElement.style.opacity='1';this.style.animation='fadeInScale 0.4s ease both'">
                 ${file.featured ? `<div class="featured-badge"><i class="fas fa-star text-[8px]"></i> FEATURED</div>` : (isNew ? `<div class="new-badge">NEW</div>` : `<div class="absolute top-2 left-2 bg-black/60 text-white text-[9px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1"><i class="fas fa-film text-[8px]"></i> VIDEO</div>`)}
-                ${file.category ? `<div class="absolute top-2 right-2 bg-indigo-600/90 text-white text-[9px] px-2 py-0.5 rounded-full font-bold backdrop-blur-sm">${file.category}</div>` : ''}
                 <div class="thumb-lock-icon ${isUnlocked?'unlocked':'locked'}">
                     <i class="fas ${isUnlocked?'fa-unlock':'fa-lock'}"></i>
                 </div>
@@ -2736,9 +2756,10 @@ function renderFiles() {
                     <i class="fas fa-download text-[8px]"></i> ${formatNumber(dlCount)}
                 </div>
             </div>
-            <div class="p-2.5 flex flex-col flex-1 min-w-0">
-                <h3 class="font-bold text-sm text-gray-800 dark:text-white line-clamp-1 cursor-pointer mb-1 leading-snug" onclick="window.openDetails('${file.id}')">${file.title}</h3>
-                <button onclick="window.openDetails('${file.id}')" class="btn-light-sweep w-full py-2 mt-auto ${isUnlocked ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-100 dark:border-green-800/50 hover:bg-green-600 hover:text-white dark:hover:bg-green-600' : 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600 unlock-pulse-btn'} active:scale-95 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 border">
+            <div class="p-3 flex flex-col flex-1 min-w-0">
+                ${file.category ? `<span class="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded-full mb-1 self-start">${file.category}</span>` : ''}
+                <h3 class="font-bold text-sm text-gray-800 dark:text-white line-clamp-2 cursor-pointer mb-auto leading-snug" onclick="window.openDetails('${file.id}')">${file.title}</h3>
+                <button onclick="window.openDetails('${file.id}')" class="btn-light-sweep w-full py-2 mt-2 ${isUnlocked ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-100 dark:border-green-800/50 hover:bg-green-600 hover:text-white dark:hover:bg-green-600' : 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600'} active:scale-95 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 border">
                     <i class="fas ${isUnlocked ? 'fa-download' : 'fa-play-circle'} text-xs"></i>
                     ${isUnlocked ? '⬇️ Download Now' : `🔓 Watch Ad (${count}/${req})`}
                 </button>
@@ -2893,26 +2914,6 @@ window.openDetails = (id) => {
     // Show guide for locked videos
     const count2 = parseInt(localStorage.getItem(`adCount_${id}`))||0;
     const req2   = parseInt(file.requiredAds)||2;
-    // Tutorial button দেখাও
-    const tutBtnWrap = document.getElementById('tutorial-btn-wrap');
-    if (tutBtnWrap) {
-        if (window._tutorialLink) {
-            tutBtnWrap.classList.remove('hidden');
-        } else {
-            tutBtnWrap.classList.add('hidden');
-        }
-    }
-
-    // Tutorial button দেখাও
-    const tutBtnWrap = document.getElementById('tutorial-btn-wrap');
-    if (tutBtnWrap) {
-        if (window._tutorialLink) {
-            tutBtnWrap.classList.remove('hidden');
-        } else {
-            tutBtnWrap.classList.add('hidden');
-        }
-    }
-
     const guideBanner = document.getElementById('unlock-guide-banner');
     const guideText   = document.getElementById('unlock-guide-text');
     if (guideBanner && guideText) {
@@ -2929,57 +2930,6 @@ window.openDetails = (id) => {
         }
     }
 };
-window.openTutorial = () => {
-    const link = window._tutorialLink || '';
-    const modal = document.getElementById('tutorial-modal');
-    const contentEl = document.getElementById('tutorial-content');
-    if (!modal || !link) return;
-    // Telegram link → open in Telegram
-    if (link.includes('t.me') || link.includes('telegram')) {
-        window.open(link, '_blank', 'noopener');
-        return;
-    }
-    // Video link → embed in modal
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-    // YouTube embed
-    let embedUrl = link;
-    const ytMatch = link.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
-    if (ytMatch) {
-        embedUrl = 'https://www.youtube.com/embed/' + ytMatch[1] + '?autoplay=1';
-    }
-    contentEl.innerHTML = `<iframe src="${embedUrl}" class="w-full rounded-xl" style="aspect-ratio:16/9;border:none;" allowfullscreen allow="autoplay"></iframe>`;
-};
-window.closeTutorial = () => {
-    const modal = document.getElementById('tutorial-modal');
-    const contentEl = document.getElementById('tutorial-content');
-    if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
-    if (contentEl) contentEl.innerHTML = '';
-};
-
-window.openTutorial = () => {
-    const link = window._tutorialLink || '';
-    const modal = document.getElementById('tutorial-modal');
-    const contentEl = document.getElementById('tutorial-content');
-    if (!modal || !link) return;
-    if (link.includes('t.me') || link.includes('telegram')) {
-        window.open(link, '_blank', 'noopener');
-        return;
-    }
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-    let embedUrl = link;
-    const ytMatch = link.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
-    if (ytMatch) embedUrl = 'https://www.youtube.com/embed/' + ytMatch[1] + '?autoplay=1';
-    contentEl.innerHTML = '<iframe src="' + embedUrl + '" class="w-full rounded-xl" style="aspect-ratio:16/9;border:none;" allowfullscreen allow="autoplay"></iframe>';
-};
-window.closeTutorial = () => {
-    const modal = document.getElementById('tutorial-modal');
-    const contentEl = document.getElementById('tutorial-content');
-    if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
-    if (contentEl) contentEl.innerHTML = '';
-};
-
 window.closeDetails = () => {
     currentFileId = null;
     const dv = document.getElementById('details-view');
@@ -2998,6 +2948,44 @@ window.closeImageViewer = () => {
     setTimeout(() => { v.classList.remove('flex'); v.classList.add('hidden'); }, 300);
 };
 document.getElementById('image-viewer').addEventListener('click', e => { if(e.target.id==='image-viewer') window.closeImageViewer(); });
+
+// ── Tutorial ──────────────────────────────────────────────────────────────
+window._tutorialSettings = null;
+window.openTutorial = () => {
+    const s = window._tutorialSettings;
+    if (!s || !s.enabled || !s.link) return;
+    const modal = document.getElementById('tutorial-modal');
+    const titleEl = document.getElementById('tutorial-modal-title');
+    const videoWrap = document.getElementById('tutorial-video-wrap');
+    const videoPlayer = document.getElementById('tutorial-video-player');
+    const linkWrap = document.getElementById('tutorial-link-wrap');
+    const tgLink = document.getElementById('tutorial-tg-link');
+    if (titleEl) titleEl.textContent = s.title || 'Tutorial';
+    const link = s.link.trim();
+    const isTelegram = /t\.me\//i.test(link) || link.startsWith('tg://') || link.startsWith('https://telegram.me/');
+    const isVideo = /\.(mp4|webm|ogg|mov|m3u8)(\?|$)/i.test(link) || /youtu\.?be|vimeo\.com/i.test(link);
+    if (isTelegram) {
+        videoWrap.classList.add('hidden');
+        linkWrap.classList.remove('hidden');
+        tgLink.href = link;
+    } else {
+        linkWrap.classList.add('hidden');
+        videoWrap.classList.remove('hidden');
+        videoPlayer.src = link;
+    }
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+};
+window.closeTutorial = () => {
+    const modal = document.getElementById('tutorial-modal');
+    const videoPlayer = document.getElementById('tutorial-video-player');
+    if (videoPlayer) { videoPlayer.pause(); videoPlayer.src = ''; }
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+};
+document.getElementById('tutorial-modal').addEventListener('click', function(e) {
+    if (e.target === this) window.closeTutorial();
+});
 
 // ── Reviews ──────────────────────────────────────────────────────────────
 function renderReviews(file) {
@@ -3094,12 +3082,18 @@ function updateDetailButtonState(file) {
             ${shareBtn}`;
     } else {
         container.innerHTML = `
-            <button id="unlock-action-btn" onclick="window.unlockFile('${file.id}',${req})"
-                class="big-action-btn btn-light-sweep btn-glow flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 active:scale-95 text-white rounded-2xl font-extrabold shadow-lg flex items-center justify-center gap-2 transition-all"
-                style="animation: pulse-ring 2s ease-in-out infinite;">
-                <i class="fas fa-lock text-lg"></i>
-                <span>Unlock Video (${count}/${req})</span>
-            </button>
+            <div class="flex flex-col flex-1">
+                <div class="unlock-guidance-arrow">
+                    <i class="fas fa-hand-pointer"></i>
+                    <span>TAP TO UNLOCK</span>
+                    <i class="fas fa-hand-pointer"></i>
+                </div>
+                <button id="unlock-action-btn" onclick="window.unlockFile('${file.id}',${req})"
+                    class="big-action-btn btn-light-sweep btn-glow w-full py-4 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 active:scale-95 text-white rounded-2xl font-extrabold shadow-lg flex items-center justify-center gap-2 transition-all">
+                    <i class="fas fa-lock text-lg"></i>
+                    <span>Unlock Video (${count}/${req})</span>
+                </button>
+            </div>
             ${shareBtn}`;
     }
 }
@@ -3889,7 +3883,6 @@ async function loadNotifHistory() {
 function hideSplash() {
     const splash = document.getElementById('splash-screen');
     if (!splash) return;
-    window._startAppLoadingDone = true; // fallback কে জানাও splash hide হয়ে গেছে
     splash.classList.add('hide');
     setTimeout(() => { splash.style.display = 'none'; }, 600);
 }
@@ -3972,22 +3965,19 @@ window._startAppLoading = async function() {
     const botIconEl = document.getElementById('sp-default-icon');
     if (cachedLogo) {
         if (botImgEl) {
+            // Already preloaded? check করো
             if (botImgEl.complete && botImgEl.naturalWidth > 0 && botImgEl.src.includes(cachedLogo.split('/').pop())) {
-                botImgEl.style.display = 'block';
+                botImgEl.style.display = '';
                 if (botIconEl) botIconEl.style.display = 'none';
-                var hexBg = document.getElementById('sp-hex-bg');
-                if (hexBg) hexBg.style.background = 'none';
             } else {
                 botImgEl.src = cachedLogo;
                 botImgEl.onload = function() {
-                    botImgEl.style.display = 'block';
+                    botImgEl.style.display = '';
                     if (botIconEl) botIconEl.style.display = 'none';
-                    var hexBg = document.getElementById('sp-hex-bg');
-                    if (hexBg) hexBg.style.background = 'none';
                 };
                 botImgEl.onerror = function() {
                     botImgEl.style.display = 'none';
-                    if (botIconEl) botIconEl.style.display = 'flex';
+                    if (botIconEl) botIconEl.style.display = '';
                     localStorage.removeItem('app_logo_url');
                 };
             }
@@ -3995,17 +3985,12 @@ window._startAppLoading = async function() {
     } else {
         // কোনো logo নেই — default icon দেখাও
         if (botImgEl)  botImgEl.style.display  = 'none';
-        if (botIconEl) {
-            botIconEl.style.display  = 'flex';
-            // hex background টা icon দেখানোর জন্য gradient রাখো
-            var hexBg = document.getElementById('sp-hex-bg');
-            if (hexBg) hexBg.style.background = '';
-        }
+        if (botIconEl) botIconEl.style.display  = '';
     }
 
     const splashStart = Date.now();
-    const MIN_SPLASH  = 1500; // ✅ FIX: 2800 → 1500ms
-    const MAX_SPLASH  = 5000; // ✅ FIX: 6s → 5s absolute max
+    const MIN_SPLASH  = 2800;
+    const MAX_SPLASH  = 8000;
 
     const forceHideTimer = setTimeout(() => {
         hideSplash();
@@ -4024,33 +4009,19 @@ window._startAppLoading = async function() {
                 break;
             } catch(e) {
                 console.warn(`Auth attempt ${attempt} failed:`, e.code || e.message);
-                if (attempt < 3) await new Promise(r => setTimeout(r, 800 * attempt)); // ✅ FIX: 1000ms → 800ms
+                if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt));
             }
         }
-        if (!authOk) {
-            console.warn("⚠️ Anonymous auth failed after 3 attempts — data may not load if Firestore rules require auth.");
-            // ✅ FIX: auth fail হলেও loading complete করো, splash আটকাবে না
-            clearTimeout(forceHideTimer);
-            const elapsed = Date.now() - splashStart;
-            if (elapsed < MIN_SPLASH) await new Promise(r => setTimeout(r, MIN_SPLASH - elapsed));
-            hideSplash();
-            if (!localStorage.getItem(OB_KEY)) setTimeout(showOnboarding, 300);
-            return;
-        }
+        if (!authOk) console.warn("⚠️ Anonymous auth failed after 3 attempts — data may not load if Firestore rules require auth.");
 
         setupPresenceAndSaveUser();
 
         await Promise.race([
             loadData(),
-            new Promise(r => setTimeout(r, 8000)) // ✅ FIX: 20s → 8s timeout
+            new Promise(r => setTimeout(r, 20000)) // ✅ FIX: 20s timeout
         ]);
     } catch(e) {
         console.warn("Init error:", e);
-        // ✅ FIX: যেকোনো error এ splash hide করো
-        clearTimeout(forceHideTimer);
-        hideSplash();
-        if (!localStorage.getItem(OB_KEY)) setTimeout(showOnboarding, 300);
-        return;
     }
 
     clearTimeout(forceHideTimer);
@@ -4457,40 +4428,6 @@ document.addEventListener('DOMContentLoaded', function() {
             ].join(';');
             container.appendChild(star);
         }
-    });
-})();
-
-// ══ ABSOLUTE SPLASH FALLBACK — module script বা Firebase load না হলেও splash hide হবে ══
-// এটা module script এর বাইরে, তাই Firebase CDN fail হলেও কাজ করে
-(function() {
-    var HARD_LIMIT = 7000; // ৭ সেকেন্ডের মধ্যে যেকোনো অবস্থায় splash বন্ধ
-    var _splashKilled = false;
-
-    function killSplash() {
-        if (_splashKilled) return;
-        _splashKilled = true;
-        var splash = document.getElementById('splash-screen');
-        if (!splash) return;
-        if (splash.style.display === 'none') return; // already hidden
-        splash.classList.add('hide');
-        setTimeout(function() { splash.style.display = 'none'; }, 800);
-    }
-
-    // ৭ সেকেন্ড পর force hide
-    setTimeout(killSplash, HARD_LIMIT);
-
-    // Module script সফলভাবে load ও run হলে এই fallback নিজেই বাতিল হয়
-    // _startAppLoading এর পরে splash hide হলে killSplash() তখন কিছু করবে না (display:none check)
-    document.addEventListener('DOMContentLoaded', function() {
-        // ৪ সেকেন্ড পরেও splash দেখা গেলে এবং _startAppLoading না চললে force hide
-        setTimeout(function() {
-            var splash = document.getElementById('splash-screen');
-            if (!splash || splash.style.display === 'none') return;
-            if (!window._startAppLoadingDone) {
-                console.warn('[Fallback] Splash stuck — force hiding after 4s');
-                killSplash();
-            }
-        }, 4000);
     });
 })();
 </script>
