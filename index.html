@@ -587,6 +587,161 @@
         #unlock-action-btn {
             animation: unlockPulse 1.8s ease-in-out infinite !important;
         }
+
+        /* ══ ENHANCED UNLOCK FINGER INDICATOR ══ */
+        @keyframes fingerTap {
+            0%   { transform: translateY(0) scale(1); }
+            30%  { transform: translateY(10px) scale(0.88); }
+            55%  { transform: translateY(4px) scale(0.95); }
+            70%  { transform: translateY(0) scale(1); }
+            100% { transform: translateY(0) scale(1); }
+        }
+        @keyframes fingerBounce {
+            0%,100% { transform: translateY(0); }
+            40%     { transform: translateY(-8px); }
+            60%     { transform: translateY(-4px); }
+        }
+        @keyframes unlockBtnGlow {
+            0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.7), 0 8px 25px rgba(99,102,241,0.35); }
+            50%      { box-shadow: 0 0 0 16px rgba(99,102,241,0), 0 8px 40px rgba(99,102,241,0.55), 0 0 60px rgba(168,85,247,0.3); }
+        }
+        @keyframes unlockBtnBounce {
+            0%,100% { transform: scale(1) translateY(0); }
+            25%      { transform: scale(1.03) translateY(-2px); }
+            75%      { transform: scale(0.99) translateY(1px); }
+        }
+        @keyframes tapRipple {
+            0%   { transform: scale(0.6); opacity: 0.8; }
+            100% { transform: scale(2.4); opacity: 0; }
+        }
+        .finger-indicator-wrap {
+            display: flex; flex-direction: column; align-items: center;
+            margin-bottom: 8px; pointer-events: none; user-select: none;
+        }
+        .finger-emoji {
+            font-size: 28px; line-height: 1;
+            animation: fingerTap 1.4s cubic-bezier(0.36,0.07,0.19,0.97) infinite;
+            filter: drop-shadow(0 3px 8px rgba(99,102,241,0.5));
+        }
+        .finger-label {
+            font-size: 11px; font-weight: 900; letter-spacing: 0.8px;
+            color: #6366f1; margin-top: 4px; text-transform: uppercase;
+            animation: fingerBounce 1.4s ease-in-out infinite;
+        }
+        .dark .finger-label { color: #818cf8; }
+        .unlock-btn-pulse-ring {
+            position: absolute; inset: 0; border-radius: inherit;
+            border: 2px solid rgba(99,102,241,0.5);
+            animation: tapRipple 1.8s ease-out infinite;
+            pointer-events: none;
+        }
+        .unlock-btn-pulse-ring2 {
+            position: absolute; inset: 0; border-radius: inherit;
+            border: 2px solid rgba(168,85,247,0.4);
+            animation: tapRipple 1.8s ease-out infinite 0.6s;
+            pointer-events: none;
+        }
+        #unlock-action-btn {
+            animation: unlockBtnGlow 1.8s ease-in-out infinite, unlockBtnBounce 1.4s ease-in-out infinite !important;
+            position: relative !important;
+        }
+
+        /* ══ TUTORIAL SECTION IN POST PAGE ══ */
+        @keyframes tutorialCardPop {
+            0%   { opacity:0; transform:scale(0.95) translateY(8px); }
+            60%  { transform:scale(1.02) translateY(-2px); }
+            100% { opacity:1; transform:scale(1) translateY(0); }
+        }
+        @keyframes tutorialPulse {
+            0%,100% { box-shadow: 0 4px 20px rgba(99,102,241,0.22), 0 1px 6px rgba(99,102,241,0.1); }
+            50%      { box-shadow: 0 6px 30px rgba(168,85,247,0.35), 0 2px 12px rgba(99,102,241,0.2); }
+        }
+        @keyframes tutorialBtnShine {
+            0%   { transform: translateX(-130%) skewX(-18deg); opacity:0; }
+            35%  { opacity:0.6; }
+            65%  { opacity:0.6; }
+            100% { transform: translateX(230%) skewX(-18deg); opacity:0; }
+        }
+        .post-tutorial-card {
+            margin: 0 16px 12px;
+            background: linear-gradient(135deg, #f0f4ff 0%, #faf5ff 100%);
+            border: 1.5px solid rgba(99,102,241,0.18);
+            border-radius: 18px;
+            overflow: hidden;
+            animation: tutorialCardPop 0.45s cubic-bezier(0.34,1.56,0.64,1) both,
+                       tutorialPulse 3.5s ease-in-out infinite;
+            position: relative;
+        }
+        .dark .post-tutorial-card {
+            background: linear-gradient(135deg, rgba(30,35,70,0.9) 0%, rgba(40,20,60,0.9) 100%);
+            border-color: rgba(99,102,241,0.3);
+        }
+        .post-tutorial-card::before {
+            content:''; position:absolute; top:-20px; right:-20px;
+            width:100px; height:100px; border-radius:50%;
+            background: radial-gradient(circle, rgba(168,85,247,0.12) 0%, transparent 70%);
+            pointer-events:none;
+        }
+        .tutorial-card-header {
+            display:flex; align-items:center; gap:10px;
+            padding: 14px 16px 10px;
+        }
+        .tutorial-card-icon-wrap {
+            width:42px; height:42px; border-radius:14px; flex-shrink:0;
+            background: linear-gradient(135deg, #6366f1, #a855f7);
+            display:flex; align-items:center; justify-content:center;
+            box-shadow: 0 4px 14px rgba(99,102,241,0.35);
+        }
+        .tutorial-card-title {
+            font-size:15px; font-weight:900; color:#1e293b; line-height:1.2;
+        }
+        .dark .tutorial-card-title { color:#f1f5f9; }
+        .tutorial-card-subtitle {
+            font-size:11px; color:#64748b; margin-top:2px; font-weight:600;
+        }
+        .dark .tutorial-card-subtitle { color:#94a3b8; }
+        .tutorial-steps-wrap {
+            padding: 0 16px 12px;
+        }
+        .tutorial-step {
+            display:flex; align-items:flex-start; gap:10px;
+            padding: 5px 0; font-size:12px; color:#475569;
+        }
+        .dark .tutorial-step { color:#cbd5e1; }
+        .tutorial-step-num {
+            width:20px; height:20px; border-radius:50%; flex-shrink:0;
+            background: linear-gradient(135deg, #6366f1, #a855f7);
+            color:white; font-size:10px; font-weight:900;
+            display:flex; align-items:center; justify-content:center;
+            margin-top:1px;
+        }
+        .tutorial-cta-wrap {
+            padding: 0 16px 14px;
+        }
+        .tutorial-cta-btn {
+            width:100%; padding:13px 16px; border-radius:14px; border:none;
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            color:white; font-weight:800; font-size:14px;
+            display:flex; align-items:center; justify-content:center; gap:8px;
+            cursor:pointer; position:relative; overflow:hidden;
+            box-shadow: 0 6px 20px rgba(99,102,241,0.35);
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .tutorial-cta-btn::after {
+            content:''; position:absolute; top:0; left:0;
+            width:40%; height:100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent);
+            transform: translateX(-130%) skewX(-18deg);
+            animation: tutorialBtnShine 3s ease-in-out infinite;
+            pointer-events:none;
+        }
+        .tutorial-cta-btn:active { transform:scale(0.97); }
+        .tutorial-tg-badge {
+            display:inline-flex; align-items:center; gap:5px;
+            background:rgba(255,255,255,0.18); padding:2px 8px; border-radius:99px;
+            font-size:10px; font-weight:700; margin-left:6px;
+            border:1px solid rgba(255,255,255,0.25);
+        }
         .fav-badge {
             position: absolute; top: 6px; right: 6px; z-index: 5;
             width: 26px; height: 26px; border-radius: 50%;
@@ -1628,6 +1783,36 @@
                 </div>
             </div>
             <div id="reviews-list" class="flex flex-col gap-4"></div>
+        </div>
+    </div>
+
+    <!-- ══ TUTORIAL SECTION — Prominent post-page placement ══ -->
+    <div id="post-tutorial-section" class="hidden">
+        <div class="post-tutorial-card" id="post-tutorial-card">
+            <!-- Header -->
+            <div class="tutorial-card-header">
+                <div class="tutorial-card-icon-wrap">
+                    <i class="fas fa-graduation-cap" style="color:white;font-size:20px;"></i>
+                </div>
+                <div>
+                    <div class="tutorial-card-title" id="tutorial-card-title-text">🎥 How To Download</div>
+                    <div class="tutorial-card-subtitle" id="tutorial-card-subtitle-text">First time? Watch the tutorial first</div>
+                </div>
+            </div>
+            <!-- Steps -->
+            <div class="tutorial-steps-wrap" id="tutorial-steps-wrap">
+                <div class="tutorial-step"><div class="tutorial-step-num">1</div><span id="tutorial-step-1">Open the post.</span></div>
+                <div class="tutorial-step"><div class="tutorial-step-num">2</div><span id="tutorial-step-2">Click the Unlock button.</span></div>
+                <div class="tutorial-step"><div class="tutorial-step-num">3</div><span id="tutorial-step-3">Complete the required steps.</span></div>
+                <div class="tutorial-step"><div class="tutorial-step-num">4</div><span id="tutorial-step-4">Download becomes available.</span></div>
+            </div>
+            <!-- CTA Button -->
+            <div class="tutorial-cta-wrap">
+                <button class="tutorial-cta-btn" onclick="window.openTutorial()" id="tutorial-cta-btn">
+                    <i class="fas fa-play-circle" id="tutorial-cta-icon"></i>
+                    <span id="tutorial-cta-text">Watch Tutorial Video</span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -2929,6 +3114,9 @@ window.openDetails = (id) => {
             guideBanner.classList.add('hidden');
         }
     }
+
+    // ── Tutorial Section — show on every post page if admin enabled ──
+    _renderPostTutorialSection(count2 < req2);
 };
 window.closeDetails = () => {
     currentFileId = null;
@@ -2986,6 +3174,56 @@ window.closeTutorial = () => {
 document.getElementById('tutorial-modal').addEventListener('click', function(e) {
     if (e.target === this) window.closeTutorial();
 });
+
+// ── Post Tutorial Section Renderer ──────────────────────────────────────
+function _renderPostTutorialSection(isLocked) {
+    const section = document.getElementById('post-tutorial-section');
+    if (!section) return;
+    const s = window._tutorialSettings;
+    // Only show if admin enabled tutorial AND has a link configured
+    if (!s || !s.enabled || !s.link) {
+        section.classList.add('hidden');
+        return;
+    }
+    const tr = (TRANSLATIONS[currentLang] || TRANSLATIONS.bn);
+    const link = (s.link || '').trim();
+    const isTg = /t\.me\//i.test(link) || link.startsWith('tg://') || link.startsWith('https://telegram.me/');
+
+    // Title/subtitle
+    const titleEl    = document.getElementById('tutorial-card-title-text');
+    const subEl      = document.getElementById('tutorial-card-subtitle-text');
+    const step1El    = document.getElementById('tutorial-step-1');
+    const step2El    = document.getElementById('tutorial-step-2');
+    const step3El    = document.getElementById('tutorial-step-3');
+    const step4El    = document.getElementById('tutorial-step-4');
+    const ctaBtnEl   = document.getElementById('tutorial-cta-btn');
+    const ctaTextEl  = document.getElementById('tutorial-cta-text');
+    const ctaIconEl  = document.getElementById('tutorial-cta-icon');
+
+    if (titleEl)   titleEl.textContent  = s.title || tr.tutorialTitle  || '🎥 How To Download';
+    if (subEl)     subEl.textContent    = tr.tutorialSubtitle || 'First time? Watch the tutorial first';
+    if (step1El)   step1El.textContent  = tr.tutorialStep1 || 'Open the post.';
+    if (step2El)   step2El.textContent  = tr.tutorialStep2 || 'Click the Unlock button.';
+    if (step3El)   step3El.textContent  = tr.tutorialStep3 || 'Complete the required steps.';
+    if (step4El)   step4El.textContent  = tr.tutorialStep4 || 'Download becomes available.';
+
+    if (ctaTextEl) ctaTextEl.textContent = isTg
+        ? (tr.tutorialJoinChannel || 'Join Tutorial Channel')
+        : (tr.tutorialWatchVideo  || 'Watch Tutorial Video');
+    if (ctaIconEl) ctaIconEl.className = isTg ? 'fab fa-telegram' : 'fas fa-play-circle';
+
+    // Re-trigger the pop animation
+    const card = document.getElementById('post-tutorial-card');
+    if (card) {
+        card.style.animation = 'none';
+        void card.offsetWidth;
+        card.style.animation = '';
+    }
+
+    section.classList.remove('hidden');
+}
+// Expose so applyTranslations can refresh the tutorial card text
+window._renderPostTutorialSection = _renderPostTutorialSection;
 
 // ── Reviews ──────────────────────────────────────────────────────────────
 function renderReviews(file) {
@@ -3081,18 +3319,26 @@ function updateDetailButtonState(file) {
             ${file.downloadUrl2?`<a href="${file.downloadUrl2}" target="_blank" class="big-action-btn btn-light-sweep flex-1 py-4 bg-teal-600 hover:bg-teal-700 active:scale-95 text-white text-center rounded-2xl font-extrabold shadow-lg flex items-center justify-center gap-2 transition-all"><i class="fas fa-link text-lg"></i> ${file.btnName2||'Mirror'}</a>`:''}
             ${shareBtn}`;
     } else {
+        const tapLabel = {
+            bn: 'আনলক বাটনে ক্লিক করুন',
+            en: 'Tap Unlock To Continue',
+            hi: 'अनलॉक करने के लिए टैप करें'
+        }[currentLang] || 'Tap Unlock To Continue';
         container.innerHTML = `
             <div class="flex flex-col flex-1">
-                <div class="unlock-guidance-arrow">
-                    <i class="fas fa-hand-pointer"></i>
-                    <span>TAP TO UNLOCK</span>
-                    <i class="fas fa-hand-pointer"></i>
+                <div class="finger-indicator-wrap">
+                    <div class="finger-emoji">👇</div>
+                    <div class="finger-label">${tapLabel}</div>
                 </div>
-                <button id="unlock-action-btn" onclick="window.unlockFile('${file.id}',${req})"
-                    class="big-action-btn btn-light-sweep btn-glow w-full py-4 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 active:scale-95 text-white rounded-2xl font-extrabold shadow-lg flex items-center justify-center gap-2 transition-all">
-                    <i class="fas fa-lock text-lg"></i>
-                    <span>Unlock Video (${count}/${req})</span>
-                </button>
+                <div style="position:relative;">
+                    <div class="unlock-btn-pulse-ring"></div>
+                    <div class="unlock-btn-pulse-ring2"></div>
+                    <button id="unlock-action-btn" onclick="window.unlockFile('${file.id}',${req})"
+                        class="big-action-btn btn-light-sweep w-full py-4 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 active:scale-95 text-white rounded-2xl font-extrabold shadow-lg flex items-center justify-center gap-2 transition-all" style="position:relative;z-index:1;">
+                        <i class="fas fa-lock text-lg"></i>
+                        <span>Unlock Video (${count}/${req})</span>
+                    </button>
+                </div>
             </div>
             ${shareBtn}`;
     }
@@ -4096,6 +4342,15 @@ const TRANSLATIONS = {
         obTitle0: 'অসাধারণ ভিডিও আবিষ্কার করুন', obDesc0: 'আপনার জন্য অপেক্ষা করছে শত শত এক্সক্লুসিভ ভিডিও। ক্যাটাগরি অনুযায়ী ব্রাউজ করুন, শিরোনাম দিয়ে খুঁজুন।',
         obTitle1: 'বিজ্ঞাপন দেখুন, কন্টেন্ট আনলক করুন', obDesc1: 'ছোট বিজ্ঞাপন দেখে বিনামূল্যে প্রিয় ভিডিও আনলক করুন। কোনো সাবস্ক্রিপশন লাগবে না!',
         obTitle2: 'ডাউনলোড করুন ও উপভোগ করুন!', obDesc2: 'আনলক হলে সঙ্গে সঙ্গে ডাউনলোড করুন এবং অফলাইনেও দেখুন — চিরকালের জন্য।',
+        tapUnlock: 'চালিয়ে যেতে আনলক বাটনে ক্লিক করুন',
+        tutorialTitle: '🎥 কিভাবে ডাউনলোড করবেন',
+        tutorialSubtitle: 'প্রথমবার? আগে টিউটোরিয়াল দেখুন',
+        tutorialStep1: 'পোস্টটি খুলুন।',
+        tutorialStep2: 'Unlock বাটনে ক্লিক করুন।',
+        tutorialStep3: 'প্রয়োজনীয় ধাপগুলো সম্পন্ন করুন।',
+        tutorialStep4: 'ডাউনলোড সক্রিয় হয়ে যাবে।',
+        tutorialWatchVideo: 'টিউটোরিয়াল ভিডিও দেখুন',
+        tutorialJoinChannel: 'টিউটোরিয়াল চ্যানেলে যোগ দিন',
     },
     en: {
         searchPlaceholder: 'Search videos...',
@@ -4129,6 +4384,15 @@ const TRANSLATIONS = {
         obTitle0: 'Discover Amazing Videos', obDesc0: 'Hundreds of exclusive videos waiting for you. Browse by category, search by title, and find what you love.',
         obTitle1: 'Watch Ads, Unlock Content', obDesc1: 'Watch short ads to unlock your favourite videos for free. Each ad brings you one step closer — no subscriptions needed!',
         obTitle2: 'Download & Enjoy!', obDesc2: 'Once unlocked, download instantly and enjoy offline — forever. Your unlocked videos are saved and always accessible.',
+        tapUnlock: 'Tap Unlock To Continue',
+        tutorialTitle: '🎥 How To Download',
+        tutorialSubtitle: 'First time? Watch the tutorial first',
+        tutorialStep1: 'Open the post.',
+        tutorialStep2: 'Click the Unlock button.',
+        tutorialStep3: 'Complete the required steps.',
+        tutorialStep4: 'Download becomes available.',
+        tutorialWatchVideo: 'Watch Tutorial Video',
+        tutorialJoinChannel: 'Join Tutorial Channel',
     },
     hi: {
         searchPlaceholder: 'वीडियो खोजें...',
@@ -4162,6 +4426,15 @@ const TRANSLATIONS = {
         obTitle0: 'अद्भुत वीडियो खोजें', obDesc0: 'आपके लिए सैकड़ों एक्सक्लूसिव वीडियो इंतजार कर रहे हैं। कैटेगरी से ब्राउज़ करें, शीर्षक से खोजें।',
         obTitle1: 'विज्ञापन देखें, कंटेंट अनलॉक करें', obDesc1: 'मुफ्त में अपने पसंदीदा वीडियो अनलॉक करने के लिए छोटे विज्ञापन देखें। कोई सब्सक्रिप्शन नहीं!',
         obTitle2: 'डाउनलोड करें और आनंद लें!', obDesc2: 'अनलॉक होने के बाद तुरंत डाउनलोड करें और ऑफलाइन देखें — हमेशा के लिए।',
+        tapUnlock: 'जारी रखने के लिए अनलॉक टैप करें',
+        tutorialTitle: '🎥 डाउनलोड कैसे करें',
+        tutorialSubtitle: 'पहली बार? पहले ट्यूटोरियल देखें',
+        tutorialStep1: 'पोस्ट खोलें।',
+        tutorialStep2: 'Unlock बटन दबाएं।',
+        tutorialStep3: 'आवश्यक चरण पूरे करें।',
+        tutorialStep4: 'डाउनलोड उपलब्ध हो जाएगा।',
+        tutorialWatchVideo: 'ट्यूटोरियल वीडियो देखें',
+        tutorialJoinChannel: 'ट्यूटोरियल चैनल जॉइन करें',
     }
 };
 
@@ -4249,6 +4522,10 @@ function applyTranslations() {
     renderFiles();
     renderHistory();
     renderFavorites();
+    // Refresh tutorial section text if visible
+    if (typeof window._renderPostTutorialSection === 'function') {
+        window._renderPostTutorialSection(true);
+    }
 }
 
 function showLangPopup() {
