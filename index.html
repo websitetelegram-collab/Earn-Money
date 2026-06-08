@@ -562,9 +562,9 @@
 
         /* ── BIG ACTION BUTTON ── */
         .big-action-btn {
-            padding: 17px 20px !important;
-            font-size: 16px !important;
-            border-radius: 18px !important;
+            padding: 13px 16px !important;
+            font-size: 15px !important;
+            border-radius: 16px !important;
             touch-action: manipulation;
         }
 
@@ -1758,10 +1758,46 @@
         <!-- Screenshots / Preview frames — hidden per user panel settings -->
         <div id="detail-screenshots" class="hidden"></div>
 
-        <!-- Description -->
-        <div class="p-4 md:p-6 border-t border-gray-100 dark:border-gray-800">
-            <h3 class="text-base font-bold text-gray-800 dark:text-white mb-2">About this video</h3>
-            <p id="detail-desc" class="text-gray-600 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-line"></p>
+        <!-- Download Guide (replaces old description) -->
+        <div class="p-4 md:p-6 border-t border-gray-100 dark:border-gray-800" id="download-guide-section">
+            <div class="flex items-center gap-2 mb-3">
+                <div class="w-7 h-7 rounded-lg bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-download text-indigo-500 text-xs"></i>
+                </div>
+                <h3 class="text-base font-bold text-gray-800 dark:text-white" id="guide-section-title">📥 How To Download</h3>
+            </div>
+            <!-- Steps -->
+            <div class="space-y-2 mb-4" id="guide-steps-container">
+                <div class="flex items-start gap-2.5 text-sm text-gray-600 dark:text-gray-300">
+                    <div class="w-5 h-5 rounded-full bg-indigo-500 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</div>
+                    <span id="guide-step-1">Click the Unlock button.</span>
+                </div>
+                <div class="flex items-start gap-2.5 text-sm text-gray-600 dark:text-gray-300">
+                    <div class="w-5 h-5 rounded-full bg-indigo-500 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</div>
+                    <span id="guide-step-2">Complete the required steps.</span>
+                </div>
+                <div class="flex items-start gap-2.5 text-sm text-gray-600 dark:text-gray-300">
+                    <div class="w-5 h-5 rounded-full bg-green-500 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</div>
+                    <span id="guide-step-3">Download will become available.</span>
+                </div>
+            </div>
+            <!-- Tutorial Buttons — shown only when admin has configured tutorial -->
+            <div id="post-inline-tutorial-btns" class="hidden space-y-2">
+                <!-- Video tutorial button -->
+                <button id="post-tut-video-btn" onclick="window._openTutorialVideo()" class="hidden w-full py-2.5 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white transition-all shadow-sm btn-light-sweep">
+                    <i class="fas fa-play-circle"></i>
+                    <span id="post-tut-video-label">Watch Tutorial Video</span>
+                </button>
+                <!-- Telegram tutorial button -->
+                <button id="post-tut-tg-btn" onclick="window._openTutorialTelegram()" class="hidden w-full py-2.5 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all border" style="background:rgba(33,150,243,0.1);border-color:rgba(33,150,243,0.3);color:#1565C0;">
+                    <i class="fab fa-telegram" style="color:#1976D2;"></i>
+                    <span id="post-tut-tg-label">Join Tutorial Channel</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Sponsor Post inside Post Page -->
+        <div id="post-page-sponsor-wrap" class="hidden px-4 pb-2">
         </div>
 
         <!-- Reviews -->
@@ -1783,36 +1819,6 @@
                 </div>
             </div>
             <div id="reviews-list" class="flex flex-col gap-4"></div>
-        </div>
-    </div>
-
-    <!-- ══ TUTORIAL SECTION — Prominent post-page placement ══ -->
-    <div id="post-tutorial-section" class="hidden">
-        <div class="post-tutorial-card" id="post-tutorial-card">
-            <!-- Header -->
-            <div class="tutorial-card-header">
-                <div class="tutorial-card-icon-wrap">
-                    <i class="fas fa-graduation-cap" style="color:white;font-size:20px;"></i>
-                </div>
-                <div>
-                    <div class="tutorial-card-title" id="tutorial-card-title-text">🎥 How To Download</div>
-                    <div class="tutorial-card-subtitle" id="tutorial-card-subtitle-text">First time? Watch the tutorial first</div>
-                </div>
-            </div>
-            <!-- Steps -->
-            <div class="tutorial-steps-wrap" id="tutorial-steps-wrap">
-                <div class="tutorial-step"><div class="tutorial-step-num">1</div><span id="tutorial-step-1">Open the post.</span></div>
-                <div class="tutorial-step"><div class="tutorial-step-num">2</div><span id="tutorial-step-2">Click the Unlock button.</span></div>
-                <div class="tutorial-step"><div class="tutorial-step-num">3</div><span id="tutorial-step-3">Complete the required steps.</span></div>
-                <div class="tutorial-step"><div class="tutorial-step-num">4</div><span id="tutorial-step-4">Download becomes available.</span></div>
-            </div>
-            <!-- CTA Button -->
-            <div class="tutorial-cta-wrap">
-                <button class="tutorial-cta-btn" onclick="window.openTutorial()" id="tutorial-cta-btn">
-                    <i class="fas fa-play-circle" id="tutorial-cta-icon"></i>
-                    <span id="tutorial-cta-text">Watch Tutorial Video</span>
-                </button>
-            </div>
         </div>
     </div>
 
@@ -2606,14 +2612,22 @@ async function loadData() {
                 screen.classList.add('flex');
             }
 
-            // ✅ Tutorial Settings
-            if (d.tutorial && d.tutorial.enabled && d.tutorial.link) {
-                window._tutorialSettings = d.tutorial;
+            // ✅ Tutorial Settings (supports new split fields: videoLink + tgLink, backward compat with old link)
+            if (d.tutorial && d.tutorial.enabled) {
+                // Normalize: support both old single-link and new split videoLink/tgLink
+                const tut = { ...d.tutorial };
+                if (!tut.videoLink && !tut.tgLink && tut.link) {
+                    // Old format — detect type and put in right field
+                    const l = tut.link;
+                    const isTg = /t\.me\//i.test(l) || l.startsWith('tg://');
+                    if (isTg) tut.tgLink = l; else tut.videoLink = l;
+                }
+                window._tutorialSettings = tut;
                 const pvTutBtn = document.getElementById('pv-tutorial-btn');
                 const pvTutLabel = document.getElementById('pv-tutorial-label');
                 if (pvTutBtn) {
                     pvTutBtn.classList.remove('hidden');
-                    if (pvTutLabel && d.tutorial.title) pvTutLabel.textContent = d.tutorial.title;
+                    if (pvTutLabel && tut.title) pvTutLabel.textContent = tut.title;
                 }
             } else {
                 window._tutorialSettings = null;
@@ -3050,7 +3064,6 @@ window.openDetails = (id) => {
     document.getElementById('detail-icon').src        = file.thumbnailUrl;
     document.getElementById('detail-small-icon').src  = file.thumbnailUrl;
     document.getElementById('detail-small-icon').classList.remove('hidden');
-    document.getElementById('detail-desc').textContent = file.description || 'No description available.';
     document.getElementById('detail-downloads').textContent = formatNumber(file.downloads);
 
     // Category badge in detail
@@ -3116,7 +3129,10 @@ window.openDetails = (id) => {
     }
 
     // ── Tutorial Section — show on every post page if admin enabled ──
-    _renderPostTutorialSection(count2 < req2);
+    _renderPostInlineTutorial();
+
+    // ── Sponsor Post inside Post Page ──
+    _renderPostPageSponsor();
 };
 window.closeDetails = () => {
     currentFileId = null;
@@ -3141,21 +3157,24 @@ document.getElementById('image-viewer').addEventListener('click', e => { if(e.ta
 window._tutorialSettings = null;
 window.openTutorial = () => {
     const s = window._tutorialSettings;
-    if (!s || !s.enabled || !s.link) return;
+    if (!s || !s.enabled) return;
+    // New split format: prefer videoLink first, fall back to old link
+    const videoLink = s.videoLink || s.link || '';
+    const tgLink    = s.tgLink    || '';
+    const link = videoLink || tgLink;
+    if (!link) return;
     const modal = document.getElementById('tutorial-modal');
     const titleEl = document.getElementById('tutorial-modal-title');
     const videoWrap = document.getElementById('tutorial-video-wrap');
     const videoPlayer = document.getElementById('tutorial-video-player');
     const linkWrap = document.getElementById('tutorial-link-wrap');
-    const tgLink = document.getElementById('tutorial-tg-link');
+    const tgLinkEl = document.getElementById('tutorial-tg-link');
     if (titleEl) titleEl.textContent = s.title || 'Tutorial';
-    const link = s.link.trim();
     const isTelegram = /t\.me\//i.test(link) || link.startsWith('tg://') || link.startsWith('https://telegram.me/');
-    const isVideo = /\.(mp4|webm|ogg|mov|m3u8)(\?|$)/i.test(link) || /youtu\.?be|vimeo\.com/i.test(link);
     if (isTelegram) {
         videoWrap.classList.add('hidden');
         linkWrap.classList.remove('hidden');
-        tgLink.href = link;
+        tgLinkEl.href = link;
     } else {
         linkWrap.classList.add('hidden');
         videoWrap.classList.remove('hidden');
@@ -3175,55 +3194,143 @@ document.getElementById('tutorial-modal').addEventListener('click', function(e) 
     if (e.target === this) window.closeTutorial();
 });
 
-// ── Post Tutorial Section Renderer ──────────────────────────────────────
-function _renderPostTutorialSection(isLocked) {
-    const section = document.getElementById('post-tutorial-section');
-    if (!section) return;
+// ── Post Inline Guide + Tutorial Button Renderer ─────────────────────────
+function _renderPostInlineTutorial() {
+    const s  = window._tutorialSettings;
+    const tr = (TRANSLATIONS[currentLang] || TRANSLATIONS.bn);
+
+    // ── Download Guide text (always shown) ──────────────────────────────
+    const guideTitleEl = document.getElementById('guide-section-title');
+    const step1El      = document.getElementById('guide-step-1');
+    const step2El      = document.getElementById('guide-step-2');
+    const step3El      = document.getElementById('guide-step-3');
+    if (guideTitleEl) guideTitleEl.textContent = tr.tutorialTitle || '📥 How To Download';
+    if (step1El) step1El.textContent = tr.tutorialStep2 || 'Click the Unlock button.';
+    if (step2El) step2El.textContent = tr.tutorialStep3 || 'Complete the required steps.';
+    if (step3El) step3El.textContent = tr.tutorialStep4 || 'Download will become available.';
+
+    // ── Tutorial Buttons (only if admin configured) ─────────────────────
+    const btnsWrap   = document.getElementById('post-inline-tutorial-btns');
+    const videoBtn   = document.getElementById('post-tut-video-btn');
+    const tgBtn      = document.getElementById('post-tut-tg-btn');
+    const videoLabel = document.getElementById('post-tut-video-label');
+    const tgLabel    = document.getElementById('post-tut-tg-label');
+    if (!btnsWrap) return;
+
+    const hasVideo = s && s.enabled && s.videoLink && s.videoLink.trim();
+    const hasTg    = s && s.enabled && s.tgLink    && s.tgLink.trim();
+
+    if (hasVideo || hasTg) {
+        btnsWrap.classList.remove('hidden');
+        if (videoBtn) {
+            if (hasVideo) {
+                videoBtn.classList.remove('hidden');
+                if (videoLabel) videoLabel.textContent = tr.tutorialWatchVideo || 'Watch Tutorial Video';
+            } else {
+                videoBtn.classList.add('hidden');
+            }
+        }
+        if (tgBtn) {
+            if (hasTg) {
+                tgBtn.classList.remove('hidden');
+                if (tgLabel) tgLabel.textContent = tr.tutorialJoinChannel || 'Join Tutorial Channel';
+            } else {
+                tgBtn.classList.add('hidden');
+            }
+        }
+    } else {
+        btnsWrap.classList.add('hidden');
+    }
+}
+
+// Expose for applyTranslations refresh
+window._renderPostInlineTutorial = _renderPostInlineTutorial;
+
+// ── Tutorial openers — handle video vs telegram separately ────────────────
+window._openTutorialVideo = () => {
     const s = window._tutorialSettings;
-    // Only show if admin enabled tutorial AND has a link configured
-    if (!s || !s.enabled || !s.link) {
-        section.classList.add('hidden');
+    if (!s || !s.videoLink) return;
+    const modal    = document.getElementById('tutorial-modal');
+    const titleEl  = document.getElementById('tutorial-modal-title');
+    const videoWrap = document.getElementById('tutorial-video-wrap');
+    const videoPlayer = document.getElementById('tutorial-video-player');
+    const linkWrap = document.getElementById('tutorial-link-wrap');
+    if (titleEl) titleEl.textContent = s.title || 'Tutorial';
+    videoWrap.classList.remove('hidden');
+    linkWrap.classList.add('hidden');
+    videoPlayer.src = s.videoLink.trim();
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+};
+
+window._openTutorialTelegram = () => {
+    const s = window._tutorialSettings;
+    if (!s || !s.tgLink) return;
+    window.open(s.tgLink.trim(), '_blank', 'noopener,noreferrer');
+};
+
+// ── Sponsor Post inside Post Page ────────────────────────────────────────
+function _renderPostPageSponsor() {
+    const wrap = document.getElementById('post-page-sponsor-wrap');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    // Pick a random active sponsor post
+    if (!_sponsorPosts || !_sponsorPosts.length) {
+        wrap.classList.add('hidden');
         return;
     }
-    const tr = (TRANSLATIONS[currentLang] || TRANSLATIONS.bn);
-    const link = (s.link || '').trim();
-    const isTg = /t\.me\//i.test(link) || link.startsWith('tg://') || link.startsWith('https://telegram.me/');
+    const sp = _sponsorPosts[Math.floor(Math.random() * _sponsorPosts.length)];
+    if (!sp || !sp.videoUrl) { wrap.classList.add('hidden'); return; }
 
-    // Title/subtitle
-    const titleEl    = document.getElementById('tutorial-card-title-text');
-    const subEl      = document.getElementById('tutorial-card-subtitle-text');
-    const step1El    = document.getElementById('tutorial-step-1');
-    const step2El    = document.getElementById('tutorial-step-2');
-    const step3El    = document.getElementById('tutorial-step-3');
-    const step4El    = document.getElementById('tutorial-step-4');
-    const ctaBtnEl   = document.getElementById('tutorial-cta-btn');
-    const ctaTextEl  = document.getElementById('tutorial-cta-text');
-    const ctaIconEl  = document.getElementById('tutorial-cta-icon');
+    // Build an inline sponsor card styled to match existing sponsor card look
+    const isClickable = !!sp.linkUrl && /^https?:\/\//i.test(sp.linkUrl);
+    const safeVideo   = sp.videoUrl;
+    const safeTitle   = sp.title ? sp.title.replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
 
-    if (titleEl)   titleEl.textContent  = s.title || tr.tutorialTitle  || '🎥 How To Download';
-    if (subEl)     subEl.textContent    = tr.tutorialSubtitle || 'First time? Watch the tutorial first';
-    if (step1El)   step1El.textContent  = tr.tutorialStep1 || 'Open the post.';
-    if (step2El)   step2El.textContent  = tr.tutorialStep2 || 'Click the Unlock button.';
-    if (step3El)   step3El.textContent  = tr.tutorialStep3 || 'Complete the required steps.';
-    if (step4El)   step4El.textContent  = tr.tutorialStep4 || 'Download becomes available.';
+    wrap.classList.remove('hidden');
+    const card = document.createElement('div');
+    card.className = 'sponsor-post-card rounded-2xl overflow-hidden border border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-900/10 shadow-sm';
 
-    if (ctaTextEl) ctaTextEl.textContent = isTg
-        ? (tr.tutorialJoinChannel || 'Join Tutorial Channel')
-        : (tr.tutorialWatchVideo  || 'Watch Tutorial Video');
-    if (ctaIconEl) ctaIconEl.className = isTg ? 'fab fa-telegram' : 'fas fa-play-circle';
+    // Header
+    const header = document.createElement('div');
+    header.className = 'flex items-center gap-2 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/30 border-b border-amber-200 dark:border-amber-800/40';
+    header.innerHTML = `<span class="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest flex items-center gap-1"><i class="fas fa-ad text-[8px]"></i> Sponsored</span>`;
+    card.appendChild(header);
 
-    // Re-trigger the pop animation
-    const card = document.getElementById('post-tutorial-card');
-    if (card) {
-        card.style.animation = 'none';
-        void card.offsetWidth;
-        card.style.animation = '';
+    // Video container
+    const videoWrap = document.createElement('div');
+    videoWrap.className = 'relative w-full bg-gray-900';
+    if (isClickable) videoWrap.style.cursor = 'pointer';
+    videoWrap.style.aspectRatio = '16/9';
+    if (isClickable) {
+        videoWrap.addEventListener('click', () => window.open(sp.linkUrl, '_blank', 'noopener,noreferrer'));
     }
-
-    section.classList.remove('hidden');
+    const video = document.createElement('video');
+    video.src = safeVideo;
+    video.className = 'w-full h-full object-cover';
+    video.autoplay = true; video.muted = true; video.loop = true;
+    video.setAttribute('playsinline','');
+    videoWrap.appendChild(video);
+    if (safeTitle) {
+        const titleBar = document.createElement('div');
+        titleBar.className = 'absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5';
+        titleBar.innerHTML = `<p class="text-white text-[11px] font-bold line-clamp-1">${safeTitle}</p>`;
+        videoWrap.appendChild(titleBar);
+    }
+    card.appendChild(videoWrap);
+    if (isClickable) {
+        const footer = document.createElement('div');
+        footer.className = 'px-3 py-1.5';
+        const a = document.createElement('a');
+        a.href = sp.linkUrl; a.target = '_blank'; a.rel = 'noopener noreferrer';
+        a.className = 'text-[11px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1 hover:underline';
+        a.innerHTML = `<i class="fas fa-external-link-alt text-[8px]"></i>`;
+        a.appendChild(document.createTextNode(' ' + sp.linkUrl.replace(/^https?:\/\//,'')));
+        footer.appendChild(a);
+        card.appendChild(footer);
+    }
+    wrap.appendChild(card);
 }
-// Expose so applyTranslations can refresh the tutorial card text
-window._renderPostTutorialSection = _renderPostTutorialSection;
 
 // ── Reviews ──────────────────────────────────────────────────────────────
 function renderReviews(file) {
@@ -3309,14 +3416,14 @@ function updateDetailButtonState(file) {
     const count      = parseInt(localStorage.getItem(`adCount_${file.id}`))||0;
     const isUnlocked = count >= req;
     const container  = document.getElementById('detail-actions');
-    const shareBtn   = `<button onclick="window.shareFile('${file.id}')" class="big-action-btn py-3.5 px-5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl font-bold transition-colors flex items-center justify-center gap-2 border border-gray-200 dark:border-gray-700"><i class="fas fa-share-alt"></i></button>`;
+    const shareBtn   = `<button onclick="window.shareFile('${file.id}')" class="big-action-btn py-3 px-4 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl font-bold transition-colors flex items-center justify-center gap-2 border border-gray-200 dark:border-gray-700"><i class="fas fa-share-alt"></i></button>`;
     if (isUnlocked) {
         saveToHistory(file.id);
         container.innerHTML = `
-            <a href="${file.downloadUrl}" target="_blank" class="big-action-btn btn-light-sweep btn-glow flex-1 py-4 bg-green-600 hover:bg-green-700 active:scale-95 text-white text-center rounded-2xl font-extrabold shadow-lg flex items-center justify-center gap-2 transition-all">
-                <i class="fas fa-download text-lg"></i> ${file.btnName1||'Download'}
+            <a href="${file.downloadUrl}" target="_blank" class="big-action-btn btn-light-sweep btn-glow flex-1 py-3 bg-green-600 hover:bg-green-700 active:scale-95 text-white text-center rounded-2xl font-extrabold shadow-lg flex items-center justify-center gap-2 transition-all">
+                <i class="fas fa-download text-base"></i> ${file.btnName1||'Download'}
             </a>
-            ${file.downloadUrl2?`<a href="${file.downloadUrl2}" target="_blank" class="big-action-btn btn-light-sweep flex-1 py-4 bg-teal-600 hover:bg-teal-700 active:scale-95 text-white text-center rounded-2xl font-extrabold shadow-lg flex items-center justify-center gap-2 transition-all"><i class="fas fa-link text-lg"></i> ${file.btnName2||'Mirror'}</a>`:''}
+            ${file.downloadUrl2?`<a href="${file.downloadUrl2}" target="_blank" class="big-action-btn btn-light-sweep flex-1 py-3 bg-teal-600 hover:bg-teal-700 active:scale-95 text-white text-center rounded-2xl font-extrabold shadow-lg flex items-center justify-center gap-2 transition-all"><i class="fas fa-link text-base"></i> ${file.btnName2||'Mirror'}</a>`:''}
             ${shareBtn}`;
     } else {
         const tapLabel = {
@@ -3334,7 +3441,7 @@ function updateDetailButtonState(file) {
                     <div class="unlock-btn-pulse-ring"></div>
                     <div class="unlock-btn-pulse-ring2"></div>
                     <button id="unlock-action-btn" onclick="window.unlockFile('${file.id}',${req})"
-                        class="big-action-btn btn-light-sweep w-full py-4 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 active:scale-95 text-white rounded-2xl font-extrabold shadow-lg flex items-center justify-center gap-2 transition-all" style="position:relative;z-index:1;">
+                        class="big-action-btn btn-light-sweep w-full py-3 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 active:scale-95 text-white rounded-2xl font-extrabold shadow-lg flex items-center justify-center gap-2 transition-all" style="position:relative;z-index:1;">
                         <i class="fas fa-lock text-lg"></i>
                         <span>Unlock Video (${count}/${req})</span>
                     </button>
@@ -4523,8 +4630,9 @@ function applyTranslations() {
     renderHistory();
     renderFavorites();
     // Refresh tutorial section text if visible
-    if (typeof window._renderPostTutorialSection === 'function') {
-        window._renderPostTutorialSection(true);
+    // Refresh tutorial/guide section text if visible
+    if (typeof window._renderPostInlineTutorial === 'function') {
+        window._renderPostInlineTutorial();
     }
 }
 
