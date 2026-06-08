@@ -2184,9 +2184,9 @@ function showSkeletonLoader() {
     grid.innerHTML = '';
     for (let i = 0; i < 10; i++) {
         grid.innerHTML += `
-        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-row">
-            <div class="skeleton-box flex-shrink-0" style="width:140px;aspect-ratio:16/9;"></div>
-            <div class="p-3 space-y-2 flex-1 flex flex-col justify-center">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+            <div class="w-full skeleton-box" style="aspect-ratio:16/9;"></div>
+            <div class="p-3 space-y-2">
                 <div class="h-4 skeleton-box rounded w-3/4"></div>
                 <div class="h-3 skeleton-box rounded w-full"></div>
                 <div class="h-8 skeleton-box rounded-xl w-full mt-2"></div>
@@ -2605,7 +2605,7 @@ function renderFavorites() {
         const req   = parseInt(file.requiredAds)||2;
         const isUnlocked = count >= req;
         const card = document.createElement('div');
-        card.className = 'video-card-inner bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col hover:shadow-lg transition-all duration-300 group cursor-pointer';
+        card.className = 'video-card-inner bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col hover:shadow-lg transition-all duration-300 group';
         card.onclick = () => window.openDetails(file.id);
         card.innerHTML = `
             <div class="relative w-full bg-gray-100 dark:bg-gray-700 overflow-hidden" style="aspect-ratio:16/9;">
@@ -2735,16 +2735,17 @@ function renderFiles() {
         const isFav = favs.includes(file.id);
         const isNew = isNewFile(file);
         const card  = document.createElement('div');
-        card.className = 'video-card-inner bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-row hover:shadow-lg transition-all duration-300 group';
+        card.className = 'video-card-inner bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col hover:shadow-lg transition-all duration-300 group';
         card.style.animation = `slideUp 0.3s ease ${i * 0.04}s both`;
         card.style.opacity = '0';
         // Per-post download count from Firestore (file.downloads)
         const dlCount = parseInt(file.downloads) || 0;
         card.innerHTML = `
-            <div class="relative flex-shrink-0 bg-gray-100 dark:bg-gray-700 cursor-pointer overflow-hidden" style="width:140px;aspect-ratio:16/9;" onclick="window.openDetails('${file.id}')">
+            <div class="relative w-full bg-gray-100 dark:bg-gray-700 cursor-pointer overflow-hidden" style="aspect-ratio:16/9;" onclick="window.openDetails('${file.id}')">
                 <img src="${file.thumbnailUrl}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="Thumbnail" loading="lazy"
                     onload="this.parentElement.parentElement.style.opacity='1';this.style.animation='fadeInScale 0.4s ease both'">
                 ${file.featured ? `<div class="featured-badge"><i class="fas fa-star text-[8px]"></i> FEATURED</div>` : (isNew ? `<div class="new-badge">NEW</div>` : `<div class="absolute top-2 left-2 bg-black/60 text-white text-[9px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1"><i class="fas fa-film text-[8px]"></i> VIDEO</div>`)}
+                ${file.category ? `<div class="absolute top-2 right-2 bg-indigo-600/90 text-white text-[9px] px-2 py-0.5 rounded-full font-bold backdrop-blur-sm">${file.category}</div>` : ''}
                 <div class="thumb-lock-icon ${isUnlocked?'unlocked':'locked'}">
                     <i class="fas ${isUnlocked?'fa-unlock':'fa-lock'}"></i>
                 </div>
@@ -2756,10 +2757,9 @@ function renderFiles() {
                     <i class="fas fa-download text-[8px]"></i> ${formatNumber(dlCount)}
                 </div>
             </div>
-            <div class="p-3 flex flex-col flex-1 min-w-0">
-                ${file.category ? `<span class="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded-full mb-1 self-start">${file.category}</span>` : ''}
-                <h3 class="font-bold text-sm text-gray-800 dark:text-white line-clamp-2 cursor-pointer mb-auto leading-snug" onclick="window.openDetails('${file.id}')">${file.title}</h3>
-                <button onclick="window.openDetails('${file.id}')" class="btn-light-sweep w-full py-2 mt-2 ${isUnlocked ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-100 dark:border-green-800/50 hover:bg-green-600 hover:text-white dark:hover:bg-green-600' : 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600'} active:scale-95 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 border">
+            <div class="p-3 flex flex-col flex-1">
+                <h3 class="font-bold text-sm text-gray-800 dark:text-white line-clamp-2 cursor-pointer mb-2 leading-snug" onclick="window.openDetails('${file.id}')">${file.title}</h3>
+                <button onclick="window.openDetails('${file.id}')" class="btn-light-sweep w-full py-2 mt-auto ${isUnlocked ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-100 dark:border-green-800/50 hover:bg-green-600 hover:text-white dark:hover:bg-green-600' : 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600'} active:scale-95 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 border">
                     <i class="fas ${isUnlocked ? 'fa-download' : 'fa-play-circle'} text-xs"></i>
                     ${isUnlocked ? '⬇️ Download Now' : `🔓 Watch Ad (${count}/${req})`}
                 </button>
