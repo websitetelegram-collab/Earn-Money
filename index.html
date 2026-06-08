@@ -837,6 +837,7 @@
         .sp-hex {
             position: absolute; inset: 0;
             border-radius: 28px;
+            overflow: hidden;
             background: linear-gradient(135deg, #4338ca 0%, #7c3aed 40%, #db2777 80%, #f43f5e 100%);
             box-shadow:
                 0 0 0 1px rgba(255,255,255,0.12),
@@ -2355,8 +2356,11 @@ async function loadData() {
                 if (botImgEl) {
                     botImgEl.src = d.appLogoUrl;
                     botImgEl.onload = function() {
-                        botImgEl.style.display = '';
+                        botImgEl.style.display = 'block';
                         if (botIconEl) botIconEl.style.display = 'none';
+                        // gradient hide করো যাতে logo clearly দেখা যায়
+                        var hexBg = document.getElementById('sp-hex-bg');
+                        if (hexBg) hexBg.style.background = 'none';
                     };
                     botImgEl.onerror = function() {
                         botImgEl.style.display = 'none';
@@ -3968,15 +3972,18 @@ window._startAppLoading = async function() {
     const botIconEl = document.getElementById('sp-default-icon');
     if (cachedLogo) {
         if (botImgEl) {
-            // Already preloaded? check করো
             if (botImgEl.complete && botImgEl.naturalWidth > 0 && botImgEl.src.includes(cachedLogo.split('/').pop())) {
-                botImgEl.style.display = '';
+                botImgEl.style.display = 'block';
                 if (botIconEl) botIconEl.style.display = 'none';
+                var hexBg = document.getElementById('sp-hex-bg');
+                if (hexBg) hexBg.style.background = 'none';
             } else {
                 botImgEl.src = cachedLogo;
                 botImgEl.onload = function() {
-                    botImgEl.style.display = '';
+                    botImgEl.style.display = 'block';
                     if (botIconEl) botIconEl.style.display = 'none';
+                    var hexBg = document.getElementById('sp-hex-bg');
+                    if (hexBg) hexBg.style.background = 'none';
                 };
                 botImgEl.onerror = function() {
                     botImgEl.style.display = 'none';
