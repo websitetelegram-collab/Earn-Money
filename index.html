@@ -2353,7 +2353,7 @@ async function loadData() {
                 // localStorage এ cache করো — পরের বার splash এ আগেই দেখাবে
                 localStorage.setItem('app_logo_url', d.appLogoUrl);
                 if (botImgEl) {
-                    botImgEl.src = d.appLogoUrl;
+                    // ✅ FIX: onload/onerror আগে সেট করো, তারপর src
                     botImgEl.onload = function() {
                         botImgEl.style.display = '';
                         if (botIconEl) botIconEl.style.display = 'none';
@@ -2362,6 +2362,12 @@ async function loadData() {
                         botImgEl.style.display = 'none';
                         if (botIconEl) botIconEl.style.display = '';
                     };
+                    botImgEl.src = d.appLogoUrl;
+                    // Browser cache থেকে already loaded হলে onload fire হবে না
+                    if (botImgEl.complete && botImgEl.naturalWidth > 0) {
+                        botImgEl.style.display = '';
+                        if (botIconEl) botIconEl.style.display = 'none';
+                    }
                 }
             } else {
                 // logo নেই — cache clear করো, default icon দেখাও
@@ -3967,21 +3973,21 @@ window._startAppLoading = async function() {
     const botIconEl = document.getElementById('sp-default-icon');
     if (cachedLogo) {
         if (botImgEl) {
-            // Already preloaded? check করো
-            if (botImgEl.complete && botImgEl.naturalWidth > 0 && botImgEl.src.includes(cachedLogo.split('/').pop())) {
+            // ✅ FIX: onload/onerror আগে সেট করো, তারপর src — নইলে cached image এ onload fire হয় না
+            botImgEl.onload = function() {
                 botImgEl.style.display = '';
                 if (botIconEl) botIconEl.style.display = 'none';
-            } else {
-                botImgEl.src = cachedLogo;
-                botImgEl.onload = function() {
-                    botImgEl.style.display = '';
-                    if (botIconEl) botIconEl.style.display = 'none';
-                };
-                botImgEl.onerror = function() {
-                    botImgEl.style.display = 'none';
-                    if (botIconEl) botIconEl.style.display = '';
-                    localStorage.removeItem('app_logo_url');
-                };
+            };
+            botImgEl.onerror = function() {
+                botImgEl.style.display = 'none';
+                if (botIconEl) botIconEl.style.display = '';
+                localStorage.removeItem('app_logo_url');
+            };
+            botImgEl.src = cachedLogo;
+            // Already loaded by browser cache? তাহলে onload fire হবে না — manually check করো
+            if (botImgEl.complete && botImgEl.naturalWidth > 0) {
+                botImgEl.style.display = '';
+                if (botIconEl) botIconEl.style.display = 'none';
             }
         }
     } else {
