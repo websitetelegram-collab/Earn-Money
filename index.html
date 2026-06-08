@@ -2733,6 +2733,8 @@ async function loadData() {
                     _sponsorPosts.push({ id: d.id, ...sp });
                 }
             });
+            // ── Build session-shuffled rotation list ──
+            _rebuildSponsorRotation();
             if (_sponsorPosts.length > 0) renderFiles(); // re-render with sponsors
         }
     } catch(e) { console.error("Sponsor posts error:", e); }
@@ -2900,6 +2902,60 @@ function buildCategoryPills() {
 let _sponsorPosts = [];   // [{id, videoUrl, linkUrl, interval, title}, ...]
 let _sponsorGlobalInterval = 4; // fallback, overridden by settings/general
 
+// ── Dynamic Sponsor Rotation State ──────────────────────────────────────
+// Per-session shuffle seed — changes every page load so same user sees
+// different sponsor order and positions on every visit/refresh.
+window._sponsorSessionSeed = Math.floor(Math.random() * 1000000);
+// Shuffled copy of _sponsorPosts used for rotation (rebuilt when posts load)
+let _sponsorShuffled = [];
+// Per-session random offset (1..interval-1) so first sponsor slot shifts
+let _sponsorStartOffset = 0;
+// Post-page: track last shown sponsor index to avoid immediate repeat
+let _sponsorLastPostPageIdx = -1;
+
+// ── ADVANCED ROTATION ENHANCEMENTS ───────────────────────────────────────
+// Persistent cross-render sponsor pointer: survives search/filter re-renders
+// so sponsor slots never restart from the same position within a session.
+let _sponsorGlobalPointer = 0;
+// Per-render rotation salt: re-randomized on every renderFiles() call so
+// even the same search term shows different sponsor placement each time.
+let _sponsorRenderSalt = Math.floor(Math.random() * 997);
+// Per-post sponsor history Map: postId → last sponsor index shown
+// Ensures visiting the same post multiple times within a session shows
+// a different sponsor each time.
+const _sponsorPostHistory = new Map();
+// Render call counter — used to further vary _sponsorStartOffset per render
+let _sponsorRenderCount = 0;
+
+// Fisher-Yates shuffle using a simple seeded PRNG so the order is
+// deterministic within one session but different across sessions.
+function _seededShuffle(arr, seed) {
+    const a = arr.slice();
+    let s = seed;
+    function rng() { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 4294967296; }
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+}
+
+// Call this whenever _sponsorPosts is populated/updated to rebuild shuffled list
+// and pick a fresh per-session random start offset.
+function _rebuildSponsorRotation() {
+    if (!_sponsorPosts.length) { _sponsorShuffled = []; return; }
+    _sponsorShuffled = _seededShuffle(_sponsorPosts, window._sponsorSessionSeed);
+    // Random offset: between 1 and (interval-1) so first sponsor slot is never fixed
+    const baseInterval = _sponsorGlobalInterval || 4;
+    _sponsorStartOffset = Math.floor(Math.random() * Math.max(1, baseInterval - 1)) + 1;
+    _sponsorLastPostPageIdx = -1;
+    // Reset advanced rotation state on rebuild
+    _sponsorGlobalPointer = Math.floor(Math.random() * Math.max(1, (_sponsorShuffled.length || 1)));
+    _sponsorRenderSalt = Math.floor(Math.random() * 997);
+    _sponsorRenderCount = 0;
+    _sponsorPostHistory.clear();
+}
+
 function renderFiles() {
     const grid = document.getElementById('files-grid');
     grid.innerHTML = '';
@@ -2928,7 +2984,28 @@ function renderFiles() {
         return;
     }
     const favs = getFavorites();
-    let sponsorIdx = 0; // which sponsor post to show next
+    // ── Dynamic sponsor rotation: use session-shuffled list + random start offset ──
+    // _sponsorShuffled is a per-session seeded shuffle of _sponsorPosts.
+    // _sponsorStartOffset shifts the first injection point so placement varies per session.
+    const activeSponsorList = _sponsorShuffled.length ? _sponsorShuffled : _sponsorPosts;
+
+    // ── ADVANCED: Re-randomize offset and salt on every renderFiles() call ──
+    // This ensures search/filter/category re-renders produce different sponsor
+    // placement even within the same session, preventing any fixed pattern.
+    _sponsorRenderCount++;
+    if (activeSponsorList.length > 0) {
+        const baseInterval = _sponsorGlobalInterval || 4;
+        // Each render call shifts the offset using the render count + salt so
+        // the same query repeated twice still yields different sponsor positions.
+        _sponsorRenderSalt = (_sponsorRenderSalt * 1103515245 + 12345) & 0x7fffffff;
+        _sponsorStartOffset = ((_sponsorRenderSalt % Math.max(1, baseInterval - 1)) + 1);
+    }
+
+    // Use persistent global pointer instead of local sponsorIdx = 0 so that
+    // sponsors continue rotating across renders rather than resetting each time.
+    let sponsorIdx = _sponsorGlobalPointer;
+    // Count of regular posts rendered so far — used with offset for slot detection
+    let regularPostCount = 0;
 
     filtered.forEach((file, i) => {
         const count = parseInt(localStorage.getItem(`adCount_${file.id}`))||0;
@@ -2971,18 +3048,22 @@ function renderFiles() {
         setTimeout(() => { card.style.opacity = '1'; }, 500 + i * 40);
 
         // ── Sponsor Post injection ──
-        // After every `interval` posts, insert the next sponsor post
-        if (_sponsorPosts.length > 0) {
-            const sp = _sponsorPosts[sponsorIdx % _sponsorPosts.length];
+        // Uses session-shuffled sponsor list + random start offset for per-user/per-session variation.
+        // regularPostCount tracks actual posts rendered; offset shifts the first slot.
+        regularPostCount++;
+        if (activeSponsorList.length > 0) {
+            const sp = activeSponsorList[sponsorIdx % activeSponsorList.length];
             const interval = parseInt(sp.interval) || _sponsorGlobalInterval || 4;
-            // insert after post number: interval, interval*2, ...
-            // i is 0-indexed, so check (i+1) % interval === 0
-            if ((i + 1) % interval === 0) {
+            // Apply start offset so first sponsor position shifts each session
+            if ((regularPostCount - _sponsorStartOffset) > 0 &&
+                (regularPostCount - _sponsorStartOffset) % interval === 0) {
                 const spCard = buildSponsorCard(sp);
                 // Sponsor card spans full width
                 spCard.style.gridColumn = '1 / -1';
                 grid.appendChild(spCard);
                 sponsorIdx++;
+                // ── ADVANCED: Persist pointer so next render continues from here ──
+                _sponsorGlobalPointer = sponsorIdx % Math.max(1, activeSponsorList.length);
             }
         }
     });
@@ -3023,10 +3104,10 @@ function buildSponsorCard(sp) {
     const isDirect = /\.(mp4|webm|ogg|m3u8)(\?|$)/i.test(safeVideo);
 
     if (ytMatch) {
-        // YouTube embed
+        // YouTube embed — no autoplay; user taps to play via click on videoWrap
         const ytId = ytMatch[1];
         const iframe = document.createElement('iframe');
-        iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&loop=1&playlist=${ytId}&playsinline=1&controls=0&rel=0`;
+        iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=0&mute=1&loop=1&playlist=${ytId}&playsinline=1&controls=1&rel=0`;
         iframe.className = 'w-full h-full';
         iframe.style.cssText = 'border:none;display:block;position:absolute;top:0;left:0;width:100%;height:100%;';
         iframe.allow = 'autoplay; fullscreen; encrypted-media';
@@ -3047,9 +3128,17 @@ function buildSponsorCard(sp) {
         const video = document.createElement('video');
         video.src = safeVideo;
         video.className = 'w-full h-full object-cover';
-        video.autoplay = true; video.muted = true; video.loop = true;
+        // ✅ FIX: NO autoplay — video starts only after user interaction (IntersectionObserver plays on scroll-in)
+        video.autoplay = false; video.muted = true; video.loop = true;
         video.setAttribute('playsinline', '');
         video.style.display = 'block';
+        // Play when scrolled into view (user-interaction proxy for feed cards)
+        if ('IntersectionObserver' in window) {
+            const obs = new IntersectionObserver((entries) => {
+                entries.forEach(e => { if (e.isIntersecting) { video.play().catch(()=>{}); } else { video.pause(); } });
+            }, { threshold: 0.5 });
+            obs.observe(video);
+        }
         video.onerror = function() {
             // Fallback: show "Open to Watch" button if video fails
             this.remove();
@@ -3071,13 +3160,7 @@ function buildSponsorCard(sp) {
         titleBar.innerHTML = `<p class="text-white text-[11px] font-bold line-clamp-1">${safeTitle}</p>`;
         videoWrap.appendChild(titleBar);
     }
-    if (isClickable) {
-        const visitBadge = document.createElement('div');
-        visitBadge.className = 'absolute top-1.5 right-1.5 bg-amber-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5';
-        visitBadge.style.zIndex = '3';
-        visitBadge.innerHTML = `<i class="fas fa-external-link-alt text-[7px]"></i> Visit`;
-        videoWrap.appendChild(visitBadge);
-    }
+    // ✅ FIX: "Visit" badge removed — was incorrectly showing to users
     wrap.appendChild(videoWrap);
 
     // Link footer hidden — click handled via videoWrap click listener; URL not shown to users
@@ -3305,12 +3388,44 @@ function _renderPostPageSponsor() {
     const wrap = document.getElementById('post-page-sponsor-wrap');
     if (!wrap) return;
     wrap.innerHTML = '';
-    // Pick a random active sponsor post
+    // Pick a dynamic sponsor — use shuffled list, avoid immediate repeat
     if (!_sponsorPosts || !_sponsorPosts.length) {
         wrap.classList.add('hidden');
         return;
     }
-    const sp = _sponsorPosts[Math.floor(Math.random() * _sponsorPosts.length)];
+    const activeSponsorList = _sponsorShuffled.length ? _sponsorShuffled : _sponsorPosts;
+    let sp = null;
+    if (activeSponsorList.length === 1) {
+        // Only one available — must use it
+        sp = activeSponsorList[0];
+    } else {
+        // ── ADVANCED: Use per-post history to avoid repeating sponsor on same post ──
+        // currentFileId tracks which post is open; we look up the last sponsor
+        // shown for THAT post specifically so revisiting a post shows a new sponsor.
+        const postKey = currentFileId || '__default__';
+        const lastIdxForPost = _sponsorPostHistory.has(postKey)
+            ? _sponsorPostHistory.get(postKey)
+            : _sponsorLastPostPageIdx;
+
+        // Also advance the global pointer so post-page and list-page sponsors
+        // rotate independently rather than always picking from the same position.
+        let idx;
+        let attempts = 0;
+        do {
+            // Blend global pointer with true randomness for maximum variation
+            idx = (_sponsorGlobalPointer + Math.floor(Math.random() * activeSponsorList.length))
+                  % activeSponsorList.length;
+            attempts++;
+        } while (idx === lastIdxForPost && attempts < 10 && activeSponsorList.length > 1);
+
+        // Save per-post and global state
+        _sponsorPostHistory.set(postKey, idx);
+        _sponsorLastPostPageIdx = idx;
+        // Advance global pointer so subsequent list renders start from a new position
+        _sponsorGlobalPointer = (idx + 1) % activeSponsorList.length;
+
+        sp = activeSponsorList[idx];
+    }
     if (!sp || !sp.videoUrl) { wrap.classList.add('hidden'); return; }
 
     // Build an inline sponsor card styled to match existing sponsor card look
@@ -3340,11 +3455,13 @@ function _renderPostPageSponsor() {
     // ── Smart Video Renderer ──
     const ytMatch2 = safeVideo.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
     const fbMatch2 = safeVideo.match(/(?:facebook\.com|fb\.watch)/i);
+    const isDirect2 = /\.(mp4|webm|ogg|m3u8)(\?|$)/i.test(safeVideo);
 
     if (ytMatch2) {
+        // ✅ FIX: YouTube embed — no autoplay on post open; user controls playback
         const ytId2 = ytMatch2[1];
         const iframe2 = document.createElement('iframe');
-        iframe2.src = `https://www.youtube.com/embed/${ytId2}?autoplay=1&mute=1&loop=1&playlist=${ytId2}&playsinline=1&controls=0&rel=0`;
+        iframe2.src = `https://www.youtube.com/embed/${ytId2}?autoplay=0&mute=1&loop=1&playlist=${ytId2}&playsinline=1&controls=1&rel=0`;
         iframe2.className = 'w-full h-full';
         iframe2.style.cssText = 'border:none;display:block;position:absolute;top:0;left:0;width:100%;height:100%;';
         iframe2.allow = 'autoplay; fullscreen; encrypted-media';
@@ -3359,22 +3476,42 @@ function _renderPostPageSponsor() {
         fbPlaceholder2.addEventListener('click', () => window.open(safeVideo, '_blank', 'noopener,noreferrer'));
         videoWrap.style.position = 'relative';
         videoWrap.appendChild(fbPlaceholder2);
-    } else {
+    } else if (isDirect2 || /^https?:\/\//i.test(safeVideo)) {
+        // ✅ FIX: No autoplay — video resets fresh on every post open, plays after user interaction
         const video = document.createElement('video');
         video.src = safeVideo;
         video.className = 'w-full h-full object-cover';
-        video.autoplay = true; video.muted = true; video.loop = true;
+        video.autoplay = false; video.muted = true; video.loop = true;
         video.setAttribute('playsinline','');
+        // Reset state so it always starts fresh when post opens
+        video.load();
+        // Play on click (user interaction)
+        videoWrap.addEventListener('click', () => { video.play().catch(()=>{}); }, { once: true });
+        // Also show a play hint overlay until user taps
+        const playHint = document.createElement('div');
+        playHint.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:4;transition:opacity 0.3s;';
+        playHint.innerHTML = `<i class="fas fa-play-circle" style="color:rgba(255,255,255,0.75);font-size:3rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.5));"></i>`;
+        videoWrap.style.position = 'relative';
+        videoWrap.appendChild(playHint);
+        video.addEventListener('play', () => { playHint.style.opacity = '0'; setTimeout(() => playHint.remove(), 300); }, { once: true });
         video.onerror = function() {
             this.remove();
+            if (playHint.parentNode) playHint.remove();
             const fallback2 = document.createElement('div');
             fallback2.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:#111827;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;';
             fallback2.innerHTML = `<i class="fas fa-play-circle" style="color:#f59e0b;font-size:2.5rem;"></i><span style="color:white;font-size:0.75rem;font-weight:bold;">Tap to Watch</span>`;
             fallback2.addEventListener('click', () => window.open(safeVideo, '_blank', 'noopener,noreferrer'));
-            videoWrap.style.position = 'relative';
             videoWrap.appendChild(fallback2);
         };
         videoWrap.appendChild(video);
+    } else {
+        // Unknown link — open in new tab fallback
+        const fallbackUnknown = document.createElement('div');
+        fallbackUnknown.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:#111827;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;';
+        fallbackUnknown.innerHTML = `<i class="fas fa-external-link-alt" style="color:#f59e0b;font-size:2rem;"></i><span style="color:white;font-size:0.75rem;font-weight:bold;">Tap to Watch</span>`;
+        fallbackUnknown.addEventListener('click', () => window.open(safeVideo, '_blank', 'noopener,noreferrer'));
+        videoWrap.style.position = 'relative';
+        videoWrap.appendChild(fallbackUnknown);
     }
     if (safeTitle) {
         const titleBar = document.createElement('div');
