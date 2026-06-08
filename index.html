@@ -2733,8 +2733,6 @@ async function loadData() {
                     _sponsorPosts.push({ id: d.id, ...sp });
                 }
             });
-            // ── Build session-shuffled rotation list ──
-            _rebuildSponsorRotation();
             if (_sponsorPosts.length > 0) renderFiles(); // re-render with sponsors
         }
     } catch(e) { console.error("Sponsor posts error:", e); }
@@ -2902,39 +2900,80 @@ function buildCategoryPills() {
 let _sponsorPosts = [];   // [{id, videoUrl, linkUrl, interval, title}, ...]
 let _sponsorGlobalInterval = 4; // fallback, overridden by settings/general
 
-// ── Dynamic Sponsor Rotation State ──────────────────────────────────────
-// Per-session shuffle seed — changes every page load so same user sees
-// different sponsor order and positions on every visit/refresh.
-window._sponsorSessionSeed = Math.floor(Math.random() * 1000000);
-// Shuffled copy of _sponsorPosts used for rotation (rebuilt when posts load)
-let _sponsorShuffled = [];
-// Per-session random offset (1..interval-1) so first sponsor slot shifts
-let _sponsorStartOffset = 0;
-// Post-page: track last shown sponsor index to avoid immediate repeat
-let _sponsorLastPostPageIdx = -1;
+// ── Dynamic Sponsor Rotation System ─────────────────────────────────────
+// Generates a seeded-random shuffle so each session sees a different order.
+// Seed = userId + session token + page context (list vs detail).
+// On every new page visit/refresh, the session token changes → new shuffle.
 
-// Fisher-Yates shuffle using a simple seeded PRNG so the order is
-// deterministic within one session but different across sessions.
-function _seededShuffle(arr, seed) {
-    const a = arr.slice();
-    let s = seed;
-    function rng() { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 4294967296; }
-    for (let i = a.length - 1; i > 0; i--) {
-        const j = Math.floor(rng() * (i + 1));
-        [a[i], a[j]] = [a[j], a[i]];
+(function() {
+    // Session token: changes on every page load (not persistent)
+    if (!window._sponsorSessionToken) {
+        window._sponsorSessionToken = Math.random().toString(36).slice(2) + Date.now().toString(36);
     }
-    return a;
+})();
+
+/**
+ * Seeded pseudo-random number generator (mulberry32).
+ * Produces deterministic sequence from a numeric seed.
+ */
+function _sponsorSeededRandom(seed) {
+    return function() {
+        seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+        var t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
 }
 
-// Call this whenever _sponsorPosts is populated/updated to rebuild shuffled list
-// and pick a fresh per-session random start offset.
-function _rebuildSponsorRotation() {
-    if (!_sponsorPosts.length) { _sponsorShuffled = []; return; }
-    _sponsorShuffled = _seededShuffle(_sponsorPosts, window._sponsorSessionSeed);
-    // Random offset: between 1 and (interval-1) so first sponsor slot is never fixed
-    const baseInterval = _sponsorGlobalInterval || 4;
-    _sponsorStartOffset = Math.floor(Math.random() * Math.max(1, baseInterval - 1)) + 1;
-    _sponsorLastPostPageIdx = -1;
+/**
+ * Creates a shuffled copy of the sponsors array using a deterministic seed.
+ * seed components: userId (stable), sessionToken (changes on refresh), listSalt (page context).
+ */
+function _getShuffledSponsors(listSalt) {
+    if (!_sponsorPosts || !_sponsorPosts.length) return [];
+
+    // Only include active sponsors
+    const active = _sponsorPosts.filter(sp => sp.active !== false);
+    if (!active.length) return [];
+
+    // Build numeric seed from userId + sessionToken + salt
+    const userId  = (window.tgUser && (window.tgUser.id || window.tgUser.username)) ? String(window.tgUser.id || window.tgUser.username) : 'anon';
+    const session = window._sponsorSessionToken || Math.random().toString(36);
+    const raw     = userId + '|' + session + '|' + (listSalt || 'list');
+
+    // Hash string → number (djb2)
+    let hash = 5381;
+    for (let i = 0; i < raw.length; i++) {
+        hash = ((hash << 5) + hash) ^ raw.charCodeAt(i);
+        hash = hash & hash; // 32-bit
+    }
+
+    const rand    = _sponsorSeededRandom(Math.abs(hash));
+    const shuffled = active.slice();
+    // Fisher-Yates with seeded RNG
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(rand() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+}
+
+/**
+ * Returns a randomized starting offset for sponsor insertion in the post list.
+ * This makes the first sponsor appear at a different position for each user/session.
+ * Offset is within [0, interval-1] so sponsors still appear near the configured interval.
+ */
+function _getSponsorInsertOffset(interval, listSalt) {
+    if (!interval || interval <= 1) return 0;
+    const userId  = (window.tgUser && (window.tgUser.id || window.tgUser.username)) ? String(window.tgUser.id || window.tgUser.username) : 'anon';
+    const session = window._sponsorSessionToken || '';
+    const raw     = userId + '|' + session + '|offset|' + (listSalt || 'list');
+    let hash = 5381;
+    for (let i = 0; i < raw.length; i++) {
+        hash = ((hash << 5) + hash) ^ raw.charCodeAt(i);
+        hash = hash & hash;
+    }
+    return Math.abs(hash) % interval;
 }
 
 function renderFiles() {
@@ -2965,13 +3004,18 @@ function renderFiles() {
         return;
     }
     const favs = getFavorites();
-    // ── Dynamic sponsor rotation: use session-shuffled list + random start offset ──
-    // _sponsorShuffled is a per-session seeded shuffle of _sponsorPosts.
-    // _sponsorStartOffset shifts the first injection point so placement varies per session.
-    const activeSponsorList = _sponsorShuffled.length ? _sponsorShuffled : _sponsorPosts;
-    let sponsorIdx = 0; // tracks which sponsor in the shuffled list to show next
-    // Count of regular posts rendered so far — used with offset for slot detection
-    let regularPostCount = 0;
+
+    // ── Dynamic sponsor rotation: shuffled order + randomized insert offset ──
+    // Each user/session sees a different shuffle and a different starting offset.
+    // listSalt uses active category so category-switches also vary sponsor placement.
+    const _spListSalt    = 'list|' + (activeCategory || 'all');
+    const _spShuffled    = _getShuffledSponsors(_spListSalt);
+    // Use the interval from the first sponsor (or global fallback) for offset calculation
+    const _spBaseInterval = (_spShuffled.length > 0 && _spShuffled[0].interval)
+        ? (parseInt(_spShuffled[0].interval) || _sponsorGlobalInterval)
+        : _sponsorGlobalInterval;
+    const _spInsertOffset = _getSponsorInsertOffset(_spBaseInterval, _spListSalt);
+    let   sponsorIdx = 0; // rotates through _spShuffled
 
     filtered.forEach((file, i) => {
         const count = parseInt(localStorage.getItem(`adCount_${file.id}`))||0;
@@ -3013,18 +3057,18 @@ function renderFiles() {
         // Fallback: if image never fires onload (cached), make visible
         setTimeout(() => { card.style.opacity = '1'; }, 500 + i * 40);
 
-        // ── Sponsor Post injection ──
-        // Uses session-shuffled sponsor list + random start offset for per-user/per-session variation.
-        // regularPostCount tracks actual posts rendered; offset shifts the first slot.
-        regularPostCount++;
-        if (activeSponsorList.length > 0) {
-            const sp = activeSponsorList[sponsorIdx % activeSponsorList.length];
+        // ── Dynamic Sponsor Post injection ──
+        // Uses shuffled sponsor list + per-session randomized insert offset.
+        // Result: each user/session sees sponsors at different positions and
+        // in a different order — while preserving the configured interval logic.
+        if (_spShuffled.length > 0) {
+            const sp       = _spShuffled[sponsorIdx % _spShuffled.length];
             const interval = parseInt(sp.interval) || _sponsorGlobalInterval || 4;
-            // Apply start offset so first sponsor position shifts each session
-            if ((regularPostCount - _sponsorStartOffset) > 0 &&
-                (regularPostCount - _sponsorStartOffset) % interval === 0) {
+            // Shift insertion point by offset so first sponsor appears at a
+            // different position for every user/session (within [1, interval]).
+            const adjustedPos = i + 1 + _spInsertOffset;
+            if (adjustedPos % interval === 0) {
                 const spCard = buildSponsorCard(sp);
-                // Sponsor card spans full width
                 spCard.style.gridColumn = '1 / -1';
                 grid.appendChild(spCard);
                 sponsorIdx++;
@@ -3068,10 +3112,10 @@ function buildSponsorCard(sp) {
     const isDirect = /\.(mp4|webm|ogg|m3u8)(\?|$)/i.test(safeVideo);
 
     if (ytMatch) {
-        // YouTube embed — no autoplay; user taps to play via click on videoWrap
+        // YouTube embed
         const ytId = ytMatch[1];
         const iframe = document.createElement('iframe');
-        iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=0&mute=1&loop=1&playlist=${ytId}&playsinline=1&controls=1&rel=0`;
+        iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&loop=1&playlist=${ytId}&playsinline=1&controls=0&rel=0`;
         iframe.className = 'w-full h-full';
         iframe.style.cssText = 'border:none;display:block;position:absolute;top:0;left:0;width:100%;height:100%;';
         iframe.allow = 'autoplay; fullscreen; encrypted-media';
@@ -3092,17 +3136,9 @@ function buildSponsorCard(sp) {
         const video = document.createElement('video');
         video.src = safeVideo;
         video.className = 'w-full h-full object-cover';
-        // ✅ FIX: NO autoplay — video starts only after user interaction (IntersectionObserver plays on scroll-in)
-        video.autoplay = false; video.muted = true; video.loop = true;
+        video.autoplay = true; video.muted = true; video.loop = true;
         video.setAttribute('playsinline', '');
         video.style.display = 'block';
-        // Play when scrolled into view (user-interaction proxy for feed cards)
-        if ('IntersectionObserver' in window) {
-            const obs = new IntersectionObserver((entries) => {
-                entries.forEach(e => { if (e.isIntersecting) { video.play().catch(()=>{}); } else { video.pause(); } });
-            }, { threshold: 0.5 });
-            obs.observe(video);
-        }
         video.onerror = function() {
             // Fallback: show "Open to Watch" button if video fails
             this.remove();
@@ -3124,7 +3160,13 @@ function buildSponsorCard(sp) {
         titleBar.innerHTML = `<p class="text-white text-[11px] font-bold line-clamp-1">${safeTitle}</p>`;
         videoWrap.appendChild(titleBar);
     }
-    // ✅ FIX: "Visit" badge removed — was incorrectly showing to users
+    if (isClickable) {
+        const visitBadge = document.createElement('div');
+        visitBadge.className = 'absolute top-1.5 right-1.5 bg-amber-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5';
+        visitBadge.style.zIndex = '3';
+        visitBadge.innerHTML = `<i class="fas fa-external-link-alt text-[7px]"></i> Visit`;
+        videoWrap.appendChild(visitBadge);
+    }
     wrap.appendChild(videoWrap);
 
     // Link footer hidden — click handled via videoWrap click listener; URL not shown to users
@@ -3352,26 +3394,35 @@ function _renderPostPageSponsor() {
     const wrap = document.getElementById('post-page-sponsor-wrap');
     if (!wrap) return;
     wrap.innerHTML = '';
-    // Pick a dynamic sponsor — use shuffled list, avoid immediate repeat
+
+    // Pick sponsor using dynamic rotation: different per post + per session
+    // This ensures: same post → different sponsor on each visit/refresh
     if (!_sponsorPosts || !_sponsorPosts.length) {
         wrap.classList.add('hidden');
         return;
     }
-    const activeSponsorList = _sponsorShuffled.length ? _sponsorShuffled : _sponsorPosts;
-    let sp = null;
-    if (activeSponsorList.length === 1) {
-        // Only one available — must use it
-        sp = activeSponsorList[0];
-    } else {
-        // Pick randomly but avoid the last-shown index for variation per post open
-        let attempts = 0, idx;
-        do {
-            idx = Math.floor(Math.random() * activeSponsorList.length);
-            attempts++;
-        } while (idx === _sponsorLastPostPageIdx && attempts < 10);
-        _sponsorLastPostPageIdx = idx;
-        sp = activeSponsorList[idx];
+
+    // Use the shuffled+seeded system scoped to the current open post
+    // postSalt = current post ID so different posts also vary
+    // currentFileId is the variable set by openDetails() in this module scope
+    const currentPostId = (typeof currentFileId !== 'undefined' && currentFileId) ? String(currentFileId) : 'detail';
+    const _spDetailSalt  = 'detail|' + currentPostId;
+    const detailShuffled = _getShuffledSponsors(_spDetailSalt);
+    if (!detailShuffled.length) { wrap.classList.add('hidden'); return; }
+
+    // Pick index within shuffled list seeded by post+session (pure deterministic for
+    // stability within a single session visit, but changes across sessions/refreshes)
+    const userId  = (window.tgUser && (window.tgUser.id || window.tgUser.username)) ? String(window.tgUser.id || window.tgUser.username) : 'anon';
+    const session = window._sponsorSessionToken || '';
+    const raw     = userId + '|' + session + '|pick|' + currentPostId;
+    let hash = 5381;
+    for (let k = 0; k < raw.length; k++) {
+        hash = ((hash << 5) + hash) ^ raw.charCodeAt(k);
+        hash = hash & hash;
     }
+    const spIndex = Math.abs(hash) % detailShuffled.length;
+    const sp = detailShuffled[spIndex];
+
     if (!sp || !sp.videoUrl) { wrap.classList.add('hidden'); return; }
 
     // Build an inline sponsor card styled to match existing sponsor card look
@@ -3401,13 +3452,11 @@ function _renderPostPageSponsor() {
     // ── Smart Video Renderer ──
     const ytMatch2 = safeVideo.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
     const fbMatch2 = safeVideo.match(/(?:facebook\.com|fb\.watch)/i);
-    const isDirect2 = /\.(mp4|webm|ogg|m3u8)(\?|$)/i.test(safeVideo);
 
     if (ytMatch2) {
-        // ✅ FIX: YouTube embed — no autoplay on post open; user controls playback
         const ytId2 = ytMatch2[1];
         const iframe2 = document.createElement('iframe');
-        iframe2.src = `https://www.youtube.com/embed/${ytId2}?autoplay=0&mute=1&loop=1&playlist=${ytId2}&playsinline=1&controls=1&rel=0`;
+        iframe2.src = `https://www.youtube.com/embed/${ytId2}?autoplay=1&mute=1&loop=1&playlist=${ytId2}&playsinline=1&controls=0&rel=0`;
         iframe2.className = 'w-full h-full';
         iframe2.style.cssText = 'border:none;display:block;position:absolute;top:0;left:0;width:100%;height:100%;';
         iframe2.allow = 'autoplay; fullscreen; encrypted-media';
@@ -3422,42 +3471,22 @@ function _renderPostPageSponsor() {
         fbPlaceholder2.addEventListener('click', () => window.open(safeVideo, '_blank', 'noopener,noreferrer'));
         videoWrap.style.position = 'relative';
         videoWrap.appendChild(fbPlaceholder2);
-    } else if (isDirect2 || /^https?:\/\//i.test(safeVideo)) {
-        // ✅ FIX: No autoplay — video resets fresh on every post open, plays after user interaction
+    } else {
         const video = document.createElement('video');
         video.src = safeVideo;
         video.className = 'w-full h-full object-cover';
-        video.autoplay = false; video.muted = true; video.loop = true;
+        video.autoplay = true; video.muted = true; video.loop = true;
         video.setAttribute('playsinline','');
-        // Reset state so it always starts fresh when post opens
-        video.load();
-        // Play on click (user interaction)
-        videoWrap.addEventListener('click', () => { video.play().catch(()=>{}); }, { once: true });
-        // Also show a play hint overlay until user taps
-        const playHint = document.createElement('div');
-        playHint.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:4;transition:opacity 0.3s;';
-        playHint.innerHTML = `<i class="fas fa-play-circle" style="color:rgba(255,255,255,0.75);font-size:3rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.5));"></i>`;
-        videoWrap.style.position = 'relative';
-        videoWrap.appendChild(playHint);
-        video.addEventListener('play', () => { playHint.style.opacity = '0'; setTimeout(() => playHint.remove(), 300); }, { once: true });
         video.onerror = function() {
             this.remove();
-            if (playHint.parentNode) playHint.remove();
             const fallback2 = document.createElement('div');
             fallback2.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:#111827;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;';
             fallback2.innerHTML = `<i class="fas fa-play-circle" style="color:#f59e0b;font-size:2.5rem;"></i><span style="color:white;font-size:0.75rem;font-weight:bold;">Tap to Watch</span>`;
             fallback2.addEventListener('click', () => window.open(safeVideo, '_blank', 'noopener,noreferrer'));
+            videoWrap.style.position = 'relative';
             videoWrap.appendChild(fallback2);
         };
         videoWrap.appendChild(video);
-    } else {
-        // Unknown link — open in new tab fallback
-        const fallbackUnknown = document.createElement('div');
-        fallbackUnknown.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:#111827;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;';
-        fallbackUnknown.innerHTML = `<i class="fas fa-external-link-alt" style="color:#f59e0b;font-size:2rem;"></i><span style="color:white;font-size:0.75rem;font-weight:bold;">Tap to Watch</span>`;
-        fallbackUnknown.addEventListener('click', () => window.open(safeVideo, '_blank', 'noopener,noreferrer'));
-        videoWrap.style.position = 'relative';
-        videoWrap.appendChild(fallbackUnknown);
     }
     if (safeTitle) {
         const titleBar = document.createElement('div');
