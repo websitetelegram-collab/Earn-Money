@@ -3885,6 +3885,7 @@ async function loadNotifHistory() {
 function hideSplash() {
     const splash = document.getElementById('splash-screen');
     if (!splash) return;
+    window._startAppLoadingDone = true; // fallback কে জানাও splash hide হয়ে গেছে
     splash.classList.add('hide');
     setTimeout(() => { splash.style.display = 'none'; }, 600);
 }
@@ -4449,6 +4450,40 @@ document.addEventListener('DOMContentLoaded', function() {
             ].join(';');
             container.appendChild(star);
         }
+    });
+})();
+
+// ══ ABSOLUTE SPLASH FALLBACK — module script বা Firebase load না হলেও splash hide হবে ══
+// এটা module script এর বাইরে, তাই Firebase CDN fail হলেও কাজ করে
+(function() {
+    var HARD_LIMIT = 7000; // ৭ সেকেন্ডের মধ্যে যেকোনো অবস্থায় splash বন্ধ
+    var _splashKilled = false;
+
+    function killSplash() {
+        if (_splashKilled) return;
+        _splashKilled = true;
+        var splash = document.getElementById('splash-screen');
+        if (!splash) return;
+        if (splash.style.display === 'none') return; // already hidden
+        splash.classList.add('hide');
+        setTimeout(function() { splash.style.display = 'none'; }, 800);
+    }
+
+    // ৭ সেকেন্ড পর force hide
+    setTimeout(killSplash, HARD_LIMIT);
+
+    // Module script সফলভাবে load ও run হলে এই fallback নিজেই বাতিল হয়
+    // _startAppLoading এর পরে splash hide হলে killSplash() তখন কিছু করবে না (display:none check)
+    document.addEventListener('DOMContentLoaded', function() {
+        // ৪ সেকেন্ড পরেও splash দেখা গেলে এবং _startAppLoading না চললে force hide
+        setTimeout(function() {
+            var splash = document.getElementById('splash-screen');
+            if (!splash || splash.style.display === 'none') return;
+            if (!window._startAppLoadingDone) {
+                console.warn('[Fallback] Splash stuck — force hiding after 4s');
+                killSplash();
+            }
+        }, 4000);
     });
 })();
 </script>
