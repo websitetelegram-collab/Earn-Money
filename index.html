@@ -135,6 +135,10 @@
             0%   { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        @keyframes _spSpin {
+            0%   { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
 
         /* ══ GPU ACCELERATION — smooth animations ══ */
         #splash-screen,
@@ -1747,6 +1751,10 @@
                     <span class="detail-stat-label">Downloads</span>
                 </div>
                 <div class="detail-stat-item">
+                    <div class="detail-stat-value" id="detail-views">0</div>
+                    <span class="detail-stat-label">Views</span>
+                </div>
+                <div class="detail-stat-item">
                     <div class="detail-stat-value">
                         <i class="fas fa-shield-alt text-green-500" style="font-size:20px;"></i>
                     </div>
@@ -2100,7 +2108,7 @@
 
 <script type="module">
 import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, getDocs, doc, getDoc, updateDoc, increment, query, orderBy, setDoc, serverTimestamp, onSnapshot }
+import { getFirestore, collection, getDocs, doc, getDoc, updateDoc, increment, query, orderBy, setDoc, serverTimestamp, onSnapshot, runTransaction }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getDatabase, ref, set, get, update, onValue, onDisconnect, serverTimestamp as rtdbServerTimestamp }
@@ -2355,6 +2363,35 @@ function formatNumber(n) {
     if (n >= 1e6) return (n/1e6).toFixed(1)+'M+';
     if (n >= 1e3) return (n/1e3).toFixed(1)+'K+';
     return n || 0;
+}
+
+// ── View Counter ─────────────────────────────────────────────────────────
+// Records a view only once per 30 minutes per post per user (anti-spam)
+async function recordPostView(fileId) {
+    if (!fileId) return;
+    const COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes
+    const tsKey = `view_ts_${fileId}`;
+    const now = Date.now();
+    const lastViewed = parseInt(localStorage.getItem(tsKey) || '0');
+    if (lastViewed && (now - lastViewed) < COOLDOWN_MS) return; // still in cooldown
+    // Mark this view time immediately to prevent duplicate calls
+    localStorage.setItem(tsKey, String(now));
+    try {
+        const fileRef = doc(db, 'files', fileId);
+        await updateDoc(fileRef, { views: increment(1) });
+        // Update local allFiles cache so card re-renders show the updated count
+        const fileInCache = allFiles.find(f => f.id === fileId);
+        if (fileInCache) {
+            fileInCache.views = (parseInt(fileInCache.views) || 0) + 1;
+        }
+        // Update detail-views display live
+        const viewsEl = document.getElementById('detail-views');
+        if (viewsEl && fileInCache) viewsEl.textContent = formatNumber(fileInCache.views);
+    } catch(e) {
+        // Roll back the localStorage timestamp on failure so it retries next open
+        localStorage.removeItem(tsKey);
+        console.warn('View count failed:', e.message);
+    }
 }
 function getStarsHTML(rating) {
     return [1,2,3,4,5].map(i => i <= rating
@@ -2958,6 +2995,9 @@ function renderFiles() {
                 <div class="absolute bottom-2 right-2 bg-black/60 text-white text-[9px] px-2 py-0.5 rounded-md flex items-center gap-1">
                     <i class="fas fa-download text-[8px]"></i> ${formatNumber(dlCount)}
                 </div>
+                <div class="absolute bottom-2 left-2 bg-black/60 text-white text-[9px] px-2 py-0.5 rounded-md flex items-center gap-1">
+                    <i class="fas fa-eye text-[8px]"></i> ${formatNumber(parseInt(file.views)||0)}
+                </div>
             </div>
             <div class="p-3 flex flex-col flex-1">
                 <h3 class="font-bold text-sm text-gray-800 dark:text-white line-clamp-2 cursor-pointer mb-2 leading-snug" onclick="window.openDetails('${file.id}')">${file.title}</h3>
@@ -2988,16 +3028,196 @@ function renderFiles() {
     });
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// ── SPONSOR VIDEO RENDERER — shared helper ────────────────────────────────
+// Handles MP4/WEBM/OGG/HLS direct links, YouTube, Facebook, and any HTTPS URL.
+// Features: instant shimmer placeholder, IntersectionObserver lazy-play,
+// autoplay with mute (Telegram Mini App safe), graceful error fallback.
+// ══════════════════════════════════════════════════════════════════════════
+function _buildSponsorVideoWrap(safeVideo, safeLink, isClickable) {
+    const videoWrap = document.createElement('div');
+    videoWrap.className = 'relative w-full bg-gray-900 overflow-hidden';
+    videoWrap.style.cssText = 'aspect-ratio:16/9;position:relative;';
+    if (isClickable) videoWrap.style.cursor = 'pointer';
+    if (isClickable) {
+        videoWrap.addEventListener('click', function(e) {
+            // Don't hijack clicks on video controls
+            if (e.target.tagName === 'VIDEO' || e.target.tagName === 'IFRAME') return;
+            window.open(safeLink, '_blank', 'noopener,noreferrer');
+        });
+    }
+
+    // ── Shimmer loading placeholder (shown until video plays) ──
+    const shimmer = document.createElement('div');
+    shimmer.style.cssText = 'position:absolute;inset:0;background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;z-index:2;transition:opacity 0.4s ease;';
+    shimmer.innerHTML = `
+        <div style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;animation:_spSpin 1.2s linear infinite;">
+            <i class="fas fa-circle-notch" style="color:rgba(255,255,255,0.6);font-size:22px;"></i>
+        </div>
+        <span style="color:rgba(255,255,255,0.45);font-size:10px;font-weight:700;letter-spacing:1px;">LOADING</span>`;
+    videoWrap.appendChild(shimmer);
+
+    function _hideShimmer() {
+        shimmer.style.opacity = '0';
+        setTimeout(() => { try { shimmer.remove(); } catch(e){} }, 420);
+    }
+
+    function _showFallback(reason) {
+        _hideShimmer();
+        videoWrap.innerHTML = '';
+        const fb = document.createElement('div');
+        fb.style.cssText = 'position:absolute;inset:0;background:linear-gradient(135deg,#111827,#1f2937);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:pointer;';
+        fb.innerHTML = `
+            <div style="width:52px;height:52px;border-radius:50%;background:rgba(245,158,11,0.2);border:2px solid rgba(245,158,11,0.5);display:flex;align-items:center;justify-content:center;">
+                <i class="fas fa-play" style="color:#f59e0b;font-size:20px;margin-left:3px;"></i>
+            </div>
+            <span style="color:rgba(255,255,255,0.8);font-size:11px;font-weight:700;">Tap to Watch</span>`;
+        if (safeVideo) {
+            fb.addEventListener('click', () => window.open(safeVideo, '_blank', 'noopener,noreferrer'));
+        }
+        videoWrap.appendChild(fb);
+    }
+
+    // ── URL classification ──
+    const ytMatch  = safeVideo.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    const fbMatch  = safeVideo.match(/(?:facebook\.com|fb\.watch)/i);
+    const vimeoMatch = safeVideo.match(/(?:vimeo\.com\/)(\d+)/);
+    // Direct video: explicit extension OR content-type hint in URL, or bunny/cloudinary/spaces/s3 hosts
+    const isDirectExt  = /\.(mp4|webm|ogg|ogv|m3u8|mov)(\?|#|$)/i.test(safeVideo);
+    const isDirectHost = /\b(b-cdn\.net|bunnycdn\.com|bunny\.net|cloudinary\.com|digitaloceanspaces\.com|amazonaws\.com|cloudfront\.net|r2\.dev|storage\.googleapis\.com)\b/i.test(safeVideo);
+    const isDirect = isDirectExt || isDirectHost;
+
+    if (ytMatch) {
+        // ── YouTube ──
+        const ytId = ytMatch[1];
+        const iframe = document.createElement('iframe');
+        iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&loop=1&playlist=${ytId}&playsinline=1&controls=1&rel=0&modestbranding=1`;
+        iframe.style.cssText = 'border:none;display:block;position:absolute;top:0;left:0;width:100%;height:100%;z-index:1;';
+        iframe.allow = 'autoplay; fullscreen; encrypted-media; picture-in-picture';
+        iframe.setAttribute('allowfullscreen', '');
+        iframe.setAttribute('loading', 'lazy');
+        iframe.onload = _hideShimmer;
+        videoWrap.style.position = 'relative';
+        videoWrap.appendChild(iframe);
+        // YouTube iframes don't always fire onload reliably — fallback hide
+        setTimeout(_hideShimmer, 3000);
+
+    } else if (vimeoMatch) {
+        // ── Vimeo ──
+        const vimeoId = vimeoMatch[1];
+        const iframe = document.createElement('iframe');
+        iframe.src = `https://player.vimeo.com/video/${vimeoId}?autoplay=1&muted=1&loop=1&playsinline=1&title=0&byline=0&portrait=0`;
+        iframe.style.cssText = 'border:none;display:block;position:absolute;top:0;left:0;width:100%;height:100%;z-index:1;';
+        iframe.allow = 'autoplay; fullscreen; picture-in-picture';
+        iframe.setAttribute('allowfullscreen', '');
+        iframe.setAttribute('loading', 'lazy');
+        iframe.onload = _hideShimmer;
+        videoWrap.style.position = 'relative';
+        videoWrap.appendChild(iframe);
+        setTimeout(_hideShimmer, 3000);
+
+    } else if (fbMatch) {
+        // ── Facebook — not reliably embeddable ──
+        _hideShimmer();
+        const fb = document.createElement('div');
+        fb.style.cssText = 'position:absolute;inset:0;background:#1877f2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:pointer;';
+        fb.innerHTML = `<i class="fab fa-facebook" style="color:white;font-size:2.5rem;"></i><span style="color:white;font-size:12px;font-weight:700;">Tap to Watch on Facebook</span>`;
+        fb.addEventListener('click', () => window.open(safeVideo, '_blank', 'noopener,noreferrer'));
+        videoWrap.style.position = 'relative';
+        videoWrap.appendChild(fb);
+
+    } else if (isDirect || /^https?:\/\//i.test(safeVideo)) {
+        // ── Direct video (MP4 / WEBM / HLS / CDN-hosted) ──
+        const video = document.createElement('video');
+
+        // Critical attributes for Telegram Mini App + mobile autoplay
+        video.setAttribute('playsinline', '');       // iOS + Telegram: prevent fullscreen takeover
+        video.setAttribute('webkit-playsinline', ''); // older iOS
+        video.setAttribute('x5-playsinline', '');    // WeChat/some Android browsers
+        video.muted    = true;   // required for autoplay policy on all browsers
+        video.autoplay = true;
+        video.loop     = true;
+        video.controls = true;   // give user control over playback
+        video.preload  = 'auto'; // start buffering immediately
+        video.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;z-index:1;background:#000;';
+
+        // Use <source> for better MIME type handling + fallback chain
+        function _addSource(url, type) {
+            const src = document.createElement('source');
+            src.src  = url;
+            if (type) src.type = type;
+            video.appendChild(src);
+        }
+
+        // Detect MIME from URL extension
+        const extMatch = safeVideo.match(/\.(mp4|webm|ogg|ogv|m3u8|mov)(\?|#|$)/i);
+        const ext = extMatch ? extMatch[1].toLowerCase() : '';
+        const mimeMap = { mp4:'video/mp4', webm:'video/webm', ogg:'video/ogg', ogv:'video/ogg', m3u8:'application/x-mpegURL', mov:'video/mp4' };
+        _addSource(safeVideo, mimeMap[ext] || '');
+
+        // Events
+        video.addEventListener('canplay', _hideShimmer, { once: true });
+        video.addEventListener('playing', _hideShimmer, { once: true });
+        video.addEventListener('error',   () => _showFallback('video error'), { once: true });
+        // Fallback: if video hasn't started playing within 8s, show fallback
+        const _loadTimer = setTimeout(() => {
+            if (video.readyState < 2) _showFallback('timeout');
+        }, 8000);
+        video.addEventListener('canplay', () => clearTimeout(_loadTimer), { once: true });
+
+        videoWrap.appendChild(video);
+
+        // ── IntersectionObserver: pause when off-screen, play when visible ──
+        // This prevents battery drain and bandwidth waste in the feed
+        if ('IntersectionObserver' in window) {
+            const obs = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        // Try to play; browsers may require user gesture
+                        video.play().catch(() => {
+                            // Autoplay blocked — show a tap-to-play overlay
+                            if (video.paused && !video._tapOverlayAdded) {
+                                video._tapOverlayAdded = true;
+                                const tapOverlay = document.createElement('div');
+                                tapOverlay.style.cssText = 'position:absolute;inset:0;z-index:3;display:flex;align-items:center;justify-content:center;cursor:pointer;';
+                                tapOverlay.innerHTML = `<div style="width:52px;height:52px;border-radius:50%;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;"><i class="fas fa-play" style="color:white;font-size:20px;margin-left:3px;"></i></div>`;
+                                tapOverlay.addEventListener('click', () => {
+                                    video.play().then(() => tapOverlay.remove()).catch(()=>{});
+                                });
+                                videoWrap.appendChild(tapOverlay);
+                                _hideShimmer();
+                            }
+                        });
+                    } else {
+                        if (!video.paused) video.pause();
+                    }
+                });
+            }, { threshold: 0.25 });
+            obs.observe(videoWrap);
+        } else {
+            // No IntersectionObserver — just play directly
+            video.play().catch(() => {});
+        }
+    } else {
+        // ── Unknown / invalid URL ──
+        _showFallback('unknown url');
+    }
+
+    return videoWrap;
+}
+
 function buildSponsorCard(sp) {
     const wrap = document.createElement('div');
     wrap.className = 'sponsor-post-card rounded-2xl overflow-hidden shadow-sm border border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-900/10';
     wrap.style.animation = 'slideUp 0.35s ease both';
 
-    // ✅ FIX: XSS রোধে URL validate ও encode করো — raw string interpolation বাদ
+    // XSS-safe URL handling
     const isClickable = !!sp.linkUrl && /^https?:\/\//i.test(sp.linkUrl);
     const safeLink    = isClickable ? sp.linkUrl : '';
-    const safeVideo   = sp.videoUrl ? sp.videoUrl : '';
-    const safeTitle   = sp.title   ? sp.title.replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
+    const safeVideo   = (sp.videoUrl || '').trim();
+    const safeTitle   = sp.title ? sp.title.replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
+
+    if (!safeVideo) return wrap; // nothing to render
 
     // Header
     const header = document.createElement('div');
@@ -3005,83 +3225,17 @@ function buildSponsorCard(sp) {
     header.innerHTML = `<span class="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest flex items-center gap-1"><i class="fas fa-ad text-[8px]"></i> Sponsored</span>`;
     wrap.appendChild(header);
 
-    // Video container
-    const videoWrap = document.createElement('div');
-    videoWrap.className = 'relative w-full bg-gray-900';
-    if (isClickable) videoWrap.style.cursor = 'pointer';
-    videoWrap.style.aspectRatio = '16/9';
+    // ── Shared video builder ──
+    const videoWrap = _buildSponsorVideoWrap(safeVideo, safeLink, isClickable);
 
-    // ✅ FIX: onclick addEventListener দিয়ে set করো — string injection নয়
-    if (isClickable) {
-        videoWrap.addEventListener('click', () => window.open(safeLink, '_blank', 'noopener,noreferrer'));
-    }
-
-    // ── Smart Video Renderer ──
-    // Detect video type and render accordingly
-    const ytMatch = safeVideo.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-    const fbMatch = safeVideo.match(/(?:facebook\.com|fb\.watch)/i);
-    const isDirect = /\.(mp4|webm|ogg|m3u8)(\?|$)/i.test(safeVideo);
-
-    if (ytMatch) {
-        // YouTube embed
-        const ytId = ytMatch[1];
-        const iframe = document.createElement('iframe');
-        iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&loop=1&playlist=${ytId}&playsinline=1&controls=0&rel=0`;
-        iframe.className = 'w-full h-full';
-        iframe.style.cssText = 'border:none;display:block;position:absolute;top:0;left:0;width:100%;height:100%;';
-        iframe.allow = 'autoplay; fullscreen; encrypted-media';
-        iframe.setAttribute('allowfullscreen', '');
-        videoWrap.style.position = 'relative';
-        videoWrap.appendChild(iframe);
-    } else if (fbMatch) {
-        // Facebook: not reliably embeddable — open in new tab on click
-        const fbPlaceholder = document.createElement('div');
-        fbPlaceholder.className = 'w-full h-full flex flex-col items-center justify-center gap-2 cursor-pointer';
-        fbPlaceholder.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:#1877f2;';
-        fbPlaceholder.innerHTML = `<i class="fab fa-facebook text-white text-4xl"></i><span class="text-white text-xs font-bold">Tap to Watch on Facebook</span>`;
-        fbPlaceholder.addEventListener('click', () => window.open(safeVideo, '_blank', 'noopener,noreferrer'));
-        videoWrap.style.position = 'relative';
-        videoWrap.appendChild(fbPlaceholder);
-    } else if (isDirect || /^https?:\/\//i.test(safeVideo)) {
-        // Direct video link or any other URL — try <video> first, fallback to open in tab
-        const video = document.createElement('video');
-        video.src = safeVideo;
-        video.className = 'w-full h-full object-cover';
-        video.autoplay = true; video.muted = true; video.loop = true;
-        video.setAttribute('playsinline', '');
-        video.style.display = 'block';
-        video.onerror = function() {
-            // Fallback: show "Open to Watch" button if video fails
-            this.remove();
-            const fallback = document.createElement('div');
-            fallback.className = 'w-full h-full flex flex-col items-center justify-center gap-2 cursor-pointer';
-            fallback.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:#111827;';
-            fallback.innerHTML = `<i class="fas fa-play-circle text-amber-400 text-4xl"></i><span class="text-white text-xs font-bold">Tap to Watch</span>`;
-            fallback.addEventListener('click', () => window.open(safeVideo, '_blank', 'noopener,noreferrer'));
-            videoWrap.style.position = 'relative';
-            videoWrap.appendChild(fallback);
-        };
-        videoWrap.appendChild(video);
-    }
-
+    // Title overlay
     if (safeTitle) {
         const titleBar = document.createElement('div');
-        titleBar.className = 'absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5';
-        titleBar.style.zIndex = '2';
-        titleBar.innerHTML = `<p class="text-white text-[11px] font-bold line-clamp-1">${safeTitle}</p>`;
+        titleBar.style.cssText = 'position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top,rgba(0,0,0,0.75),transparent);padding:6px 8px;z-index:4;pointer-events:none;';
+        titleBar.innerHTML = `<p style="color:white;font-size:11px;font-weight:700;overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;">${safeTitle}</p>`;
         videoWrap.appendChild(titleBar);
     }
-    if (isClickable) {
-        const visitBadge = document.createElement('div');
-        visitBadge.className = 'absolute top-1.5 right-1.5 bg-amber-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5';
-        visitBadge.style.zIndex = '3';
-        visitBadge.innerHTML = `<i class="fas fa-external-link-alt text-[7px]"></i> Visit`;
-        videoWrap.appendChild(visitBadge);
-    }
     wrap.appendChild(videoWrap);
-
-    // Link footer hidden — click handled via videoWrap click listener; URL not shown to users
-
     return wrap;
 }
 
@@ -3096,6 +3250,13 @@ window.openDetails = (id) => {
     document.getElementById('detail-small-icon').src  = file.thumbnailUrl;
     document.getElementById('detail-small-icon').classList.remove('hidden');
     document.getElementById('detail-downloads').textContent = formatNumber(file.downloads);
+
+    // ── Views ─────────────────────────────────────────────────────────────
+    const viewsEl = document.getElementById('detail-views');
+    if (viewsEl) viewsEl.textContent = formatNumber(parseInt(file.views)||0);
+
+    // ── Record view (anti-spam: once per 30 min per post) ──────────────
+    recordPostView(id);
 
     // Category badge in detail
     const catEl = document.getElementById('detail-category-badge');
@@ -3313,9 +3474,8 @@ function _renderPostPageSponsor() {
     const sp = _sponsorPosts[Math.floor(Math.random() * _sponsorPosts.length)];
     if (!sp || !sp.videoUrl) { wrap.classList.add('hidden'); return; }
 
-    // Build an inline sponsor card styled to match existing sponsor card look
     const isClickable = !!sp.linkUrl && /^https?:\/\//i.test(sp.linkUrl);
-    const safeVideo   = sp.videoUrl;
+    const safeVideo   = (sp.videoUrl || '').trim();
     const safeTitle   = sp.title ? sp.title.replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
 
     wrap.classList.remove('hidden');
@@ -3328,62 +3488,18 @@ function _renderPostPageSponsor() {
     header.innerHTML = `<span class="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest flex items-center gap-1"><i class="fas fa-ad text-[8px]"></i> Sponsored</span>`;
     card.appendChild(header);
 
-    // Video container
-    const videoWrap = document.createElement('div');
-    videoWrap.className = 'relative w-full bg-gray-900';
-    if (isClickable) videoWrap.style.cursor = 'pointer';
-    videoWrap.style.aspectRatio = '16/9';
-    if (isClickable) {
-        videoWrap.addEventListener('click', () => window.open(sp.linkUrl, '_blank', 'noopener,noreferrer'));
-    }
+    // ── Shared video builder ──
+    const videoWrap = _buildSponsorVideoWrap(safeVideo, sp.linkUrl || '', isClickable);
 
-    // ── Smart Video Renderer ──
-    const ytMatch2 = safeVideo.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-    const fbMatch2 = safeVideo.match(/(?:facebook\.com|fb\.watch)/i);
-
-    if (ytMatch2) {
-        const ytId2 = ytMatch2[1];
-        const iframe2 = document.createElement('iframe');
-        iframe2.src = `https://www.youtube.com/embed/${ytId2}?autoplay=1&mute=1&loop=1&playlist=${ytId2}&playsinline=1&controls=0&rel=0`;
-        iframe2.className = 'w-full h-full';
-        iframe2.style.cssText = 'border:none;display:block;position:absolute;top:0;left:0;width:100%;height:100%;';
-        iframe2.allow = 'autoplay; fullscreen; encrypted-media';
-        iframe2.setAttribute('allowfullscreen', '');
-        videoWrap.style.position = 'relative';
-        videoWrap.appendChild(iframe2);
-    } else if (fbMatch2) {
-        const fbPlaceholder2 = document.createElement('div');
-        fbPlaceholder2.className = 'w-full h-full flex flex-col items-center justify-center gap-2 cursor-pointer';
-        fbPlaceholder2.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:#1877f2;';
-        fbPlaceholder2.innerHTML = `<i class="fab fa-facebook text-white text-4xl"></i><span class="text-white text-xs font-bold">Tap to Watch on Facebook</span>`;
-        fbPlaceholder2.addEventListener('click', () => window.open(safeVideo, '_blank', 'noopener,noreferrer'));
-        videoWrap.style.position = 'relative';
-        videoWrap.appendChild(fbPlaceholder2);
-    } else {
-        const video = document.createElement('video');
-        video.src = safeVideo;
-        video.className = 'w-full h-full object-cover';
-        video.autoplay = true; video.muted = true; video.loop = true;
-        video.setAttribute('playsinline','');
-        video.onerror = function() {
-            this.remove();
-            const fallback2 = document.createElement('div');
-            fallback2.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:#111827;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;';
-            fallback2.innerHTML = `<i class="fas fa-play-circle" style="color:#f59e0b;font-size:2.5rem;"></i><span style="color:white;font-size:0.75rem;font-weight:bold;">Tap to Watch</span>`;
-            fallback2.addEventListener('click', () => window.open(safeVideo, '_blank', 'noopener,noreferrer'));
-            videoWrap.style.position = 'relative';
-            videoWrap.appendChild(fallback2);
-        };
-        videoWrap.appendChild(video);
-    }
+    // Title overlay
     if (safeTitle) {
         const titleBar = document.createElement('div');
-        titleBar.className = 'absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5';
-        titleBar.innerHTML = `<p class="text-white text-[11px] font-bold line-clamp-1">${safeTitle}</p>`;
+        titleBar.style.cssText = 'position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top,rgba(0,0,0,0.75),transparent);padding:6px 8px;z-index:4;pointer-events:none;';
+        titleBar.innerHTML = `<p style="color:white;font-size:11px;font-weight:700;overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;">${safeTitle}</p>`;
         videoWrap.appendChild(titleBar);
     }
+
     card.appendChild(videoWrap);
-    // Link footer hidden — click handled via videoWrap click listener; URL not shown to users
     wrap.appendChild(card);
 }
 
