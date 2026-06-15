@@ -2938,7 +2938,7 @@ function buildCategoryPills() {
 
 // ── Render Grid ─────────────────────────────────────────────────────────
 // Global sponsor posts state
-let _sponsorPosts = [];   // [{id, videoUrl, linkUrl, interval, title}, ...]
+let _sponsorPosts = [];   // [{id, videoUrl, linkUrl, title}, ...]
 let _sponsorGlobalInterval = 4; // fallback, overridden by settings/general
 
 function renderFiles() {
@@ -2969,7 +2969,11 @@ function renderFiles() {
         return;
     }
     const favs = getFavorites();
-    let sponsorIdx = 0; // which sponsor post to show next
+    // ✅ Rotation: pick a random starting sponsor each render (refresh) so
+    // different sponsors are shown over time instead of always sponsor #1.
+    let sponsorIdx = _sponsorPosts.length > 0
+        ? Math.floor(Math.random() * _sponsorPosts.length)
+        : 0;
 
     filtered.forEach((file, i) => {
         const count = parseInt(localStorage.getItem(`adCount_${file.id}`))||0;
@@ -3015,13 +3019,14 @@ function renderFiles() {
         setTimeout(() => { card.style.opacity = '1'; }, 500 + i * 40);
 
         // ── Sponsor Post injection ──
-        // After every `interval` posts, insert the next sponsor post
+        // After every `_sponsorGlobalInterval` posts, insert the next sponsor post
+        // (rotated — see sponsorIdx initialization above)
         if (_sponsorPosts.length > 0) {
-            const sp = _sponsorPosts[sponsorIdx % _sponsorPosts.length];
-            const interval = parseInt(sp.interval) || _sponsorGlobalInterval || 4;
+            const interval = _sponsorGlobalInterval || 4;
             // insert after post number: interval, interval*2, ...
             // i is 0-indexed, so check (i+1) % interval === 0
             if ((i + 1) % interval === 0) {
+                const sp = _sponsorPosts[sponsorIdx % _sponsorPosts.length];
                 const spCard = buildSponsorCard(sp);
                 // Sponsor card spans full width
                 spCard.style.gridColumn = '1 / -1';
@@ -3076,8 +3081,9 @@ function _buildSponsorVideoWrap(safeVideo, safeLink, isClickable) {
                 <i class="fas fa-play" style="color:#f59e0b;font-size:20px;margin-left:3px;"></i>
             </div>
             <span style="color:rgba(255,255,255,0.8);font-size:11px;font-weight:700;">Tap to Watch</span>`;
-        if (safeVideo) {
-            fb.addEventListener('click', () => window.open(safeVideo, '_blank', 'noopener,noreferrer'));
+        // ✅ Sponsor protection: open the hidden sponsor click URL (not the raw video URL)
+        if (isClickable) {
+            fb.addEventListener('click', () => window.open(safeLink, '_blank', 'noopener,noreferrer'));
         }
         videoWrap.appendChild(fb);
     }
@@ -3095,10 +3101,10 @@ function _buildSponsorVideoWrap(safeVideo, safeLink, isClickable) {
         // ── YouTube ──
         const ytId = ytMatch[1];
         const iframe = document.createElement('iframe');
-        iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&loop=1&playlist=${ytId}&playsinline=1&controls=1&rel=0&modestbranding=1`;
-        iframe.style.cssText = 'border:none;display:block;position:absolute;top:0;left:0;width:100%;height:100%;z-index:1;';
-        iframe.allow = 'autoplay; fullscreen; encrypted-media; picture-in-picture';
-        iframe.setAttribute('allowfullscreen', '');
+        // ✅ Sponsor protection: no controls, no fullscreen, no related videos
+        iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&loop=1&playlist=${ytId}&playsinline=1&controls=0&rel=0&modestbranding=1&disablekb=1`;
+        iframe.style.cssText = 'border:none;display:block;position:absolute;top:0;left:0;width:100%;height:100%;z-index:1;pointer-events:none;';
+        iframe.allow = 'autoplay; encrypted-media';
         iframe.setAttribute('loading', 'lazy');
         iframe.onload = _hideShimmer;
         videoWrap.style.position = 'relative';
@@ -3110,10 +3116,10 @@ function _buildSponsorVideoWrap(safeVideo, safeLink, isClickable) {
         // ── Vimeo ──
         const vimeoId = vimeoMatch[1];
         const iframe = document.createElement('iframe');
-        iframe.src = `https://player.vimeo.com/video/${vimeoId}?autoplay=1&muted=1&loop=1&playsinline=1&title=0&byline=0&portrait=0`;
-        iframe.style.cssText = 'border:none;display:block;position:absolute;top:0;left:0;width:100%;height:100%;z-index:1;';
-        iframe.allow = 'autoplay; fullscreen; picture-in-picture';
-        iframe.setAttribute('allowfullscreen', '');
+        // ✅ Sponsor protection: no controls, no fullscreen, no PiP
+        iframe.src = `https://player.vimeo.com/video/${vimeoId}?autoplay=1&muted=1&loop=1&playsinline=1&title=0&byline=0&portrait=0&controls=0`;
+        iframe.style.cssText = 'border:none;display:block;position:absolute;top:0;left:0;width:100%;height:100%;z-index:1;pointer-events:none;';
+        iframe.allow = 'autoplay; encrypted-media';
         iframe.setAttribute('loading', 'lazy');
         iframe.onload = _hideShimmer;
         videoWrap.style.position = 'relative';
@@ -3126,7 +3132,10 @@ function _buildSponsorVideoWrap(safeVideo, safeLink, isClickable) {
         const fb = document.createElement('div');
         fb.style.cssText = 'position:absolute;inset:0;background:#1877f2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:pointer;';
         fb.innerHTML = `<i class="fab fa-facebook" style="color:white;font-size:2.5rem;"></i><span style="color:white;font-size:12px;font-weight:700;">Tap to Watch on Facebook</span>`;
-        fb.addEventListener('click', () => window.open(safeVideo, '_blank', 'noopener,noreferrer'));
+        // ✅ Sponsor protection: open the hidden sponsor click URL (not the raw video URL)
+        if (isClickable) {
+            fb.addEventListener('click', () => window.open(safeLink, '_blank', 'noopener,noreferrer'));
+        }
         videoWrap.style.position = 'relative';
         videoWrap.appendChild(fb);
 
@@ -3141,9 +3150,14 @@ function _buildSponsorVideoWrap(safeVideo, safeLink, isClickable) {
         video.muted    = true;   // required for autoplay policy on all browsers
         video.autoplay = true;
         video.loop     = true;
-        video.controls = true;   // give user control over playback
+        // ✅ Sponsor protection: no visible controls, no seek bar, no download/PiP/fullscreen
+        video.controls = false;
+        video.setAttribute('controlsList', 'nodownload nofullscreen noremoteplayback noplaybackrate');
+        video.setAttribute('disablePictureInPicture', '');
+        video.setAttribute('disableRemotePlayback', '');
+        video.oncontextmenu = () => false; // block right-click "Save video as..."
         video.preload  = 'auto'; // start buffering immediately
-        video.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;z-index:1;background:#000;';
+        video.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;z-index:1;background:#000;pointer-events:none;';
 
         // Use <source> for better MIME type handling + fallback chain
         function _addSource(url, type) {
