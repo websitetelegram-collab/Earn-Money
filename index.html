@@ -2370,16 +2370,16 @@ function formatNumber(n) {
 }
 
 // ── View Counter ─────────────────────────────────────────────────────────
-// Records a view only once per 30 minutes per post per user (anti-spam)
+// Records a view every time a user opens a post page.
+// Anti-duplicate: only one count per session open (prevents double-fire from same openDetails call).
+let _viewCountInProgress = {};
 async function recordPostView(fileId) {
     if (!fileId) return;
-    const COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes
-    const tsKey = `view_ts_${fileId}`;
-    const now = Date.now();
-    const lastViewed = parseInt(localStorage.getItem(tsKey) || '0');
-    if (lastViewed && (now - lastViewed) < COOLDOWN_MS) return; // still in cooldown
-    // Mark this view time immediately to prevent duplicate calls
-    localStorage.setItem(tsKey, String(now));
+    // Prevent double-fire if openDetails is called twice in rapid succession for same file
+    if (_viewCountInProgress[fileId]) return;
+    _viewCountInProgress[fileId] = true;
+    // Clear the lock after 2 seconds so re-opening the same post again counts
+    setTimeout(() => { delete _viewCountInProgress[fileId]; }, 2000);
     try {
         const fileRef = doc(db, 'files', fileId);
         await updateDoc(fileRef, { views: increment(1) });
@@ -2392,9 +2392,9 @@ async function recordPostView(fileId) {
         const viewsEl = document.getElementById('detail-views');
         if (viewsEl && fileInCache) viewsEl.textContent = formatNumber(fileInCache.views);
     } catch(e) {
-        // Roll back the localStorage timestamp on failure so it retries next open
-        localStorage.removeItem(tsKey);
         console.warn('View count failed:', e.message);
+        // Clear lock on failure so next open can retry
+        delete _viewCountInProgress[fileId];
     }
 }
 function getStarsHTML(rating) {
@@ -2584,6 +2584,10 @@ async function loadData() {
             window._channelJoinName     = d.channelJoinName || '@channel';
             // Sponsor global interval
             if (d.sponsorGlobalInterval) _sponsorGlobalInterval = parseInt(d.sponsorGlobalInterval) || 4;
+            // Sponsor rotation timer interval (minutes → ms)
+            if (d.sponsorRotationInterval) {
+                _sponsorRotationIntervalMs = (parseInt(d.sponsorRotationInterval) || 5) * 60 * 1000;
+            }
 
             // ✅ App Logo — Admin থেকে দেওয়া logo splash screen এ দেখাও
             const botImgEl  = document.getElementById('sp-bot-logo');
@@ -2774,7 +2778,10 @@ async function loadData() {
                     _sponsorPosts.push({ id: d.id, ...sp });
                 }
             });
-            if (_sponsorPosts.length > 0) renderFiles(); // re-render with sponsors
+            if (_sponsorPosts.length > 0) {
+                renderFiles(); // re-render with sponsors
+                _startSponsorRotationTimer(); // start time-based rotation
+            }
         }
     } catch(e) { console.error("Sponsor posts error:", e); }
 
@@ -2941,6 +2948,54 @@ function buildCategoryPills() {
 let _sponsorPosts = [];   // [{id, videoUrl, linkUrl, title}, ...]
 let _sponsorGlobalInterval = 4; // fallback, overridden by settings/general
 
+// ── Advanced Sponsor Rotation State ──────────────────────────────────────
+// Each context (list, post-page) keeps its own independent rotation index.
+// Rotation is seeded per-user + time-based so different users see different sponsors,
+// and the same user sees different sponsors across sessions/refreshes.
+let _sponsorRotationIntervalMs = 5 * 60 * 1000; // default 5 minutes, admin-configurable
+let _sponsorRotationTimer = null;
+
+// Compute a stable-per-session user offset (changes every new session)
+function _getSponsorUserSeed() {
+    const userId = (typeof tgUser !== 'undefined' && tgUser.id) ? String(tgUser.id) : (localStorage.getItem('guestUserId') || 'guest');
+    // XOR hash of user id characters — fast, deterministic
+    let hash = 0;
+    for (let i = 0; i < userId.length; i++) { hash = (hash * 31 + userId.charCodeAt(i)) >>> 0; }
+    return hash;
+}
+
+// Get the current rotation "tick" — changes every _sponsorRotationIntervalMs
+function _getSponsorTick() {
+    if (!_sponsorRotationIntervalMs || _sponsorRotationIntervalMs <= 0) return 0;
+    return Math.floor(Date.now() / _sponsorRotationIntervalMs);
+}
+
+// Pick a starting sponsor index for the given context ('list' or 'post')
+// Returns a different value per user, per context, per time-tick.
+function _getSponsorStartIndex(context) {
+    if (!_sponsorPosts.length) return 0;
+    const n = _sponsorPosts.length;
+    const seed = _getSponsorUserSeed();
+    const tick = _getSponsorTick();
+    const ctxOffset = context === 'post' ? 7919 : 0; // prime offset keeps list ≠ post
+    return ((seed + tick + ctxOffset) * 2654435761) % n >>> 0;
+}
+
+// Start/restart the sponsor rotation timer — re-renders when tick changes
+function _startSponsorRotationTimer() {
+    if (_sponsorRotationTimer) clearTimeout(_sponsorRotationTimer);
+    if (!_sponsorRotationIntervalMs || _sponsorRotationIntervalMs <= 0) return;
+    const now = Date.now();
+    const msUntilNextTick = _sponsorRotationIntervalMs - (now % _sponsorRotationIntervalMs);
+    _sponsorRotationTimer = setTimeout(() => {
+        // Re-render to pick next sponsor
+        renderFiles();
+        _renderPostPageSponsor();
+        // Restart for next tick
+        _startSponsorRotationTimer();
+    }, msUntilNextTick + 50); // +50ms buffer
+}
+
 function renderFiles() {
     const grid = document.getElementById('files-grid');
     grid.innerHTML = '';
@@ -2969,11 +3024,9 @@ function renderFiles() {
         return;
     }
     const favs = getFavorites();
-    // ✅ Rotation: pick a random starting sponsor each render (refresh) so
-    // different sponsors are shown over time instead of always sponsor #1.
-    let sponsorIdx = _sponsorPosts.length > 0
-        ? Math.floor(Math.random() * _sponsorPosts.length)
-        : 0;
+    // ✅ Advanced Rotation: user-specific + time-based index so different users
+    // see different sponsors, and sponsor changes each rotation interval.
+    let sponsorIdx = _getSponsorStartIndex('list');
 
     filtered.forEach((file, i) => {
         const count = parseInt(localStorage.getItem(`adCount_${file.id}`))||0;
@@ -3489,7 +3542,8 @@ function _renderPostPageSponsor() {
         wrap.classList.add('hidden');
         return;
     }
-    const sp = _sponsorPosts[Math.floor(Math.random() * _sponsorPosts.length)];
+    // Pick sponsor using user-specific + time-based rotation (independent from list page)
+    const sp = _sponsorPosts[_getSponsorStartIndex('post') % _sponsorPosts.length];
     if (!sp || !sp.videoUrl) { wrap.classList.add('hidden'); return; }
 
     const isClickable = !!sp.linkUrl && /^https?:\/\//i.test(sp.linkUrl);
