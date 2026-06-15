@@ -2265,6 +2265,8 @@ function setupPresenceAndSaveUser() {
         online:   true,
         lastSeen: rtdbServerTimestamp(),
         platform: window.Telegram && window.Telegram.WebApp ? 'telegram' : 'web',
+        // ✅ User opened the bot again → re-enable for future broadcasts
+        tgActive: true,
     }).catch(e => console.warn("User update:", e.code));
 
     // ✅ Firestore এ user save — broadcast এর জন্য
@@ -2278,6 +2280,8 @@ function setupPresenceAndSaveUser() {
                 username: tgUser.username || '',
                 platform: 'telegram',
                 lastSeen: serverTimestamp(),
+                // ✅ User opened the bot again → re-enable for future broadcasts
+                tgActive: true,
             }, { merge: true }).catch(()=>{});
         } catch(e) {}
     }
