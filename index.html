@@ -1754,11 +1754,12 @@
                     <div class="detail-stat-value" id="detail-views">0</div>
                     <span class="detail-stat-label">Views</span>
                 </div>
-                <div class="detail-stat-item">
-                    <div class="detail-stat-value">
-                        <i class="fas fa-shield-alt text-green-500" style="font-size:20px;"></i>
+                <div class="detail-stat-item" id="detail-likes-item" style="cursor:pointer;" onclick="window.toggleLike()">
+                    <div class="detail-stat-value flex items-center gap-1">
+                        <i id="detail-like-icon" class="fas fa-heart" style="font-size:18px;color:#e2e8f0;transition:color 0.2s;"></i>
+                        <span id="detail-likes">0</span>
                     </div>
-                    <span class="detail-stat-label">Safe</span>
+                    <span class="detail-stat-label">Likes</span>
                 </div>
             </div>
         </div>
@@ -2372,31 +2373,68 @@ function formatNumber(n) {
 // ── View Counter ─────────────────────────────────────────────────────────
 // Records a view every time a user opens a post page.
 // Anti-duplicate: only one count per session open (prevents double-fire from same openDetails call).
-let _viewCountInProgress = {};
+// session-level per-post view dedup — একই session এ একই post দুবার open করলে একবারই count
+const _viewedThisSession = new Set();
 async function recordPostView(fileId) {
     if (!fileId) return;
-    // Prevent double-fire if openDetails is called twice in rapid succession for same file
-    if (_viewCountInProgress[fileId]) return;
-    _viewCountInProgress[fileId] = true;
-    // Clear the lock after 2 seconds so re-opening the same post again counts
-    setTimeout(() => { delete _viewCountInProgress[fileId]; }, 2000);
+    if (_viewedThisSession.has(fileId)) return;
+    _viewedThisSession.add(fileId);
     try {
-        const fileRef = doc(db, 'files', fileId);
-        await updateDoc(fileRef, { views: increment(1) });
-        // Update local allFiles cache so card re-renders show the updated count
+        // Auth নিশ্চিত করো — anonymous হলেও Firestore rules পাস করবে
+        if (!auth.currentUser) {
+            await signInAnonymously(auth).catch(() => {});
+        }
+        await updateDoc(doc(db, 'files', fileId), { views: increment(1) });
+        // local cache update
         const fileInCache = allFiles.find(f => f.id === fileId);
         if (fileInCache) {
             fileInCache.views = (parseInt(fileInCache.views) || 0) + 1;
         }
-        // Update detail-views display live
+        // live UI update
         const viewsEl = document.getElementById('detail-views');
         if (viewsEl && fileInCache) viewsEl.textContent = formatNumber(fileInCache.views);
     } catch(e) {
         console.warn('View count failed:', e.message);
-        // Clear lock on failure so next open can retry
-        delete _viewCountInProgress[fileId];
+        // fail হলে session set থেকে বাদ দাও যাতে পরের বার retry হয়
+        _viewedThisSession.delete(fileId);
     }
 }
+
+// ── Like System ───────────────────────────────────────────────────────────
+function _isLiked(fileId) {
+    const liked = JSON.parse(localStorage.getItem('liked_posts') || '[]');
+    return liked.includes(fileId);
+}
+function _updateLikeUI(fileId, likeCount) {
+    const icon = document.getElementById('detail-like-icon');
+    const likesEl = document.getElementById('detail-likes');
+    if (icon) icon.style.color = _isLiked(fileId) ? '#ef4444' : '#e2e8f0';
+    if (likesEl) likesEl.textContent = formatNumber(likeCount || 0);
+}
+window.toggleLike = async function() {
+    if (!currentFileId) return;
+    const fileId = currentFileId;
+    const liked = JSON.parse(localStorage.getItem('liked_posts') || '[]');
+    const alreadyLiked = liked.includes(fileId);
+    const delta = alreadyLiked ? -1 : 1;
+    if (alreadyLiked) {
+        liked.splice(liked.indexOf(fileId), 1);
+    } else {
+        liked.push(fileId);
+    }
+    localStorage.setItem('liked_posts', JSON.stringify(liked));
+    const fileInCache = allFiles.find(f => f.id === fileId);
+    if (fileInCache) {
+        fileInCache.likes = Math.max((parseInt(fileInCache.likes) || 0) + delta, 0);
+        _updateLikeUI(fileId, fileInCache.likes);
+    }
+    try {
+        await updateDoc(doc(db, 'files', fileId), { likes: increment(delta) });
+    } catch(e) {
+        console.warn('Like update failed:', e.message);
+    }
+};
+
 function getStarsHTML(rating) {
     return [1,2,3,4,5].map(i => i <= rating
         ? '<i class="fas fa-star text-yellow-400"></i>'
@@ -3325,6 +3363,9 @@ window.openDetails = (id) => {
     // ── Views ─────────────────────────────────────────────────────────────
     const viewsEl = document.getElementById('detail-views');
     if (viewsEl) viewsEl.textContent = formatNumber(parseInt(file.views)||0);
+
+    // ── Likes ─────────────────────────────────────────────────────────────
+    _updateLikeUI(id, parseInt(file.likes)||0);
 
     // ── Record view (anti-spam: once per 30 min per post) ──────────────
     recordPostView(id);
