@@ -444,14 +444,28 @@
             margin: 8px 16px 0;
         }
         .stats-strip-item {
-            flex: 1; display: flex; align-items: center; justify-content: center;
-            gap: 6px; padding: 8px 10px;
+            flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center;
+            gap: 4px; padding: 8px 6px;
             color: white; font-size: 12px; font-weight: 700;
+        }
+        .stats-strip-item > span {
+            display: flex; align-items: baseline; overflow: hidden; min-width: 0;
+        }
+        .stats-strip-item > span > span:first-child {
+            white-space: nowrap; /* সংখ্যা কখনো ভাঙবে না */
+        }
+        .stats-strip-item > span > span:last-child {
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .stats-strip-item:not(:last-child) {
             border-right: 1px solid rgba(255,255,255,0.15);
         }
-        .stats-strip-item i { font-size: 11px; opacity: 0.85; }
+        .stats-strip-item i { font-size: 11px; opacity: 0.85; flex-shrink: 0; }
+        /* সংখ্যা বড় হলে (K+/M+) label লুকিয়ে শুধু icon + সংখ্যা দেখাও — card ভাঙবে না */
+        @media (max-width: 420px) {
+            .stats-strip-item { padding: 8px 4px; font-size: 11px; }
+            .stats-strip-item > span > span:last-child { display: none; }
+        }
 
         /* ── NEW BADGE ── */
         .new-badge {
