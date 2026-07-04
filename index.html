@@ -2677,10 +2677,6 @@ async function loadData() {
             window._channelJoinName     = d.channelJoinName || '@channel';
             // Sponsor global interval
             if (d.sponsorGlobalInterval) _sponsorGlobalInterval = parseInt(d.sponsorGlobalInterval) || 4;
-            // Sponsor rotation timer interval (minutes → ms)
-            if (d.sponsorRotationInterval) {
-                _sponsorRotationIntervalMs = (parseInt(d.sponsorRotationInterval) || 5) * 60 * 1000;
-            }
 
             // ✅ App Logo — Admin থেকে দেওয়া logo splash screen এ দেখাও
             const botImgEl  = document.getElementById('sp-bot-logo');
@@ -2873,7 +2869,6 @@ async function loadData() {
             });
             if (_sponsorPosts.length > 0) {
                 renderFiles(); // re-render with sponsors
-                _startSponsorRotationTimer(); // start time-based rotation
             }
         }
     } catch(e) { console.error("Sponsor posts error:", e); }
@@ -3041,52 +3036,56 @@ function buildCategoryPills() {
 let _sponsorPosts = [];   // [{id, videoUrl, linkUrl, title}, ...]
 let _sponsorGlobalInterval = 4; // fallback, overridden by settings/general
 
-// ── Advanced Sponsor Rotation State ──────────────────────────────────────
-// Each context (list, post-page) keeps its own independent rotation index.
-// Rotation is seeded per-user + time-based so different users see different sponsors,
-// and the same user sees different sponsors across sessions/refreshes.
-let _sponsorRotationIntervalMs = 5 * 60 * 1000; // default 5 minutes, admin-configurable
-let _sponsorRotationTimer = null;
-
-// Compute a stable-per-session user offset (changes every new session)
-function _getSponsorUserSeed() {
-    const userId = (typeof tgUser !== 'undefined' && tgUser.id) ? String(tgUser.id) : (localStorage.getItem('guestUserId') || 'guest');
-    // XOR hash of user id characters — fast, deterministic
-    let hash = 0;
-    for (let i = 0; i < userId.length; i++) { hash = (hash * 31 + userId.charCodeAt(i)) >>> 0; }
-    return hash;
+// ── Sponsor Randomization ─────────────────────────────────────────────────
+// Sponsors are now always random — every render, every time a post page is
+// opened/closed, and every time a sponsor slot scrolls back into view after
+// leaving, a fresh sponsor is picked. No time-based "changes every N
+// minutes" rule anymore.
+//
+// A "shuffle bag" hands out sponsors one at a time without repeats until the
+// whole pool has been used, then reshuffles — this guarantees that when
+// there are enough sponsors for the number of slots on screen (e.g. 20 slots
+// from a pool of 100), every slot gets a genuinely different sponsor, while
+// still feeling random rather than a fixed round-robin order.
+function _shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
 }
-
-// Get the current rotation "tick" — changes every _sponsorRotationIntervalMs
-function _getSponsorTick() {
-    if (!_sponsorRotationIntervalMs || _sponsorRotationIntervalMs <= 0) return 0;
-    return Math.floor(Date.now() / _sponsorRotationIntervalMs);
+function _makeSponsorBag() {
+    let bag = [];
+    let lastDrawn = null;
+    return function draw() {
+        if (!_sponsorPosts.length) return null;
+        if (_sponsorPosts.length === 1) return _sponsorPosts[0];
+        if (!bag.length) {
+            bag = _shuffle(_sponsorPosts);
+            // Don't let a fresh reshuffle start with the same sponsor that
+            // just finished the previous bag (avoids back-to-back repeats).
+            if (bag[0] === lastDrawn) bag.push(bag.shift());
+        }
+        const item = bag.shift();
+        lastDrawn = item;
+        return item;
+    };
 }
+// Independent bags for the grid list and the post-detail page, so one
+// context's sequence doesn't affect the other's.
+const _sponsorBagList = _makeSponsorBag();
+const _sponsorBagPost = _makeSponsorBag();
 
-// Pick a starting sponsor index for the given context ('list' or 'post')
-// Returns a different value per user, per context, per time-tick.
-function _getSponsorStartIndex(context) {
-    if (!_sponsorPosts.length) return 0;
-    const n = _sponsorPosts.length;
-    const seed = _getSponsorUserSeed();
-    const tick = _getSponsorTick();
-    const ctxOffset = context === 'post' ? 7919 : 0; // prime offset keeps list ≠ post
-    return ((seed + tick + ctxOffset) * 2654435761) % n >>> 0;
-}
-
-// Start/restart the sponsor rotation timer — re-renders when tick changes
-function _startSponsorRotationTimer() {
-    if (_sponsorRotationTimer) clearTimeout(_sponsorRotationTimer);
-    if (!_sponsorRotationIntervalMs || _sponsorRotationIntervalMs <= 0) return;
-    const now = Date.now();
-    const msUntilNextTick = _sponsorRotationIntervalMs - (now % _sponsorRotationIntervalMs);
-    _sponsorRotationTimer = setTimeout(() => {
-        // Re-render to pick next sponsor
-        renderFiles();
-        _renderPostPageSponsor();
-        // Restart for next tick
-        _startSponsorRotationTimer();
-    }, msUntilNextTick + 50); // +50ms buffer
+// Picks one random sponsor, optionally guaranteed different from `avoid`
+// (used when swapping a slot that scrolled back into view).
+function _pickRandomSponsor(avoid) {
+    if (!_sponsorPosts.length) return null;
+    if (_sponsorPosts.length === 1) return _sponsorPosts[0];
+    let sp;
+    do { sp = _sponsorPosts[Math.floor(Math.random() * _sponsorPosts.length)]; }
+    while (sp === avoid);
+    return sp;
 }
 
 function renderFiles() {
@@ -3117,9 +3116,6 @@ function renderFiles() {
         return;
     }
     const favs = getFavorites();
-    // ✅ Advanced Rotation: user-specific + time-based index so different users
-    // see different sponsors, and sponsor changes each rotation interval.
-    let sponsorIdx = _getSponsorStartIndex('list');
 
     filtered.forEach((file, i) => {
         const count = parseInt(localStorage.getItem(`adCount_${file.id}`))||0;
@@ -3173,19 +3169,22 @@ function renderFiles() {
         setTimeout(() => { card.style.opacity = '1'; }, 500 + i * 40);
 
         // ── Sponsor Post injection ──
-        // After every `_sponsorGlobalInterval` posts, insert the next sponsor post
-        // (rotated — see sponsorIdx initialization above)
+        // After every `_sponsorGlobalInterval` posts, insert a sponsor post.
+        // Each slot draws a fresh sponsor from the shuffle bag, so every slot
+        // in this render is a different sponsor (as long as the pool is big
+        // enough), and re-rendering the grid always produces a new sequence.
         if (_sponsorPosts.length > 0) {
             const interval = _sponsorGlobalInterval || 4;
             // insert after post number: interval, interval*2, ...
             // i is 0-indexed, so check (i+1) % interval === 0
             if ((i + 1) % interval === 0) {
-                const sp = _sponsorPosts[sponsorIdx % _sponsorPosts.length];
-                const spCard = buildSponsorCard(sp);
-                // Sponsor card spans full width
-                spCard.style.gridColumn = '1 / -1';
-                grid.appendChild(spCard);
-                sponsorIdx++;
+                const sp = _sponsorBagList();
+                if (sp) {
+                    const spCard = buildSponsorCard(sp);
+                    // Sponsor card spans full width
+                    spCard.style.gridColumn = '1 / -1';
+                    grid.appendChild(spCard);
+                }
             }
         }
     });
@@ -3383,13 +3382,27 @@ function buildSponsorCard(sp) {
     wrap.className = 'sponsor-post-card rounded-2xl overflow-hidden shadow-sm border border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-900/10';
     wrap.style.animation = 'slideUp 0.35s ease both';
 
+    if (!sp || !(sp.videoUrl || '').trim()) return wrap; // nothing to render
+
+    const spRef = { sp }; // mutable holder so the re-entry observer can track the currently shown sponsor
+    _fillSponsorCardContent(wrap, sp);
+    _attachSponsorReentryObserver(wrap, spRef);
+    return wrap;
+}
+
+// Fills (or refills) a sponsor card's inner content for a given sponsor.
+// Shared by the initial build and by the scroll re-entry swap so both stay
+// visually identical.
+function _fillSponsorCardContent(wrap, sp) {
+    wrap.innerHTML = '';
+
     // XSS-safe URL handling
     const isClickable = !!sp.linkUrl && /^https?:\/\//i.test(sp.linkUrl);
     const safeLink    = isClickable ? sp.linkUrl : '';
     const safeVideo   = (sp.videoUrl || '').trim();
     const safeTitle   = sp.title ? sp.title.replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
 
-    if (!safeVideo) return wrap; // nothing to render
+    if (!safeVideo) return;
 
     // Header
     const header = document.createElement('div');
@@ -3408,7 +3421,29 @@ function buildSponsorCard(sp) {
         videoWrap.appendChild(titleBar);
     }
     wrap.appendChild(videoWrap);
-    return wrap;
+}
+
+// Watches a sponsor card and, once it has left the viewport and scrolls back
+// into view, swaps it to a different random sponsor from the pool.
+function _attachSponsorReentryObserver(wrap, spRef) {
+    if (!('IntersectionObserver' in window)) return; // graceful skip on very old browsers
+    let hasEnteredOnce = false;
+    const obs = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (!entry.isIntersecting) return;
+            if (hasEnteredOnce) {
+                // Re-entered after having scrolled away — show a different sponsor
+                const newSp = _pickRandomSponsor(spRef.sp);
+                if (newSp) {
+                    spRef.sp = newSp;
+                    _fillSponsorCardContent(wrap, newSp);
+                }
+            } else {
+                hasEnteredOnce = true;
+            }
+        });
+    }, { threshold: 0.15 });
+    obs.observe(wrap);
 }
 
 // ── Details ──────────────────────────────────────────────────────────────
@@ -3646,36 +3681,21 @@ function _renderPostPageSponsor() {
         wrap.classList.add('hidden');
         return;
     }
-    // Pick sponsor using user-specific + time-based rotation (independent from list page)
-    const sp = _sponsorPosts[_getSponsorStartIndex('post') % _sponsorPosts.length];
+    // Pick sponsor using its own shuffle bag (independent from the list page) —
+    // every time this is called (i.e. every time the post page is opened),
+    // a fresh, non-repeating sponsor comes out.
+    const sp = _sponsorBagPost();
     if (!sp || !sp.videoUrl) { wrap.classList.add('hidden'); return; }
-
-    const isClickable = !!sp.linkUrl && /^https?:\/\//i.test(sp.linkUrl);
-    const safeVideo   = (sp.videoUrl || '').trim();
-    const safeTitle   = sp.title ? sp.title.replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
 
     wrap.classList.remove('hidden');
     const card = document.createElement('div');
     card.className = 'sponsor-post-card rounded-2xl overflow-hidden border border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-900/10 shadow-sm';
-
-    // Header
-    const header = document.createElement('div');
-    header.className = 'flex items-center gap-2 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/30 border-b border-amber-200 dark:border-amber-800/40';
-    header.innerHTML = `<span class="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest flex items-center gap-1"><i class="fas fa-ad text-[8px]"></i> Sponsored</span>`;
-    card.appendChild(header);
-
-    // ── Shared video builder ──
-    const videoWrap = _buildSponsorVideoWrap(safeVideo, sp.linkUrl || '', isClickable);
-
-    // Title overlay
-    if (safeTitle) {
-        const titleBar = document.createElement('div');
-        titleBar.style.cssText = 'position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top,rgba(0,0,0,0.75),transparent);padding:6px 8px;z-index:4;pointer-events:none;';
-        titleBar.innerHTML = `<p style="color:white;font-size:11px;font-weight:700;overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;">${safeTitle}</p>`;
-        videoWrap.appendChild(titleBar);
-    }
-
-    card.appendChild(videoWrap);
+    const spRef = { sp };
+    _fillSponsorCardContent(card, sp);
+    // Same scroll re-entry behavior as the grid: if the user scrolls this
+    // slot out of view within the post page and scrolls back, show a
+    // different sponsor.
+    _attachSponsorReentryObserver(card, spRef);
     wrap.appendChild(card);
 }
 
