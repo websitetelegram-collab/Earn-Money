@@ -1660,6 +1660,10 @@
                 <span><span id="stats-total-downloads">0</span><span id="stats-label-downloads"> Downloads</span></span>
             </div>
             <div class="stats-strip-item">
+                <i class="fas fa-eye"></i>
+                <span><span id="stats-total-views">0</span><span id="stats-label-views"> Views</span></span>
+            </div>
+            <div class="stats-strip-item">
                 <i class="fas fa-circle" style="color:#4ade80;font-size:8px;"></i>
                 <span><span id="stats-online-count">0</span><span id="stats-label-online"> Online</span></span>
             </div>
@@ -2149,6 +2153,9 @@ let adSettings    = {
     monetagEnabled:  true,
     monetagZoneId:   '',
     monetagCustomScript: '',
+    adsbitvexEnabled: false,
+    adsbitvexAppId:   '',
+    networkOrder: ['adsgram', 'monetag', 'adsbitvex'],
     preloadDuration: 3,
     interPause:      3,
     finalDuration:   5,
@@ -2410,6 +2417,11 @@ async function recordPostView(fileId, _isRetry) {
         if (fileInCache) {
             const cardBadge = document.querySelector(`[data-view-count-for="${fileId}"] .view-count-num`);
             if (cardBadge) cardBadge.textContent = formatNumber(fileInCache.views);
+            const headerTotalEl = document.getElementById('stats-total-views');
+            if (headerTotalEl) {
+                const currentTotal = allFiles.reduce((a, f) => a + (parseInt(f.views)||0), 0);
+                headerTotalEl.textContent = formatNumber(currentTotal);
+            }
         }
     } catch(e) {
         console.warn('View count failed:', e.message);
@@ -2607,6 +2619,31 @@ function loadMonetagScript(zoneId, customScript) {
     }
 }
 
+// ── Ad SDK — AdsBitvex (3rd network) ─────────────────────────────────────
+// Vendor script is per-App-ID and self-registers window.showadsbitvex (full,
+// ~15s countdown overlay) and window.showadsbitvex_init (quick ~3s variant,
+// meant for silent/background impressions like on_open) — both return Promises.
+let _adsbitvexLoadedApps = new Set();
+let _adsbitvexLoading    = {};
+
+function loadAdsbitvexScript(appId) {
+    const id = (appId && appId.trim()) ? appId.trim() : '';
+    if (!id) return Promise.reject(new Error('No Adsbitvex App ID'));
+    if (_adsbitvexLoadedApps.has(id) && typeof window.showadsbitvex === 'function') return Promise.resolve();
+    if (_adsbitvexLoading[id]) return _adsbitvexLoading[id];
+    _adsbitvexLoading[id] = new Promise((resolve, reject) => {
+        const url = `https://sdk.adsbitvex.com/functions/v1/ad-script?appid=${encodeURIComponent(id)}`;
+        const existing = document.querySelector(`script[src="${url}"]`);
+        if (existing) { _adsbitvexLoadedApps.add(id); resolve(); return; }
+        const s = document.createElement('script');
+        s.src = url; s.async = true;
+        s.onload  = () => { _adsbitvexLoadedApps.add(id); resolve(); };
+        s.onerror = () => { delete _adsbitvexLoading[id]; reject(new Error('Adsbitvex script failed to load')); };
+        document.head.appendChild(s);
+    });
+    return _adsbitvexLoading[id];
+}
+
 // ── Load All Data ───────────────────────────────────────────────────────
 // ✅ FIX 3: সব Firebase calls parallel-এ চলবে — sequential নয়
 async function loadData() {
@@ -2787,6 +2824,10 @@ async function loadData() {
                 adSettings.monetagZoneId       = d.monetag.zoneId       || '';
                 adSettings.monetagCustomScript = d.monetag.customScript  || '';
             }
+            if (d.adsbitvex) {
+                adSettings.adsbitvexEnabled = d.adsbitvex.enabled !== false;
+                adSettings.adsbitvexAppId   = d.adsbitvex.appId   || '';
+            }
             if (d.timing) {
                 adSettings.preloadDuration = d.timing.preloadDuration || 3;
                 adSettings.interPause      = d.timing.interPause      || 3;
@@ -2796,6 +2837,13 @@ async function loadData() {
             if (d.ui) {
                 adSettings.showCancel = d.ui.showCancel !== false;
                 adSettings.confetti   = d.ui.confetti   !== false;
+            }
+            // Ad network priority order (1st/2nd/3rd) — admin panel থেকে সেট করা
+            if (Array.isArray(d.networkOrder) && d.networkOrder.length) {
+                const valid = d.networkOrder.filter(t => ['adsgram','monetag','adsbitvex'].includes(t));
+                // যদি কোনো network missing থাকে (পুরনো data), বাকিগুলো শেষে যোগ করে দাও
+                ['adsgram','monetag','adsbitvex'].forEach(t => { if (!valid.includes(t)) valid.push(t); });
+                adSettings.networkOrder = valid;
             }
             // Extra ad slots support
             if (d.extraSlots && Array.isArray(d.extraSlots)) { adSettings.extraSlots = d.extraSlots; }
@@ -2810,6 +2858,9 @@ async function loadData() {
     // Removed the redundant standalone injectMonetagSDKNow call to avoid double-injection
     if (adSettings.monetagEnabled && (adSettings.monetagZoneId || adSettings.monetagCustomScript)) {
         loadMonetagScript(adSettings.monetagZoneId, adSettings.monetagCustomScript);
+    }
+    if (adSettings.adsbitvexEnabled && adSettings.adsbitvexAppId) {
+        loadAdsbitvexScript(adSettings.adsbitvexAppId).catch(e => console.warn("⚠️ Adsbitvex:", e));
     }
 
 
@@ -2987,10 +3038,13 @@ function buildProgressRing(count, req) {
 function updateStatsStrip() {
     const totalVideos = allFiles.length;
     const totalDownloads = allFiles.reduce((a, f) => a + (parseInt(f.downloads)||0), 0);
+    const totalViews = allFiles.reduce((a, f) => a + (parseInt(f.views)||0), 0);
     const tvEl = document.getElementById('stats-total-videos');
     const tdEl = document.getElementById('stats-total-downloads');
+    const tvwEl = document.getElementById('stats-total-views');
     if (tvEl) tvEl.textContent = totalVideos;
     if (tdEl) tdEl.textContent = formatNumber(totalDownloads);
+    if (tvwEl) tvwEl.textContent = formatNumber(totalViews);
     // Unlocked count for popup
     const favs = getFavorites();
     const unlockedCount = allFiles.filter(f => {
@@ -3859,27 +3913,36 @@ function buildAdSlots(fileId, positionFilter) {
     // positionFilter falsy = unlock flow (global + extra + per-post default)
     const isUnlockFlow = !positionFilter;
 
-    // ── ① Global Slots — শুধু unlock flow এ ──────────────────────────
+    // ── ① Global Slots — শুধু unlock flow এ (admin-configured order অনুযায়ী) ──
     if (isUnlockFlow) {
-        if (adSettings.adsgramEnabled && adSettings.adsgramBlockId) {
-            slots.push({ type: 'adsgram', blockId: adSettings.adsgramBlockId, _src: 'global' });
-        }
-        if (adSettings.monetagEnabled && (adSettings.monetagZoneId || adSettings.monetagCustomScript)) {
-            slots.push({ type: 'monetag', zoneId: adSettings.monetagZoneId || _monetagZoneId, _src: 'global' });
-        }
+        const order = (Array.isArray(adSettings.networkOrder) && adSettings.networkOrder.length)
+            ? adSettings.networkOrder : ['adsgram', 'monetag', 'adsbitvex'];
+        order.forEach(t => {
+            if (t === 'adsgram' && adSettings.adsgramEnabled && adSettings.adsgramBlockId) {
+                slots.push({ type: 'adsgram', blockId: adSettings.adsgramBlockId, _src: 'global' });
+            } else if (t === 'monetag' && adSettings.monetagEnabled && (adSettings.monetagZoneId || adSettings.monetagCustomScript)) {
+                slots.push({ type: 'monetag', zoneId: adSettings.monetagZoneId || _monetagZoneId, _src: 'global' });
+            } else if (t === 'adsbitvex' && adSettings.adsbitvexEnabled && adSettings.adsbitvexAppId) {
+                slots.push({ type: 'adsbitvex', appId: adSettings.adsbitvexAppId, _src: 'global' });
+            }
+        });
 
         // ── ② Extra Slots — unlock flow এ global এর পরে ──────────────
         if (adSettings.extraSlots && Array.isArray(adSettings.extraSlots)) {
             adSettings.extraSlots.forEach(s => {
                 if (!s || !s.type) return;
-                if (s.type === 'adsgram') {
+                if (s.type === 'adsgram' && adSettings.adsgramEnabled) {
                     const blockId = (s.blockId && s.blockId.trim()) ? s.blockId.trim() : adSettings.adsgramBlockId;
                     if (blockId)
                         slots.push({ type: 'adsgram', blockId, _src: 'extra' });
-                } else if (s.type === 'monetag') {
+                } else if (s.type === 'monetag' && adSettings.monetagEnabled) {
                     const zoneId = (s.zoneId && s.zoneId.trim()) ? s.zoneId.trim() : (adSettings.monetagZoneId || _monetagZoneId);
                     if (zoneId)
                         slots.push({ type: 'monetag', zoneId, _src: 'extra' });
+                } else if (s.type === 'adsbitvex' && adSettings.adsbitvexEnabled) {
+                    const appId = (s.appId && s.appId.trim()) ? s.appId.trim() : adSettings.adsbitvexAppId;
+                    if (appId)
+                        slots.push({ type: 'adsbitvex', appId, _src: 'extra' });
                 }
             });
         }
@@ -3902,14 +3965,18 @@ function buildAdSlots(fileId, positionFilter) {
 
                 if (!matches) return;
 
-                if (s.type === 'adsgram') {
+                if (s.type === 'adsgram' && adSettings.adsgramEnabled) {
                     const blockId = (s.blockId && s.blockId.trim()) ? s.blockId.trim() : adSettings.adsgramBlockId;
                     if (blockId)
                         slots.push({ type: 'adsgram', blockId, _src: 'post', _pos: slotPos });
-                } else if (s.type === 'monetag') {
+                } else if (s.type === 'monetag' && adSettings.monetagEnabled) {
                     const zoneId = (s.zoneId && s.zoneId.trim()) ? s.zoneId.trim() : (adSettings.monetagZoneId || _monetagZoneId);
                     if (zoneId)
                         slots.push({ type: 'monetag', zoneId, _src: 'post', _pos: slotPos });
+                } else if (s.type === 'adsbitvex' && adSettings.adsbitvexEnabled) {
+                    const appId = (s.appId && s.appId.trim()) ? s.appId.trim() : adSettings.adsbitvexAppId;
+                    if (appId)
+                        slots.push({ type: 'adsbitvex', appId, _src: 'post', _pos: slotPos });
                 }
             });
         }
@@ -3932,6 +3999,8 @@ async function runPositionAds(fileId, position) {
         try {
             if (slot.type === 'adsgram') {
                 await showAdsgramAd(slot.blockId);
+            } else if (slot.type === 'adsbitvex') {
+                await showAdsbitvexAd(slot.appId, { silent: position === 'on_open' });
             } else {
                 await showMonetagAd(slot.zoneId);
             }
@@ -4010,6 +4079,17 @@ async function showAdsgramAd(blockId) {
 
         } catch(e) { reject(e); }
     });
+}
+
+// AdsBitvex ad — App ID দিয়ে চলবে (global / extra / per-post)
+// { silent:true } হলে quick ~3s "init" variant চলবে (on_open background impression এর জন্য)
+async function showAdsbitvexAd(appId, opts) {
+    const id = (appId && appId.trim()) ? appId.trim() : (adSettings.adsbitvexAppId || '');
+    if (!id) throw new Error('No Adsbitvex App ID');
+    await loadAdsbitvexScript(id);
+    const fn = (opts && opts.silent) ? window.showadsbitvex_init : window.showadsbitvex;
+    if (typeof fn !== 'function') throw new Error('Adsbitvex SDK not ready');
+    return fn();
 }
 
 // Monetag ad — যেকোনো zone ID দিয়ে চলবে (global / extra / per-post)
@@ -4166,6 +4246,8 @@ window._adFlow = {
         try {
             if (slot.type === 'adsgram') {
                 await showAdsgramAd(slot.blockId);
+            } else if (slot.type === 'adsbitvex') {
+                await showAdsbitvexAd(slot.appId);
             } else {
                 await showMonetagAd(slot.zoneId);
             }
@@ -4192,7 +4274,7 @@ window._adFlow = {
             const errBox = document.getElementById('ad-error-box');
             const errMsgEl = document.getElementById('ad-error-msg');
             const slot = _adSlots[_adIndex];
-            const adType = slot ? (slot.type === 'adsgram' ? 'Adsgram' : 'Monetag') : 'Ad';
+            const adType = slot ? (slot.type === 'adsgram' ? 'Adsgram' : slot.type === 'adsbitvex' ? 'AdsBitvex' : 'Monetag') : 'Ad';
             // ✅ Show the actual SDK error message (e.g. rate-limit, timeout)
             const displayMsg = e?.message || `${adType} Ad ${_adIndex + 1} failed. Please try again.`;
             if (errMsgEl) errMsgEl.textContent = displayMsg;
