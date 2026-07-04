@@ -1754,12 +1754,18 @@
                     <div class="detail-stat-value" id="detail-views">0</div>
                     <span class="detail-stat-label">Views</span>
                 </div>
-                <div class="detail-stat-item" id="detail-likes-item" style="cursor:pointer;" onclick="window.toggleLike()">
+                <div class="detail-stat-item" onclick="window.toggleDetailLike()" style="cursor:pointer;">
                     <div class="detail-stat-value flex items-center gap-1">
-                        <i id="detail-like-icon" class="fas fa-heart" style="font-size:18px;color:#e2e8f0;transition:color 0.2s;"></i>
                         <span id="detail-likes">0</span>
+                        <i id="detail-like-icon" class="fas fa-heart text-gray-300" style="font-size:14px;"></i>
                     </div>
                     <span class="detail-stat-label">Likes</span>
+                </div>
+                <div class="detail-stat-item">
+                    <div class="detail-stat-value">
+                        <i class="fas fa-shield-alt text-green-500" style="font-size:20px;"></i>
+                    </div>
+                    <span class="detail-stat-label">Safe</span>
                 </div>
             </div>
         </div>
@@ -2109,7 +2115,7 @@
 
 <script type="module">
 import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, getDocs, doc, getDoc, updateDoc, increment, query, orderBy, setDoc, serverTimestamp, onSnapshot, runTransaction }
+import { getFirestore, collection, getDocs, doc, getDoc, updateDoc, increment, query, orderBy, setDoc, serverTimestamp, onSnapshot, runTransaction, arrayUnion }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getDatabase, ref, set, get, update, onValue, onDisconnect, serverTimestamp as rtdbServerTimestamp }
@@ -2373,68 +2379,117 @@ function formatNumber(n) {
 // ── View Counter ─────────────────────────────────────────────────────────
 // Records a view every time a user opens a post page.
 // Anti-duplicate: only one count per session open (prevents double-fire from same openDetails call).
-// session-level per-post view dedup — একই session এ একই post দুবার open করলে একবারই count
-const _viewedThisSession = new Set();
-async function recordPostView(fileId) {
+let _viewCountInProgress = {};
+async function recordPostView(fileId, _isRetry) {
     if (!fileId) return;
-    if (_viewedThisSession.has(fileId)) return;
-    _viewedThisSession.add(fileId);
+    // Prevent double-fire if openDetails is called twice in rapid succession for same file
+    if (!_isRetry) {
+        if (_viewCountInProgress[fileId]) return;
+        _viewCountInProgress[fileId] = true;
+        // Clear the lock after 2 seconds so re-opening the same post again counts
+        setTimeout(() => { delete _viewCountInProgress[fileId]; }, 2000);
+    }
     try {
-        // Auth নিশ্চিত করো — anonymous হলেও Firestore rules পাস করবে
+        // Make sure we're authenticated before writing — anonymous auth can still
+        // be in-flight on first load, which was silently swallowing the view write.
         if (!auth.currentUser) {
-            await signInAnonymously(auth).catch(() => {});
+            try { await signInAnonymously(auth); } catch(e) { /* fall through, write may still fail */ }
         }
-        await updateDoc(doc(db, 'files', fileId), { views: increment(1) });
-        // local cache update
+        const fileRef = doc(db, 'files', fileId);
+        await updateDoc(fileRef, { views: increment(1) });
+        // Update local allFiles cache so card re-renders show the updated count
         const fileInCache = allFiles.find(f => f.id === fileId);
         if (fileInCache) {
             fileInCache.views = (parseInt(fileInCache.views) || 0) + 1;
         }
-        // live UI update
+        // Update detail-views display live
         const viewsEl = document.getElementById('detail-views');
         if (viewsEl && fileInCache) viewsEl.textContent = formatNumber(fileInCache.views);
+        // Real-time update: reflect the new count on the grid card immediately,
+        // without needing a full re-render of the list.
+        if (fileInCache) {
+            const cardBadge = document.querySelector(`[data-view-count-for="${fileId}"] .view-count-num`);
+            if (cardBadge) cardBadge.textContent = formatNumber(fileInCache.views);
+        }
     } catch(e) {
         console.warn('View count failed:', e.message);
-        // fail হলে session set থেকে বাদ দাও যাতে পরের বার retry হয়
-        _viewedThisSession.delete(fileId);
+        // Permission errors can happen if anonymous auth hadn't finished yet;
+        // retry once after forcing a fresh sign-in instead of silently dropping the view.
+        if (!_isRetry && (e.code === 'permission-denied' || e.code === 'unauthenticated')) {
+            try {
+                await signInAnonymously(auth);
+                return recordPostView(fileId, true);
+            } catch(e2) { console.warn('View count retry failed:', e2.message); }
+        }
+        // Clear lock on failure so next open can retry
+        delete _viewCountInProgress[fileId];
     }
 }
 
-// ── Like System ───────────────────────────────────────────────────────────
-function _isLiked(fileId) {
-    const liked = JSON.parse(localStorage.getItem('liked_posts') || '[]');
-    return liked.includes(fileId);
+// ── Likes ─────────────────────────────────────────────────────────────────
+// One-time like per user (no unlike, Instagram-style). Identity is the
+// Telegram user id when available, otherwise the persisted guest session id
+// (same identity already used for reviews / sponsor rotation).
+function getMyUserId() {
+    return (tgUser && tgUser.id) ? String(tgUser.id) : (localStorage.getItem('guestUserId') || 'guest');
 }
-function _updateLikeUI(fileId, likeCount) {
-    const icon = document.getElementById('detail-like-icon');
-    const likesEl = document.getElementById('detail-likes');
-    if (icon) icon.style.color = _isLiked(fileId) ? '#ef4444' : '#e2e8f0';
-    if (likesEl) likesEl.textContent = formatNumber(likeCount || 0);
+function getLikeCount(file) {
+    return Array.isArray(file.likedBy) ? file.likedBy.length : (parseInt(file.likes) || 0);
 }
-window.toggleLike = async function() {
-    if (!currentFileId) return;
-    const fileId = currentFileId;
-    const liked = JSON.parse(localStorage.getItem('liked_posts') || '[]');
-    const alreadyLiked = liked.includes(fileId);
-    const delta = alreadyLiked ? -1 : 1;
-    if (alreadyLiked) {
-        liked.splice(liked.indexOf(fileId), 1);
-    } else {
-        liked.push(fileId);
-    }
-    localStorage.setItem('liked_posts', JSON.stringify(liked));
-    const fileInCache = allFiles.find(f => f.id === fileId);
-    if (fileInCache) {
-        fileInCache.likes = Math.max((parseInt(fileInCache.likes) || 0) + delta, 0);
-        _updateLikeUI(fileId, fileInCache.likes);
-    }
+function isFileLikedByMe(file) {
+    const uid = getMyUserId();
+    return Array.isArray(file.likedBy) && file.likedBy.includes(uid);
+}
+let _likeInProgress = {};
+window.toggleLike = async (fileId, e) => {
+    if (e) e.stopPropagation();
+    if (!fileId || _likeInProgress[fileId]) return;
+    const file = allFiles.find(f => f.id === fileId);
+    if (!file) return;
+    if (isFileLikedByMe(file)) return; // one-time like — already liked, no unlike
+    _likeInProgress[fileId] = true;
+
+    // Optimistic UI update
+    const uid = getMyUserId();
+    file.likedBy = Array.isArray(file.likedBy) ? [...file.likedBy, uid] : [uid];
+    updateLikeUI(fileId, file);
+
     try {
-        await updateDoc(doc(db, 'files', fileId), { likes: increment(delta) });
-    } catch(e) {
-        console.warn('Like update failed:', e.message);
+        if (!auth.currentUser) {
+            try { await signInAnonymously(auth); } catch(e2) {}
+        }
+        const fileRef = doc(db, 'files', fileId);
+        await updateDoc(fileRef, { likedBy: arrayUnion(uid) });
+    } catch(err) {
+        console.warn('Like failed:', err.message);
+        // Roll back optimistic update on failure
+        file.likedBy = file.likedBy.filter(u => u !== uid);
+        updateLikeUI(fileId, file);
+        showToast('লাইক করা গেলো না, আবার চেষ্টা করুন');
+    } finally {
+        delete _likeInProgress[fileId];
     }
 };
-
+window.toggleDetailLike = () => window.toggleLike(currentFileId);
+function updateLikeUI(fileId, file) {
+    const liked = isFileLikedByMe(file);
+    const count = getLikeCount(file);
+    const badge = document.querySelector(`[data-like-btn-for="${fileId}"]`);
+    if (badge) {
+        badge.classList.toggle('liked', liked);
+        const icon = badge.querySelector('i');
+        if (icon) icon.className = `fa-heart ${liked ? 'fas text-rose-500' : 'far'} text-[8px]`;
+        const num = badge.querySelector('.like-count-num');
+        if (num) num.textContent = formatNumber(count);
+    }
+    // Detail view like stat, if currently open for this file
+    if (currentFileId === fileId) {
+        const detailLikeCount = document.getElementById('detail-likes');
+        if (detailLikeCount) detailLikeCount.textContent = formatNumber(count);
+        const detailLikeIcon = document.getElementById('detail-like-icon');
+        if (detailLikeIcon) detailLikeIcon.className = `fas fa-heart ${liked ? 'text-rose-500' : 'text-gray-300'}`;
+    }
+}
 function getStarsHTML(rating) {
     return [1,2,3,4,5].map(i => i <= rating
         ? '<i class="fas fa-star text-yellow-400"></i>'
@@ -3076,8 +3131,11 @@ function renderFiles() {
         card.className = 'video-card-inner bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col hover:shadow-lg transition-all duration-300 group';
         card.style.animation = `slideUp 0.3s ease ${i * 0.04}s both`;
         card.style.opacity = '0';
+        card.dataset.fileId = file.id;
         // Per-post download count from Firestore (file.downloads)
         const dlCount = parseInt(file.downloads) || 0;
+        const isLiked = isFileLikedByMe(file);
+        const likeCount = getLikeCount(file);
         card.innerHTML = `
             <div class="relative w-full bg-gray-100 dark:bg-gray-700 cursor-pointer overflow-hidden" style="aspect-ratio:16/9;" onclick="window.openDetails('${file.id}')">
                 <img src="${file.thumbnailUrl}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="Thumbnail" loading="lazy"
@@ -3094,8 +3152,13 @@ function renderFiles() {
                 <div class="absolute bottom-2 right-2 bg-black/60 text-white text-[9px] px-2 py-0.5 rounded-md flex items-center gap-1">
                     <i class="fas fa-download text-[8px]"></i> ${formatNumber(dlCount)}
                 </div>
-                <div class="absolute bottom-2 left-2 bg-black/60 text-white text-[9px] px-2 py-0.5 rounded-md flex items-center gap-1">
-                    <i class="fas fa-eye text-[8px]"></i> ${formatNumber(parseInt(file.views)||0)}
+                <div class="absolute bottom-2 left-2 flex items-center gap-1">
+                    <div class="bg-black/60 text-white text-[9px] px-2 py-0.5 rounded-md flex items-center gap-1 view-count-badge" data-view-count-for="${file.id}">
+                        <i class="fas fa-eye text-[8px]"></i> <span class="view-count-num">${formatNumber(parseInt(file.views)||0)}</span>
+                    </div>
+                    <div class="bg-black/60 text-white text-[9px] px-2 py-0.5 rounded-md flex items-center gap-1 like-btn-badge ${isLiked?'liked':''}" data-like-btn-for="${file.id}" style="cursor:pointer;" onclick="window.toggleLike('${file.id}',event)">
+                        <i class="fa-heart ${isLiked?'fas text-rose-500':'far'} text-[8px]"></i> <span class="like-count-num">${formatNumber(likeCount)}</span>
+                    </div>
                 </div>
             </div>
             <div class="p-3 flex flex-col flex-1">
@@ -3364,11 +3427,11 @@ window.openDetails = (id) => {
     const viewsEl = document.getElementById('detail-views');
     if (viewsEl) viewsEl.textContent = formatNumber(parseInt(file.views)||0);
 
-    // ── Likes ─────────────────────────────────────────────────────────────
-    _updateLikeUI(id, parseInt(file.likes)||0);
-
     // ── Record view (anti-spam: once per 30 min per post) ──────────────
     recordPostView(id);
+
+    // ── Likes ────────────────────────────────────────────────────────────
+    updateLikeUI(id, file);
 
     // Category badge in detail
     const catEl = document.getElementById('detail-category-badge');
