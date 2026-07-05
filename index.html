@@ -1707,7 +1707,7 @@
     <h2 class="text-xl font-bold mb-4 px-1 text-gray-800 dark:text-gray-100 flex items-center gap-2">
         <i class="fas fa-fire text-orange-500 text-base"></i> Available Videos
     </h2>
-    <div id="files-grid" class="grid grid-cols-1 gap-3"></div>
+    <div id="files-grid" class="grid grid-cols-2 gap-3"></div>
 </div>
 
 <!-- ═══════════════ HISTORY VIEW ═══════════════ -->
@@ -2658,6 +2658,36 @@ function loadAdsbitvexScript(appId) {
     return _adsbitvexLoading[id];
 }
 
+// ── Sponsor Post Analytics — views & clicks (visible in Admin Panel) ──────
+let _sponsorViewInProgress = {};
+async function recordSponsorView(sponsorId) {
+    if (!sponsorId) return;
+    // Light de-dupe so rapid re-renders of the same sponsor within a couple
+    // seconds (e.g. a fast re-layout) don't double-count the same impression.
+    if (_sponsorViewInProgress[sponsorId]) return;
+    _sponsorViewInProgress[sponsorId] = true;
+    setTimeout(() => { delete _sponsorViewInProgress[sponsorId]; }, 2000);
+    try {
+        if (!auth.currentUser) {
+            try { await signInAnonymously(auth); } catch(e) {}
+        }
+        await updateDoc(doc(db, 'sponsorPosts', sponsorId), { views: increment(1) });
+    } catch(e) {
+        console.warn('Sponsor view count failed:', e.message);
+    }
+}
+async function recordSponsorClick(sponsorId) {
+    if (!sponsorId) return;
+    try {
+        if (!auth.currentUser) {
+            try { await signInAnonymously(auth); } catch(e) {}
+        }
+        await updateDoc(doc(db, 'sponsorPosts', sponsorId), { clicks: increment(1) });
+    } catch(e) {
+        console.warn('Sponsor click count failed:', e.message);
+    }
+}
+
 // ── Load All Data ───────────────────────────────────────────────────────
 // ✅ FIX 3: সব Firebase calls parallel-এ চলবে — sequential নয়
 async function loadData() {
@@ -3264,7 +3294,7 @@ function renderFiles() {
 // Features: instant shimmer placeholder, IntersectionObserver lazy-play,
 // autoplay with mute (Telegram Mini App safe), graceful error fallback.
 // ══════════════════════════════════════════════════════════════════════════
-function _buildSponsorVideoWrap(safeVideo, safeLink, isClickable) {
+function _buildSponsorVideoWrap(safeVideo, safeLink, isClickable, spId) {
     const videoWrap = document.createElement('div');
     videoWrap.className = 'relative w-full bg-gray-900 overflow-hidden';
     videoWrap.style.cssText = 'aspect-ratio:16/9;position:relative;';
@@ -3273,6 +3303,7 @@ function _buildSponsorVideoWrap(safeVideo, safeLink, isClickable) {
         videoWrap.addEventListener('click', function(e) {
             // Don't hijack clicks on video controls
             if (e.target.tagName === 'VIDEO' || e.target.tagName === 'IFRAME') return;
+            recordSponsorClick(spId);
             window.open(safeLink, '_blank', 'noopener,noreferrer');
         });
     }
@@ -3304,7 +3335,7 @@ function _buildSponsorVideoWrap(safeVideo, safeLink, isClickable) {
             <span style="color:rgba(255,255,255,0.8);font-size:11px;font-weight:700;">Tap to Watch</span>`;
         // ✅ Sponsor protection: open the hidden sponsor click URL (not the raw video URL)
         if (isClickable) {
-            fb.addEventListener('click', () => window.open(safeLink, '_blank', 'noopener,noreferrer'));
+            fb.addEventListener('click', () => { recordSponsorClick(spId); window.open(safeLink, '_blank', 'noopener,noreferrer'); });
         }
         videoWrap.appendChild(fb);
     }
@@ -3355,7 +3386,7 @@ function _buildSponsorVideoWrap(safeVideo, safeLink, isClickable) {
         fb.innerHTML = `<i class="fab fa-facebook" style="color:white;font-size:2.5rem;"></i><span style="color:white;font-size:12px;font-weight:700;">Tap to Watch on Facebook</span>`;
         // ✅ Sponsor protection: open the hidden sponsor click URL (not the raw video URL)
         if (isClickable) {
-            fb.addEventListener('click', () => window.open(safeLink, '_blank', 'noopener,noreferrer'));
+            fb.addEventListener('click', () => { recordSponsorClick(spId); window.open(safeLink, '_blank', 'noopener,noreferrer'); });
         }
         videoWrap.style.position = 'relative';
         videoWrap.appendChild(fb);
@@ -3479,7 +3510,11 @@ function _fillSponsorCardContent(wrap, sp) {
     wrap.appendChild(header);
 
     // ── Shared video builder ──
-    const videoWrap = _buildSponsorVideoWrap(safeVideo, safeLink, isClickable);
+    const videoWrap = _buildSponsorVideoWrap(safeVideo, safeLink, isClickable, sp.id);
+
+    // Record an impression every time this sponsor is actually shown
+    // (initial render or scroll re-entry swap-in) — admin panel দেখাবে।
+    recordSponsorView(sp.id);
 
     // Title overlay
     if (safeTitle) {
@@ -3851,7 +3886,7 @@ function updateDetailButtonState(file) {
     const count      = parseInt(localStorage.getItem(`adCount_${file.id}`))||0;
     const isUnlocked = count >= req;
     const container  = document.getElementById('detail-actions');
-    const shareBtn   = `<button onclick="window.shareFile('${file.id}')" class="w-12 h-12 flex-shrink-0 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl font-bold transition-colors flex items-center justify-center border border-gray-200 dark:border-gray-700"><i class="fas fa-share-alt text-sm"></i></button>`;
+    const shareBtn   = `<button onclick="window.shareFile('${file.id}')" class="w-12 h-12 flex-shrink-0 self-end bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl font-bold transition-colors flex items-center justify-center border border-gray-200 dark:border-gray-700"><i class="fas fa-share-alt text-sm"></i></button>`;
     if (isUnlocked) {
         saveToHistory(file.id);
         container.innerHTML = `
