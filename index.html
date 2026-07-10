@@ -2282,11 +2282,12 @@ let _presenceSetup = false;
 function setupPresenceAndSaveUser() {
     if (_presenceSetup) return;
     _presenceSetup = true;
-    const uid       = safeUid(tgUser.id);
+    // ✅ FIX: tgUser.id থাকলে সেটা use করো, না থাকলে Firebase anonymous uid fallback
+    const authUid   = auth.currentUser?.uid || null;
+    const uid       = tgUser.id ? safeUid(tgUser.id) : (authUid || 'guest');
     const userRef   = ref(rtdb, 'users/' + uid);
     const onlineRef = ref(rtdb, 'presence/' + uid);
 
-    // ✅ FIX: error catch সহ
     set(onlineRef, { name: tgUser.name || 'Guest', id: tgUser.id || uid, t: rtdbServerTimestamp() }).catch(e => console.warn("Presence set:", e.code));
     onDisconnect(onlineRef).remove().catch(()=>{});
 
