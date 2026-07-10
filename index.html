@@ -1707,7 +1707,7 @@
     <h2 class="text-xl font-bold mb-4 px-1 text-gray-800 dark:text-gray-100 flex items-center gap-2">
         <i class="fas fa-fire text-orange-500 text-base"></i> Available Videos
     </h2>
-    <div id="files-grid" class="grid grid-cols-2 gap-3"></div>
+    <div id="files-grid" class="grid grid-cols-1 gap-3"></div>
 </div>
 
 <!-- ═══════════════ HISTORY VIEW ═══════════════ -->
@@ -2192,24 +2192,29 @@ try {
             tgUser.username = u.username || null;
             tgUser.photoUrl = u.photo_url || null;
         }
-        // ✅ Telegram start_param থেকে deep link — file_XXX
+        // ✅ Telegram start_param থেকে deep link — post_XXX (এডমিন প্যানেলের ফরম্যাট) বা পুরনো file_XXX
         const startParam = tg.initDataUnsafe?.start_param || '';
-        if (startParam.startsWith('file_')) {
+        if (startParam.startsWith('post_')) {
+            _deepLinkFileId = startParam.replace('post_', '');
+        } else if (startParam.startsWith('file_')) {
             _deepLinkFileId = startParam.replace('file_', '');
         }
     }
 } catch(e) {}
 
-// URL query / hash থেকেও deep link check করো (?start=file_XXX বা #file_XXX)
+// URL query / hash থেকেও deep link check করো (?startapp=post_XXX / ?start=post_XXX বা পুরনো file_XXX)
 if (!_deepLinkFileId) {
     try {
         const urlParams = new URLSearchParams(window.location.search);
-        const startQ = urlParams.get('start') || urlParams.get('tgWebAppStartParam') || '';
-        if (startQ.startsWith('file_')) {
+        const startQ = urlParams.get('startapp') || urlParams.get('start') || urlParams.get('tgWebAppStartParam') || '';
+        if (startQ.startsWith('post_')) {
+            _deepLinkFileId = startQ.replace('post_', '');
+        } else if (startQ.startsWith('file_')) {
             _deepLinkFileId = startQ.replace('file_', '');
         } else if (window.location.hash) {
             const h = window.location.hash.replace('#','');
-            if (h.startsWith('file_')) _deepLinkFileId = h.replace('file_', '');
+            if (h.startsWith('post_')) _deepLinkFileId = h.replace('post_', '');
+            else if (h.startsWith('file_')) _deepLinkFileId = h.replace('file_', '');
         }
     } catch(e) {}
 }
@@ -2656,36 +2661,6 @@ function loadAdsbitvexScript(appId) {
         document.head.appendChild(s);
     });
     return _adsbitvexLoading[id];
-}
-
-// ── Sponsor Post Analytics — views & clicks (visible in Admin Panel) ──────
-let _sponsorViewInProgress = {};
-async function recordSponsorView(sponsorId) {
-    if (!sponsorId) return;
-    // Light de-dupe so rapid re-renders of the same sponsor within a couple
-    // seconds (e.g. a fast re-layout) don't double-count the same impression.
-    if (_sponsorViewInProgress[sponsorId]) return;
-    _sponsorViewInProgress[sponsorId] = true;
-    setTimeout(() => { delete _sponsorViewInProgress[sponsorId]; }, 2000);
-    try {
-        if (!auth.currentUser) {
-            try { await signInAnonymously(auth); } catch(e) {}
-        }
-        await updateDoc(doc(db, 'sponsorPosts', sponsorId), { views: increment(1) });
-    } catch(e) {
-        console.warn('Sponsor view count failed:', e.message);
-    }
-}
-async function recordSponsorClick(sponsorId) {
-    if (!sponsorId) return;
-    try {
-        if (!auth.currentUser) {
-            try { await signInAnonymously(auth); } catch(e) {}
-        }
-        await updateDoc(doc(db, 'sponsorPosts', sponsorId), { clicks: increment(1) });
-    } catch(e) {
-        console.warn('Sponsor click count failed:', e.message);
-    }
 }
 
 // ── Load All Data ───────────────────────────────────────────────────────
@@ -3236,12 +3211,6 @@ function renderFiles() {
                     onload="this.parentElement.parentElement.style.opacity='1';this.style.animation='fadeInScale 0.4s ease both'">
                 ${file.featured ? `<div class="featured-badge"><i class="fas fa-star text-[8px]"></i> FEATURED</div>` : (isNew ? `<div class="new-badge">NEW</div>` : `<div class="absolute top-2 left-2 bg-black/60 text-white text-[9px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1"><i class="fas fa-film text-[8px]"></i> VIDEO</div>`)}
                 ${file.category ? `<div class="absolute top-2 right-2 bg-indigo-600/90 text-white text-[9px] px-2 py-0.5 rounded-full font-bold backdrop-blur-sm">${file.category}</div>` : ''}
-                <div class="thumb-lock-icon ${isUnlocked?'unlocked':'locked'}">
-                    <i class="fas ${isUnlocked?'fa-unlock':'fa-lock'}"></i>
-                </div>
-                <div class="fav-badge ${isFav?'active':''}" onclick="toggleFavorite('${file.id}',event)">
-                    <i class="fas fa-bookmark"></i>
-                </div>
                 ${buildProgressRing(count, req)}
                 <div class="absolute bottom-2 right-2 bg-black/60 text-white text-[9px] px-2 py-0.5 rounded-md flex items-center gap-1">
                     <i class="fas fa-download text-[8px]"></i> ${formatNumber(dlCount)}
@@ -3250,15 +3219,12 @@ function renderFiles() {
                     <div class="bg-black/60 text-white text-[9px] px-2 py-0.5 rounded-md flex items-center gap-1 view-count-badge" data-view-count-for="${file.id}">
                         <i class="fas fa-eye text-[8px]"></i> <span class="view-count-num">${formatNumber(parseInt(file.views)||0)}</span>
                     </div>
-                    <div class="bg-black/60 text-white text-[9px] px-2 py-0.5 rounded-md flex items-center gap-1 like-btn-badge ${isLiked?'liked':''}" data-like-btn-for="${file.id}" style="cursor:pointer;" onclick="window.toggleLike('${file.id}',event)">
-                        <i class="fa-heart ${isLiked?'fas text-rose-500':'far'} text-[8px]"></i> <span class="like-count-num">${formatNumber(likeCount)}</span>
-                    </div>
                 </div>
             </div>
             <div class="p-3 flex flex-col flex-1">
                 <h3 class="font-bold text-sm text-gray-800 dark:text-white line-clamp-2 cursor-pointer mb-2 leading-snug" onclick="window.openDetails('${file.id}')">${file.title}</h3>
-                <button onclick="window.openDetails('${file.id}')" class="btn-light-sweep w-full py-2 mt-auto ${isUnlocked ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-100 dark:border-green-800/50 hover:bg-green-600 hover:text-white dark:hover:bg-green-600' : 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600'} active:scale-95 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 border">
-                    <i class="fas ${isUnlocked ? 'fa-download' : 'fa-play-circle'} text-xs"></i>
+                <button onclick="window.openDetails('${file.id}')" class="btn-light-sweep w-full py-1.5 mt-auto ${isUnlocked ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-100 dark:border-green-800/50 hover:bg-green-600 hover:text-white dark:hover:bg-green-600' : 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600'} active:scale-95 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 border whitespace-nowrap">
+                    <i class="fas ${isUnlocked ? 'fa-download' : 'fa-play-circle'} text-[10px]"></i>
                     ${isUnlocked ? '⬇️ Download Now' : `🔓 Watch Ad (${count}/${req})`}
                 </button>
             </div>`;
@@ -3294,7 +3260,7 @@ function renderFiles() {
 // Features: instant shimmer placeholder, IntersectionObserver lazy-play,
 // autoplay with mute (Telegram Mini App safe), graceful error fallback.
 // ══════════════════════════════════════════════════════════════════════════
-function _buildSponsorVideoWrap(safeVideo, safeLink, isClickable, spId) {
+function _buildSponsorVideoWrap(safeVideo, safeLink, isClickable) {
     const videoWrap = document.createElement('div');
     videoWrap.className = 'relative w-full bg-gray-900 overflow-hidden';
     videoWrap.style.cssText = 'aspect-ratio:16/9;position:relative;';
@@ -3303,7 +3269,6 @@ function _buildSponsorVideoWrap(safeVideo, safeLink, isClickable, spId) {
         videoWrap.addEventListener('click', function(e) {
             // Don't hijack clicks on video controls
             if (e.target.tagName === 'VIDEO' || e.target.tagName === 'IFRAME') return;
-            recordSponsorClick(spId);
             window.open(safeLink, '_blank', 'noopener,noreferrer');
         });
     }
@@ -3335,7 +3300,7 @@ function _buildSponsorVideoWrap(safeVideo, safeLink, isClickable, spId) {
             <span style="color:rgba(255,255,255,0.8);font-size:11px;font-weight:700;">Tap to Watch</span>`;
         // ✅ Sponsor protection: open the hidden sponsor click URL (not the raw video URL)
         if (isClickable) {
-            fb.addEventListener('click', () => { recordSponsorClick(spId); window.open(safeLink, '_blank', 'noopener,noreferrer'); });
+            fb.addEventListener('click', () => window.open(safeLink, '_blank', 'noopener,noreferrer'));
         }
         videoWrap.appendChild(fb);
     }
@@ -3386,7 +3351,7 @@ function _buildSponsorVideoWrap(safeVideo, safeLink, isClickable, spId) {
         fb.innerHTML = `<i class="fab fa-facebook" style="color:white;font-size:2.5rem;"></i><span style="color:white;font-size:12px;font-weight:700;">Tap to Watch on Facebook</span>`;
         // ✅ Sponsor protection: open the hidden sponsor click URL (not the raw video URL)
         if (isClickable) {
-            fb.addEventListener('click', () => { recordSponsorClick(spId); window.open(safeLink, '_blank', 'noopener,noreferrer'); });
+            fb.addEventListener('click', () => window.open(safeLink, '_blank', 'noopener,noreferrer'));
         }
         videoWrap.style.position = 'relative';
         videoWrap.appendChild(fb);
@@ -3510,11 +3475,7 @@ function _fillSponsorCardContent(wrap, sp) {
     wrap.appendChild(header);
 
     // ── Shared video builder ──
-    const videoWrap = _buildSponsorVideoWrap(safeVideo, safeLink, isClickable, sp.id);
-
-    // Record an impression every time this sponsor is actually shown
-    // (initial render or scroll re-entry swap-in) — admin panel দেখাবে।
-    recordSponsorView(sp.id);
+    const videoWrap = _buildSponsorVideoWrap(safeVideo, safeLink, isClickable);
 
     // Title overlay
     if (safeTitle) {
@@ -3886,7 +3847,7 @@ function updateDetailButtonState(file) {
     const count      = parseInt(localStorage.getItem(`adCount_${file.id}`))||0;
     const isUnlocked = count >= req;
     const container  = document.getElementById('detail-actions');
-    const shareBtn   = `<button onclick="window.shareFile('${file.id}')" class="w-12 h-12 flex-shrink-0 self-end bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl font-bold transition-colors flex items-center justify-center border border-gray-200 dark:border-gray-700"><i class="fas fa-share-alt text-sm"></i></button>`;
+    const shareBtn   = `<button onclick="window.shareFile('${file.id}')" class="w-12 h-12 flex-shrink-0 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl font-bold transition-colors flex items-center justify-center border border-gray-200 dark:border-gray-700"><i class="fas fa-share-alt text-sm"></i></button>`;
     if (isUnlocked) {
         saveToHistory(file.id);
         container.innerHTML = `
@@ -3924,12 +3885,16 @@ window.shareFile = (fileId) => {
     const fid = fileId||currentFileId;
     if (!fid) return;
     const bot = window._appSettings?.botUsername||'';
+    const appShortName = window._appSettings?.appShortName||'';
     // ✅ FIX 2: সবসময় বট লিংক শেয়ার হবে — ওয়েবসাইট URL কখনো যাবে না
     if (!bot) { showToast('⚠️ Bot username not set!'); return; }
-    const url = `https://t.me/${bot}?start=file_${fid}`;
+    // ✅ Mini App Short Name সেট থাকলে সরাসরি পোস্ট পেজে নিয়ে যাওয়া startapp লিংক বানাও (এডমিন প্যানেলের copy-link এর সাথে মিলিয়ে post_ prefix)
+    const url = appShortName
+        ? `https://t.me/${bot}/${appShortName}?startapp=post_${fid}`
+        : `https://t.me/${bot}?start=post_${fid}`;
     const title = document.getElementById('detail-title')?.textContent || '';
     if (navigator.share) { navigator.share({ title, url }).catch(()=>{}); }
-    else { navigator.clipboard?.writeText(url).then(()=>showToast('🔗 Bot link copied!')); }
+    else { navigator.clipboard?.writeText(url).then(()=>showToast('🔗 Post link copied!')); }
 };
 
 // ═══════════════════════════════════════════════════════════
